@@ -46,6 +46,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/auth/callback/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-cache, no-store, must-revalidate, max-age=0",
+          },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Frame-Options", value: "SAMEORIGIN" },

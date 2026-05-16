@@ -5,6 +5,11 @@ import {
   actsAsSuperAdminInProxy,
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
+import {
+  applySetAllCookies,
+  listAuthCookieNames,
+  logDebugAuth,
+} from "@/lib/supabase/auth-cookies";
 
 /** Alineado con `trailingSlash: true` en next.config: comparar rutas sin barra final redundante. */
 function pathnameWithoutTrailingSlash(path: string): string {
@@ -18,17 +23,19 @@ function isLigaOperationalPath(pathCanon: string, path: string): boolean {
 }
 
 /**
- * Borde único (Next.js 16+): sustituye a `middleware.ts`.
+ * Middleware de borde (Next.js 16+: `src/proxy.ts` sustituye a `middleware.ts`).
  * @see https://nextjs.org/docs/messages/middleware-to-proxy
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
 
-  console.log("[DEBUG MIDDLEWARE] Evaluando ruta:", request.nextUrl.pathname);
-
-  // OAuth: el Route Handler intercambia ?code=; el proxy no debe tocar la sesión aquí.
+  // OAuth: el Route Handler intercambia ?code=; no refrescar sesión aquí.
   if (pathname.startsWith("/auth/callback")) {
+    logDebugAuth("proxy", "Passthrough callback (sin getUser)", {
+      pathname,
+      incomingAuthCookies: listAuthCookieNames(request),
+    });
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
@@ -47,6 +54,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  const authCookiesOnRequest = listAuthCookieNames(request);
+  const isLigaPath = isLigaOperationalPath(pathnameCanon, pathname);
+
+  if (isLigaPath) {
+    logDebugAuth("proxy", "Petición a /liga/* — cookies entrantes", {
+      pathname,
+      cookieCount: authCookiesOnRequest.length,
+      cookieNames: authCookiesOnRequest,
+      hasSbAccessToken: authCookiesOnRequest.some(
+        (n) => n.includes("auth-token") && !n.includes("code-verifier"),
+      ),
+    });
+  }
+
   let supabaseResponse = NextResponse.next({
     request: {
       headers: request.headers,
@@ -61,28 +82,40 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+        setAll(cookiesToSet, cacheHeaders) {
+          supabaseResponse = applySetAllCookies(
+            supabaseResponse,
+            request,
+            () => NextResponse.next({ request: { headers: request.headers } }),
+            cookiesToSet,
+            cacheHeaders,
           );
         },
       },
-    }
+    },
   );
 
   let user: User | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
     user = data.user;
+    if (error) {
+      logDebugAuth("proxy", "getUser devolvió error", {
+        pathname,
+        message: error.message,
+      });
+    }
   } catch (error) {
-    console.error("[proxy] auth getUser:", error);
+    console.error("[DEBUG AUTH] [proxy] getUser excepción:", error);
   }
 
-  console.log("[DEBUG MIDDLEWARE] ¿Tiene sesión activa?:", !!user);
+  logDebugAuth("proxy", "Resultado getUser", {
+    pathname,
+    hasUser: Boolean(user),
+    email: user?.email ?? null,
+    incomingAuthCookies: authCookiesOnRequest,
+    responseSetCookieCount: supabaseResponse.cookies.getAll().length,
+  });
 
   const userAppMetadata = (user?.app_metadata as {
     role?: string;
@@ -94,27 +127,29 @@ export async function proxy(request: NextRequest) {
   const userRole = userAppMetadata.role;
   const userClubId = userAppMetadata.club_id;
 
-  if (isLigaOperationalPath(pathnameCanon, pathname)) {
+  if (isLigaPath) {
     if (!user) {
-      console.log(
-        "[DEBUG MIDDLEWARE] Redirect → /login | razón: ruta /liga/* sin usuario (sesión/cookies no visibles en proxy)",
-      );
+      logDebugAuth("proxy", "307 → /login/ (sin usuario en /liga/*)", {
+        cookieNames: authCookiesOnRequest,
+        hint: "Si cookieNames tiene sb-* pero hasUser=false, revisa ANON_KEY o JWT expirado",
+      });
       const url = request.nextUrl.clone();
       url.pathname = "/login/";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
-      console.log(
-        "[DEBUG MIDDLEWARE] Redirect → / | razón: intranet denegada (rol JWT:",
-        userRole ?? "(vacío)",
-        "| email:",
-        user.email ?? "(sin email)",
-        "| no cumple INTRANET_LIGA_ROLES ni correo maestro)",
-      );
+      logDebugAuth("proxy", "Redirect → / (sin rol intranet)", {
+        role: userRole ?? null,
+        email: user.email,
+      });
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
+    logDebugAuth("proxy", "Acceso /liga/* permitido", {
+      email: user.email,
+      role: userRole ?? null,
+    });
   }
 
   const publicRoutes = ["/login", "/register", "/forgot-password", "/auth", "/normativas", "/busqueda-365"];
@@ -124,11 +159,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/validar");
 
   if (!user && !isPublicRoute) {
-    console.log(
-      "[DEBUG MIDDLEWARE] Redirect → /login | razón: sin sesión en ruta protegida",
-      pathname,
-      "(no es ruta pública)",
-    );
+    logDebugAuth("proxy", "307 → /login/ (ruta protegida sin sesión)", { pathname });
     const url = request.nextUrl.clone();
     url.pathname = "/login/";
     return NextResponse.redirect(url);
@@ -168,16 +199,13 @@ export async function proxy(request: NextRequest) {
             url.pathname = pathname.replace(requestedClubSlug, clubData.slug);
             return NextResponse.redirect(url);
           } else if (!clubData) {
-            console.log(
-              "[DEBUG MIDDLEWARE] Redirect → /login | razón: club_id en JWT no existe en tabla clubs",
-              userClubId,
-            );
+            logDebugAuth("proxy", "307 → /login/ (club_id JWT inválido)", { userClubId });
             const url = request.nextUrl.clone();
             url.pathname = "/login/";
             return NextResponse.redirect(url);
           }
         } catch (err) {
-          console.error("[proxy] Club lookup:", err);
+          console.error("[DEBUG AUTH] [proxy] Club lookup:", err);
         }
       } else if (userRole === "CLUB_DELEGATE" || userRole === "LEAGUE_ADMIN") {
         if (pathnameCanon !== "/onboarding") {
@@ -215,21 +243,12 @@ export async function proxy(request: NextRequest) {
     pathnameCanon === "/dashboard" || pathnameCanon.startsWith("/dashboard/");
   if (isIntranetPath) {
     if (!user) {
-      console.log(
-        "[DEBUG MIDDLEWARE] Redirect → /login | razón: /dashboard/* sin sesión",
-      );
+      logDebugAuth("proxy", "307 → /login/ (/dashboard/* sin sesión)", { pathname });
       const url = request.nextUrl.clone();
       url.pathname = "/login/";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
-      console.log(
-        "[DEBUG MIDDLEWARE] Redirect → / | razón: /dashboard/* sin rol intranet (rol:",
-        userRole ?? "(vacío)",
-        "| email:",
-        user.email ?? "(sin email)",
-        ")",
-      );
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);

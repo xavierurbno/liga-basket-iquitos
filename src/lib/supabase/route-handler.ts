@@ -1,13 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { applySetAllCookies } from "@/lib/supabase/auth-cookies";
 
 /**
- * Cliente Supabase para Route Handlers (p. ej. `/auth/callback/`).
- * Usa `request.cookies` (no `cookies()` de next/headers) para que Set-Cookie
- * viaje en la misma respuesta de redirección en Vercel/Edge.
+ * Cliente Supabase para Route Handlers (`/auth/callback/`).
+ * Usa `request.cookies` y conserva todos los fragmentos `sb-*-auth-token.*` en la redirección.
  */
 export function createSupabaseRouteHandlerClient(request: NextRequest, redirectTo: string) {
-  let response = NextResponse.redirect(redirectTo);
+  let response = NextResponse.redirect(redirectTo, { status: 303 });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,14 +17,14 @@ export function createSupabaseRouteHandlerClient(request: NextRequest, redirectT
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-          response = NextResponse.redirect(redirectTo);
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
+        setAll(cookiesToSet, cacheHeaders) {
+          response = applySetAllCookies(
+            response,
+            request,
+            () => NextResponse.redirect(redirectTo, { status: 303 }),
+            cookiesToSet,
+            cacheHeaders,
+          );
         },
       },
     },
