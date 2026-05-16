@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useIsClient } from "@/hooks/useIsClient";
 
 type FebOrientation = "portrait" | "landscape";
 
@@ -13,7 +14,6 @@ const FEB_FIT_CACHE_KEY = "feb-fit:v2";
 
 function classifyFebOrientation(naturalWidth: number, naturalHeight: number): FebOrientation {
   if (naturalWidth <= 0 || naturalHeight <= 0) return "portrait";
-  // w > h * 1.25 → claramente horizontal (equipo en línea, paisaje)
   return naturalWidth > naturalHeight * 1.25 ? "landscape" : "portrait";
 }
 
@@ -26,15 +26,13 @@ interface Photo {
 interface GalleryCarouselProps {
   photos: Photo[];
   autoPlayInterval?: number;
-  /** Carrusel edge-to-edge (portal público). */
   fullBleed?: boolean;
-  /** Estilo FEB: contenedor fijo, doble capa (blur + orientación inteligente); puntos arriba, barra inferior. */
   visualVariant?: "default" | "feb";
 }
 
 /**
  * GalleryCarousel — hero de fotos (portal y otras vistas).
- * Variante `feb`: fondo cover+blur; primer plano `contain` (vertical, a todo el alto) o `cover` (horizontal).
+ * Variante `feb`: fondo cover+blur; primer plano `contain` o `cover` según orientación.
  */
 export function GalleryCarousel({
   photos,
@@ -42,6 +40,7 @@ export function GalleryCarousel({
   fullBleed = false,
   visualVariant = "default",
 }: GalleryCarouselProps) {
+  const isClient = useIsClient();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [direction, setDirection] = useState(0);
@@ -60,15 +59,12 @@ export function GalleryCarousel({
   );
 
   useEffect(() => {
-    if (!isPaused && photos.length > 1) {
-      timerRef.current = setInterval(() => {
-        paginate(1);
-      }, autoPlayInterval);
-    }
+    if (!isClient || isPaused || photos.length <= 1) return;
+    timerRef.current = setInterval(() => paginate(1), autoPlayInterval);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPaused, photos.length, autoPlayInterval, paginate]);
+  }, [isClient, isPaused, photos.length, autoPlayInterval, paginate]);
 
   const len = photos.length;
   const currentPhoto = len > 0 ? photos[currentIndex % len] : undefined;
@@ -103,22 +99,106 @@ export function GalleryCarousel({
   );
 
   if (len === 0 || !currentPhoto) return null;
-  const fallbackCaption = "Acción de la jornada — LDDBI";
 
+  const fallbackCaption = "Acción de la jornada — LDDBI";
   const shellClass = isFeb
     ? "group relative w-full overflow-hidden rounded-sm border border-slate-300/90 bg-slate-950 shadow-sm"
     : fullBleed
       ? "group relative w-full overflow-hidden border-y border-white/10 bg-slate-950 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35)]"
       : "group relative w-full overflow-hidden rounded-3xl border border-white/5 bg-slate-950 shadow-2xl";
-
-  /** FEB: altura más compacta (hero + patrocinador menos dominante en pantalla). */
   const frameClass = isFeb
     ? "relative h-[280px] w-full min-w-0 max-w-full shrink-0 overflow-hidden bg-slate-950 sm:h-[320px] lg:h-[380px]"
     : "relative aspect-[21/9] w-full min-h-[400px] overflow-hidden bg-slate-950 md:min-h-[500px]";
-
   const imageSizes = isFeb
     ? "(max-width: 1024px) 90vw, min(920px, 72vw)"
     : "(max-width: 1280px) 100vw, 1280px";
+
+  const slideContent = (
+    <>
+      <div className="absolute inset-0 overflow-hidden">
+        {isFeb ? (
+          <img
+            src={currentPhoto.url}
+            alt=""
+            className="h-full w-full scale-110 object-cover opacity-50 blur-2xl"
+            aria-hidden={true}
+            decoding="async"
+          />
+        ) : (
+          <Image
+            src={currentPhoto.url}
+            alt=""
+            fill
+            priority={currentIndex === 0}
+            className="scale-110 object-cover opacity-40 blur-2xl"
+            sizes={imageSizes}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {isFeb ? (
+        <div className="absolute inset-0 z-10 pt-9 pb-17 sm:pt-10 sm:pb-20">
+          <div className="relative mx-auto h-full w-full min-h-0 max-w-full px-1.5 sm:px-3">
+            <img
+              key={currentPhoto.id}
+              src={currentPhoto.url}
+              alt={currentPhoto.caption || fallbackCaption}
+              onLoad={onFebForegroundLoad}
+              loading={currentIndex === 0 ? "eager" : "lazy"}
+              decoding="async"
+              className={`absolute inset-0 h-full w-full object-center transition-opacity duration-300 ${
+                febOrientation === "landscape" ? "object-cover" : "object-contain"
+              } ${febImgReady ? "opacity-100" : "opacity-0"}`}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="relative z-10 flex h-full w-full items-center justify-center">
+          <div className="relative h-full min-h-0 w-full">
+            <Image
+              src={currentPhoto.url}
+              alt={currentPhoto.caption || fallbackCaption}
+              fill
+              priority={currentIndex === 0}
+              className="object-contain p-4 md:p-8"
+              sizes={imageSizes}
+            />
+          </div>
+        </div>
+      )}
+
+      {!isFeb && (
+        <>
+          <div className="absolute inset-x-0 bottom-0 z-20 h-1/3 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
+          {currentPhoto.caption && (
+            <div className="absolute bottom-0 left-0 right-0 z-30 p-8 md:p-12">
+              {isClient ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                  className="max-w-3xl"
+                >
+                  <h3 className="text-lg font-bold leading-tight text-white drop-shadow-md md:text-3xl">
+                    {currentPhoto.caption}
+                  </h3>
+                </motion.div>
+              ) : (
+                <h3 className="max-w-3xl text-lg font-bold leading-tight text-white drop-shadow-md md:text-3xl">
+                  {currentPhoto.caption}
+                </h3>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {isFeb && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-linear-to-t from-black/75 to-transparent sm:h-24" />
+      )}
+    </>
+  );
 
   return (
     <div
@@ -127,96 +207,23 @@ export function GalleryCarousel({
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className={frameClass}>
-        <AnimatePresence initial={false} custom={direction} mode="wait">
-          <motion.div
-            key={currentPhoto.id}
-            custom={direction}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0"
-          >
-            {/* Capa de fondo: misma imagen, cover + blur + opacidad 0.5 */}
-            <div className="absolute inset-0 overflow-hidden">
-              {isFeb ? (
-                <img
-                  src={currentPhoto.url}
-                  alt=""
-                  className="h-full w-full scale-110 object-cover opacity-50 blur-2xl"
-                  aria-hidden={true}
-                  decoding="async"
-                />
-              ) : (
-                <Image
-                  src={currentPhoto.url}
-                  alt=""
-                  fill
-                  priority={currentIndex === 0}
-                  className="scale-110 object-cover opacity-40 blur-2xl"
-                  sizes={imageSizes}
-                  aria-hidden="true"
-                />
-              )}
-            </div>
-
-            {/* Primer plano FEB: vertical = contain en todo el alto del marco; horizontal = cover */}
-            {isFeb ? (
-              <div className="absolute inset-0 z-10 pt-9 pb-17 sm:pt-10 sm:pb-20">
-                <div className="relative mx-auto h-full w-full min-h-0 max-w-full px-1.5 sm:px-3">
-                  <img
-                    key={currentPhoto.id}
-                    src={currentPhoto.url}
-                    alt={currentPhoto.caption || fallbackCaption}
-                    onLoad={onFebForegroundLoad}
-                    loading={currentIndex === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                    className={`absolute inset-0 h-full w-full object-center transition-opacity duration-300 ${
-                      febOrientation === "landscape" ? "object-cover" : "object-contain"
-                    } ${febImgReady ? "opacity-100" : "opacity-0"}`}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="relative z-10 flex h-full w-full items-center justify-center">
-                <div className="relative h-full min-h-0 w-full">
-                  <Image
-                    src={currentPhoto.url}
-                    alt={currentPhoto.caption || fallbackCaption}
-                    fill
-                    priority={currentIndex === 0}
-                    className="object-contain p-4 md:p-8"
-                    sizes={imageSizes}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!isFeb && (
-              <>
-                <div className="absolute inset-x-0 bottom-0 z-20 h-1/3 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
-                {currentPhoto.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 z-30 p-8 md:p-12">
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.4 }}
-                      className="max-w-3xl"
-                    >
-                      <h3 className="text-lg font-bold leading-tight text-white drop-shadow-md md:text-3xl">
-                        {currentPhoto.caption}
-                      </h3>
-                    </motion.div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {isFeb && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-linear-to-t from-black/75 to-transparent sm:h-24" />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        {isClient ? (
+          <AnimatePresence initial={false} custom={direction} mode="sync">
+            <motion.div
+              key={currentPhoto.id}
+              custom={direction}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              {slideContent}
+            </motion.div>
+          </AnimatePresence>
+        ) : (
+          <div className="absolute inset-0">{slideContent}</div>
+        )}
 
         {isFeb && (
           <div className="absolute inset-x-0 bottom-0 z-30 flex min-h-12 items-center border-t border-white/10 bg-black/55 px-3 py-2 backdrop-blur-[2px] sm:min-h-13 sm:px-4">
@@ -226,7 +233,6 @@ export function GalleryCarousel({
           </div>
         )}
 
-        {/* Flechas */}
         <div
           className={`absolute inset-y-0 left-0 z-40 flex items-center pl-1 sm:pl-2 ${
             isFeb ? "opacity-100" : "opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -264,7 +270,6 @@ export function GalleryCarousel({
           </button>
         </div>
 
-        {/* Indicadores */}
         {isFeb ? (
           <div
             className="absolute left-0 right-0 top-2 z-40 flex justify-center gap-2 sm:top-2.5"

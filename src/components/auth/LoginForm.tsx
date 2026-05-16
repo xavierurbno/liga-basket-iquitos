@@ -1,33 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
-import type { AuthError } from "@supabase/supabase-js";
+import { signInWithPasswordAction } from "@/lib/actions/auth";
 import { FcGoogle } from "react-icons/fc";
-import { signInWithGoogleAction } from "@/lib/actions/auth";
-
-function mensajeLogin(error: AuthError): string {
-  const msg = error.message ?? "";
-  const lower = msg.toLowerCase();
-
-  if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
-    return (
-      "Correo o contraseña incorrectos. " +
-      "Comprueba que el usuario exista en Supabase → Authentication → Users y que la contraseña sea la correcta."
-    );
-  }
-  if (lower.includes("email not confirmed")) {
-    return (
-      "Debes confirmar el correo antes de entrar. Revisa tu bandeja (y spam), " +
-      "o en desarrollo desactiva «Confirm email» en Authentication → Providers → Email."
-    );
-  }
-  if (lower.includes("too many requests")) {
-    return "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.";
-  }
-  return msg || "No se pudo iniciar sesión.";
-}
 
 export function LoginForm({
   initialLeagueSlug,
@@ -37,7 +13,6 @@ export function LoginForm({
   /** Ruta interna tras login (p. ej. desde `?next=/liga/tesoreria`). Solo rutas que empiezan por `/`. */
   postLoginRedirect?: string | null;
 }) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +26,7 @@ export function LoginForm({
 
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const leagueSlug = searchParams?.get("l") || initialLeagueSlug;
+  const authErrorFromUrl = searchParams?.get("auth_error");
 
   const resolvedPostLogin =
     postLoginRedirect &&
@@ -64,28 +40,26 @@ export function LoginForm({
     setError(null);
     setLoading(true);
 
-    const { error: signError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (signError) {
+    try {
+      const result = await signInWithPasswordAction({
+        email,
+        password,
+        leagueSlug,
+        postLoginRedirect: resolvedPostLogin,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+      }
+      /* Éxito: redirect() en la Server Action; no se llega aquí */
+    } catch (err) {
+      const digest = err && typeof err === "object" && "digest" in err ? String((err as { digest?: string }).digest) : "";
+      if (digest.startsWith("NEXT_REDIRECT")) {
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Error inesperado al iniciar sesión.");
       setLoading(false);
-      setError(mensajeLogin(signError));
-      return;
     }
-
-    // Si entramos desde una liga específica, guardamos el contexto en una cookie
-    if (leagueSlug) {
-      document.cookie = `active_league_slug=${leagueSlug}; path=/; max-age=${60 * 60 * 24 * 7}`;
-    } else {
-      // Si no hay slug, limpiamos la cookie para usar la liga por defecto del usuario
-      document.cookie = "active_league_slug=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    }
-
-    setLoading(false);
-    router.refresh();
-    router.push(resolvedPostLogin);
   }
 
   async function handleGoogleLogin() {
@@ -94,22 +68,32 @@ export function LoginForm({
 
     try {
       const origin = window.location.origin;
-      const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(resolvedPostLogin)}`;
+      // trailingSlash: true → callback con barra final; PKCE debe iniciarse en el navegador.
+      const callbackUrl = `${origin}/auth/callback/?next=${encodeURIComponent(resolvedPostLogin)}`;
 
-      const res = await signInWithGoogleAction(callbackUrl);
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: callbackUrl,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
 
-      if (res.error) {
-        setError(res.error);
+      if (oauthError) {
+        setError(oauthError.message);
         setGoogleLoading(false);
         return;
       }
 
-      if (res.url) {
-        window.location.href = res.url;
+      if (data?.url) {
+        window.location.href = data.url;
         return;
       }
 
-      setError("No se pudo iniciar sesión con Google.");
+      setError("No se recibió la URL de Google. Revisa Redirect URLs en Supabase.");
       setGoogleLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado al conectar con Google.");
@@ -123,8 +107,10 @@ export function LoginForm({
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        {(error || authErrorFromUrl) && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error ?? authErrorFromUrl}
+          </p>
         )}
 
         <div className="space-y-2">

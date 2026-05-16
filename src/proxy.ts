@@ -27,6 +27,11 @@ export async function proxy(request: NextRequest) {
 
   console.log("[DEBUG MIDDLEWARE] Evaluando ruta:", request.nextUrl.pathname);
 
+  // OAuth: el Route Handler intercambia ?code=; el proxy no debe tocar la sesión aquí.
+  if (pathname.startsWith("/auth/callback")) {
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
   if (
     pathnameCanon === "/liga/busqueda-365" ||
     pathname.startsWith("/liga/busqueda-365/")
@@ -59,7 +64,7 @@ export async function proxy(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: request.headers },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -95,7 +100,7 @@ export async function proxy(request: NextRequest) {
         "[DEBUG MIDDLEWARE] Redirect → /login | razón: ruta /liga/* sin usuario (sesión/cookies no visibles en proxy)",
       );
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = "/login/";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
@@ -125,7 +130,7 @@ export async function proxy(request: NextRequest) {
       "(no es ruta pública)",
     );
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/login/";
     return NextResponse.redirect(url);
   }
 
@@ -168,7 +173,7 @@ export async function proxy(request: NextRequest) {
               userClubId,
             );
             const url = request.nextUrl.clone();
-            url.pathname = "/login";
+            url.pathname = "/login/";
             return NextResponse.redirect(url);
           }
         } catch (err) {
@@ -214,7 +219,7 @@ export async function proxy(request: NextRequest) {
         "[DEBUG MIDDLEWARE] Redirect → /login | razón: /dashboard/* sin sesión",
       );
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = "/login/";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {

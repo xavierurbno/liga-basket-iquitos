@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useIsClient } from "@/hooks/useIsClient";
 
 export type SponsorCarouselItem = {
   id: string;
@@ -16,6 +17,7 @@ const ACCENT = "#005CEE";
 const AUTO_MS = 5000;
 
 export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
+  const isClient = useIsClient();
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -33,10 +35,10 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
   );
 
   useEffect(() => {
-    if (count <= 1) return;
+    if (!isClient || count <= 1) return;
     const t = setInterval(() => paginate(1), AUTO_MS);
     return () => clearInterval(t);
-  }, [count, paginate]);
+  }, [isClient, count, paginate]);
 
   const slideTransition = reduceMotion
     ? { duration: 0.15 }
@@ -67,33 +69,26 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-2 pt-1">
           {current ? (
             <>
-              <AnimatePresence initial={false} custom={direction} mode="wait">
-                <motion.div
-                  key={current.id}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={slideTransition}
-                  className="flex w-full max-w-[168px] flex-col items-center"
-                >
-                  {current.websiteUrl ? (
-                    <Link
-                      href={current.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-full flex-col items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#005CEE] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-                    >
-                      <SponsorLogoBlock name={current.name} logoUrl={current.logoUrl} />
-                    </Link>
-                  ) : (
-                    <div className="flex w-full flex-col items-center">
-                      <SponsorLogoBlock name={current.name} logoUrl={current.logoUrl} />
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+              {isClient ? (
+                <AnimatePresence initial={false} custom={direction} mode="sync">
+                  <motion.div
+                    key={current.id}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={slideTransition}
+                    className="flex w-full max-w-[168px] flex-col items-center"
+                  >
+                    <SponsorSlideBody sponsor={current} />
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <div className="flex w-full max-w-[168px] flex-col items-center">
+                  <SponsorSlideBody sponsor={current} />
+                </div>
+              )}
 
               {count > 1 && (
                 <div className="mt-2 flex w-full shrink-0 items-center justify-center gap-1.5">
@@ -148,6 +143,26 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
         </div>
       </div>
     </aside>
+  );
+}
+
+function SponsorSlideBody({ sponsor }: { sponsor: SponsorCarouselItem }) {
+  if (sponsor.websiteUrl) {
+    return (
+      <Link
+        href={sponsor.websiteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex w-full flex-col items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#005CEE] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+      >
+        <SponsorLogoBlock name={sponsor.name} logoUrl={sponsor.logoUrl} />
+      </Link>
+    );
+  }
+  return (
+    <div className="flex w-full flex-col items-center">
+      <SponsorLogoBlock name={sponsor.name} logoUrl={sponsor.logoUrl} />
+    </div>
   );
 }
 

@@ -35,6 +35,14 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   trailingSlash: true,
+  async rewrites() {
+    return [
+      {
+        source: "/auth/callback",
+        destination: "/auth/callback/",
+      },
+    ];
+  },
   async headers() {
     return [
       {
