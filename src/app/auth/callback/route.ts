@@ -1,16 +1,15 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import type { Session } from "@supabase/supabase-js";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
-import {
-  copySupabaseAuthCookies,
-  listAuthCookieNames,
-  logDebugAuth,
-} from "@/lib/supabase/auth-cookies";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase/route-handler";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_POST_LOGIN = "/liga/";
+
+function logDebugAuth(message: string, payload?: Record<string, unknown>) {
+  console.log(`[DEBUG AUTH] [callback] ${message}`, payload ?? "");
+}
 
 function safeInternalNext(raw: string | null): string {
   if (!raw || typeof raw !== "string") return DEFAULT_POST_LOGIN;
@@ -19,7 +18,7 @@ function safeInternalNext(raw: string | null): string {
   return t;
 }
 
-function loginRedirectUrl(origin: string, reason?: string): NextResponse {
+function loginRedirect(origin: string, reason?: string) {
   const base = `${origin}/login/`;
   const url = reason
     ? `${base}?auth_error=${encodeURIComponent(reason.slice(0, 200))}`
@@ -27,25 +26,11 @@ function loginRedirectUrl(origin: string, reason?: string): NextResponse {
   return NextResponse.redirect(url, { status: 303 });
 }
 
-async function syncUserProfileAfterOAuth(session: Session | null): Promise<void> {
-  if (!session?.user?.id) return;
-  void session.user.email;
-}
-
-function logEnvSanity() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  let urlHost: string | null = null;
-  try {
-    urlHost = url ? new URL(url).hostname : null;
-  } catch {
-    urlHost = "invalid-url";
-  }
-  logDebugAuth("callback", "Variables de entorno (sanidad)", {
-    hasSupabaseUrl: Boolean(url),
-    hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-    urlHost,
-    nodeEnv: process.env.NODE_ENV,
-  });
+function authCookieNames(store: Awaited<ReturnType<typeof cookies>>) {
+  return store
+    .getAll()
+    .filter((c) => c.name.includes("sb-") || c.name.includes("auth-token"))
+    .map((c) => c.name);
 }
 
 export async function GET(request: NextRequest) {
@@ -56,110 +41,117 @@ export async function GET(request: NextRequest) {
   const oauthErrorDescription = searchParams.get("error_description");
   const next = safeInternalNext(searchParams.get("next"));
 
-  logEnvSanity();
-  logDebugAuth("callback", "Inicio OAuth callback", {
+  logDebugAuth("Inicio", {
     pathname: requestUrl.pathname,
     hasCode: Boolean(code),
     codeLength: code?.length ?? 0,
     next,
     origin,
-    incomingAuthCookies: listAuthCookieNames(request),
+    requestCookieCount: request.cookies.getAll().length,
   });
 
   if (oauthError) {
-    logDebugAuth("callback", "Error OAuth en query", {
-      oauthError,
-      oauthErrorDescription,
-    });
-    return loginRedirectUrl(origin, oauthErrorDescription ?? oauthError);
+    logDebugAuth("Error OAuth en query", { oauthError, oauthErrorDescription });
+    return loginRedirect(origin, oauthErrorDescription ?? oauthError);
   }
 
   if (!code) {
-    logDebugAuth("callback", "Sin parámetro ?code= en la URL");
-    return loginRedirectUrl(origin, "missing_code");
+    logDebugAuth("Código OAuth ausente (?code= no presente)");
+    return loginRedirect(origin, "missing_code");
   }
 
-  const pkcePresent = request.cookies
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl?.trim() || !supabaseAnonKey?.trim()) {
+    logDebugAuth("Variables Supabase faltantes en el entorno", {
+      hasUrl: Boolean(supabaseUrl),
+      hasAnonKey: Boolean(supabaseAnonKey),
+    });
+    return loginRedirect(origin, "missing_supabase_env");
+  }
+
+  const cookieStore = await cookies();
+  const pkceBefore = cookieStore
     .getAll()
     .some((c) => c.name.includes("code-verifier") || c.name.includes("pkce"));
 
-  logDebugAuth("callback", "PKCE antes de exchange", { pkcePresent });
+  logDebugAuth("PKCE en cookieStore antes del exchange", {
+    pkceBefore,
+    cookiesAntes: authCookieNames(cookieStore),
+  });
 
-  try {
-    const successRedirectTarget = `${origin}${next}`;
-    const { supabase, response } = createSupabaseRouteHandlerClient(
-      request,
-      successRedirectTarget,
-    );
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+          logDebugAuth("setAll → cookieStore nativo", {
+            count: cookiesToSet.length,
+            names: cookiesToSet.map((c) => c.name),
+            storeDespues: authCookieNames(cookieStore),
+          });
+        } catch (setError) {
+          logDebugAuth("setAll falló al escribir en cookieStore", {
+            error: setError instanceof Error ? setError.message : String(setError),
+            intento: cookiesToSet.map((c) => c.name),
+          });
+        }
+      },
+    },
+  });
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (error) {
-      logDebugAuth("callback", "exchangeCodeForSession FALLÓ", {
-        message: error.message,
-        status: error.status,
-        pkcePresent,
-      });
-      return loginRedirectUrl(origin, error.message);
-    }
-
-    const session = data.session;
-    logDebugAuth("callback", "exchangeCodeForSession OK", {
-      email: session?.user?.email ?? data.user?.email ?? null,
-      userId: session?.user?.id ?? null,
-      responseAuthCookies: response.cookies
-        .getAll()
-        .filter((c) => c.name.includes("sb-") || c.name.includes("auth-token"))
-        .map((c) => c.name),
+  if (error) {
+    logDebugAuth("exchangeCodeForSession FALLÓ", {
+      message: error.message,
+      status: error.status,
+      pkceBefore,
+      cookiesTrasFallo: authCookieNames(cookieStore),
     });
-
-    if (!session) {
-      logDebugAuth("callback", "Sesión vacía tras exchange");
-      return loginRedirectUrl(origin, "empty_session");
-    }
-
-    try {
-      await syncUserProfileAfterOAuth(session);
-    } catch (dbError) {
-      console.error("[DEBUG AUTH] [callback] sync profile:", dbError);
-    }
-
-    const role =
-      typeof session.user.app_metadata?.role === "string"
-        ? session.user.app_metadata.role
-        : undefined;
-
-    const intranetOk = canAccessIntranet(session.user, role);
-    logDebugAuth("callback", "Acceso intranet", { role: role ?? null, intranetOk });
-
-    if (!intranetOk) {
-      const home = NextResponse.redirect(`${origin}/`, { status: 303 });
-      copySupabaseAuthCookies(response, home);
-      logDebugAuth("callback", "Redirigiendo a / (sin rol intranet)", {
-        homeAuthCookies: home.cookies
-          .getAll()
-          .filter((c) => c.name.includes("sb-"))
-          .map((c) => c.name),
-      });
-      return home;
-    }
-
-    logDebugAuth("callback", "Redirigiendo a intranet", {
-      target: successRedirectTarget,
-      responseAuthCookies: response.cookies
-        .getAll()
-        .filter((c) => c.name.includes("sb-"))
-        .map((c) => c.name),
-    });
-
-    return response;
-  } catch (generalError) {
-    logDebugAuth("callback", "Excepción crítica", {
-      error: generalError instanceof Error ? generalError.message : String(generalError),
-    });
-    return loginRedirectUrl(
-      origin,
-      generalError instanceof Error ? generalError.message : "callback_failed",
-    );
+    return loginRedirect(origin, error.message);
   }
+
+  const session = data.session;
+  const user = session?.user ?? data.user ?? null;
+
+  logDebugAuth("exchangeCodeForSession OK", {
+    email: user?.email ?? null,
+    userId: user?.id ?? null,
+    cookiesEnStore: authCookieNames(cookieStore),
+    tieneAccessToken: authCookieNames(cookieStore).some(
+      (n) => n.includes("auth-token") && !n.includes("code-verifier"),
+    ),
+  });
+
+  if (!session || !user) {
+    logDebugAuth("Sesión vacía tras exchange");
+    return loginRedirect(origin, "empty_session");
+  }
+
+  const role =
+    typeof user.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
+  const intranetOk = canAccessIntranet(user, role);
+
+  logDebugAuth("Destino tras login", {
+    role: role ?? null,
+    intranetOk,
+    next,
+  });
+
+  const redirectPath = intranetOk ? next : "/";
+  const redirectUrl = `${origin}${redirectPath}`;
+
+  logDebugAuth("NextResponse.redirect limpio (cookies en cookieStore de Next.js)", {
+    redirectUrl,
+    cookiesQueViajan: authCookieNames(cookieStore),
+  });
+
+  return NextResponse.redirect(redirectUrl, { status: 303 });
 }

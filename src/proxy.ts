@@ -6,7 +6,9 @@ import {
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
 import {
-  applySetAllCookies,
+  createSupabaseCookieHandlers,
+  getSupabaseProjectRefFromCookies,
+  getSupabaseProjectRefFromEnv,
   listAuthCookieNames,
   logDebugAuth,
 } from "@/lib/supabase/auth-cookies";
@@ -68,30 +70,15 @@ export async function proxy(request: NextRequest) {
     });
   }
 
-  let supabaseResponse = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  const cookieHandlers = createSupabaseCookieHandlers(request, () =>
+    NextResponse.next({ request: { headers: request.headers } }),
+  );
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet, cacheHeaders) {
-          supabaseResponse = applySetAllCookies(
-            supabaseResponse,
-            request,
-            () => NextResponse.next({ request: { headers: request.headers } }),
-            cookiesToSet,
-            cacheHeaders,
-          );
-        },
-      },
+      cookies: cookieHandlers.cookies,
     },
   );
 
@@ -103,17 +90,30 @@ export async function proxy(request: NextRequest) {
       logDebugAuth("proxy", "getUser devolvió error", {
         pathname,
         message: error.message,
+        status: error.status,
+        name: error.name,
+        cookieCount: authCookiesOnRequest.length,
+        cookieNames: authCookiesOnRequest,
+        envProjectRef: getSupabaseProjectRefFromEnv(),
+        cookieProjectRef: getSupabaseProjectRefFromCookies(request),
+        projectRefMatch:
+          getSupabaseProjectRefFromEnv() === getSupabaseProjectRefFromCookies(request),
       });
     }
   } catch (error) {
     console.error("[DEBUG AUTH] [proxy] getUser excepción:", error);
   }
 
+  const supabaseResponse = cookieHandlers.response;
+
   logDebugAuth("proxy", "Resultado getUser", {
     pathname,
     hasUser: Boolean(user),
     email: user?.email ?? null,
     incomingAuthCookies: authCookiesOnRequest,
+    authTokenChunkCount: authCookiesOnRequest.filter((n) => n.includes("auth-token")).length,
+    envProjectRef: getSupabaseProjectRefFromEnv(),
+    cookieProjectRef: getSupabaseProjectRefFromCookies(request),
     responseSetCookieCount: supabaseResponse.cookies.getAll().length,
   });
 
@@ -131,7 +131,12 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       logDebugAuth("proxy", "307 → /login/ (sin usuario en /liga/*)", {
         cookieNames: authCookiesOnRequest,
-        hint: "Si cookieNames tiene sb-* pero hasUser=false, revisa ANON_KEY o JWT expirado",
+        authTokenChunkCount: authCookiesOnRequest.filter((n) => n.includes("auth-token")).length,
+        envProjectRef: getSupabaseProjectRefFromEnv(),
+        cookieProjectRef: getSupabaseProjectRefFromCookies(request),
+        projectRefMatch:
+          getSupabaseProjectRefFromEnv() === getSupabaseProjectRefFromCookies(request),
+        hint: "Cookies presentes pero getUser=false: revisa ANON_KEY en Vercel, fragmentos .0/.1, o projectRefMatch=false",
       });
       const url = request.nextUrl.clone();
       url.pathname = "/login/";
