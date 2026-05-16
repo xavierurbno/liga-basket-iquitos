@@ -18,29 +18,6 @@ export function isSupabaseAuthCookieName(name: string): boolean {
   return name.includes("sb-") || name.includes("auth-token") || name.includes("code-verifier");
 }
 
-export function listAuthCookieNames(request: NextRequest): string[] {
-  return request.cookies.getAll().filter((c) => isSupabaseAuthCookieName(c.name)).map((c) => c.name);
-}
-
-/** Ref del proyecto desde la URL pública (debe coincidir con el prefijo `sb-<ref>-auth-token`). */
-export function getSupabaseProjectRefFromEnv(): string | null {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!raw) return null;
-  try {
-    const host = new URL(raw).hostname;
-    return host.split(".")[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export function getSupabaseProjectRefFromCookies(request: NextRequest): string | null {
-  const auth = request.cookies.getAll().find((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
-  if (!auth) return null;
-  const match = auth.name.match(/^sb-(.+)-auth-token/);
-  return match?.[1] ?? null;
-}
-
 type RecreateResponse = () => NextResponse;
 
 function applyCacheHeaders(response: NextResponse, cacheHeaders: Record<string, string>) {
@@ -124,12 +101,4 @@ export function createSupabaseCookieHandlers(
       },
     },
   };
-}
-
-export function logDebugAuth(
-  scope: "proxy" | "callback",
-  message: string,
-  payload?: Record<string, unknown>,
-) {
-  console.log(`[DEBUG AUTH] [${scope}] ${message}`, payload ?? "");
 }

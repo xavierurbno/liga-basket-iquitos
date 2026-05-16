@@ -5,13 +5,7 @@ import {
   actsAsSuperAdminInProxy,
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
-import {
-  createSupabaseCookieHandlers,
-  getSupabaseProjectRefFromCookies,
-  getSupabaseProjectRefFromEnv,
-  listAuthCookieNames,
-  logDebugAuth,
-} from "@/lib/supabase/auth-cookies";
+import { createSupabaseCookieHandlers } from "@/lib/supabase/auth-cookies";
 
 /** Alineado con `trailingSlash: true` en next.config: comparar rutas sin barra final redundante. */
 function pathnameWithoutTrailingSlash(path: string): string {
@@ -32,12 +26,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
 
-  // OAuth: el Route Handler intercambia ?code=; no refrescar sesión aquí.
   if (pathname.startsWith("/auth/callback")) {
-    logDebugAuth("proxy", "Passthrough callback (sin getUser)", {
-      pathname,
-      incomingAuthCookies: listAuthCookieNames(request),
-    });
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
@@ -56,19 +45,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const authCookiesOnRequest = listAuthCookieNames(request);
   const isLigaPath = isLigaOperationalPath(pathnameCanon, pathname);
-
-  if (isLigaPath) {
-    logDebugAuth("proxy", "Petición a /liga/* — cookies entrantes", {
-      pathname,
-      cookieCount: authCookiesOnRequest.length,
-      cookieNames: authCookiesOnRequest,
-      hasSbAccessToken: authCookiesOnRequest.some(
-        (n) => n.includes("auth-token") && !n.includes("code-verifier"),
-      ),
-    });
-  }
 
   const cookieHandlers = createSupabaseCookieHandlers(request, () =>
     NextResponse.next({ request: { headers: request.headers } }),
@@ -84,38 +61,13 @@ export async function proxy(request: NextRequest) {
 
   let user: User | null = null;
   try {
-    const { data, error } = await supabase.auth.getUser();
+    const { data } = await supabase.auth.getUser();
     user = data.user;
-    if (error) {
-      logDebugAuth("proxy", "getUser devolvió error", {
-        pathname,
-        message: error.message,
-        status: error.status,
-        name: error.name,
-        cookieCount: authCookiesOnRequest.length,
-        cookieNames: authCookiesOnRequest,
-        envProjectRef: getSupabaseProjectRefFromEnv(),
-        cookieProjectRef: getSupabaseProjectRefFromCookies(request),
-        projectRefMatch:
-          getSupabaseProjectRefFromEnv() === getSupabaseProjectRefFromCookies(request),
-      });
-    }
-  } catch (error) {
-    console.error("[DEBUG AUTH] [proxy] getUser excepción:", error);
+  } catch {
+    /* getUser falló; se trata como sin sesión */
   }
 
   const supabaseResponse = cookieHandlers.response;
-
-  logDebugAuth("proxy", "Resultado getUser", {
-    pathname,
-    hasUser: Boolean(user),
-    email: user?.email ?? null,
-    incomingAuthCookies: authCookiesOnRequest,
-    authTokenChunkCount: authCookiesOnRequest.filter((n) => n.includes("auth-token")).length,
-    envProjectRef: getSupabaseProjectRefFromEnv(),
-    cookieProjectRef: getSupabaseProjectRefFromCookies(request),
-    responseSetCookieCount: supabaseResponse.cookies.getAll().length,
-  });
 
   const userAppMetadata = (user?.app_metadata as {
     role?: string;
@@ -129,32 +81,15 @@ export async function proxy(request: NextRequest) {
 
   if (isLigaPath) {
     if (!user) {
-      logDebugAuth("proxy", "307 → /login/ (sin usuario en /liga/*)", {
-        cookieNames: authCookiesOnRequest,
-        authTokenChunkCount: authCookiesOnRequest.filter((n) => n.includes("auth-token")).length,
-        envProjectRef: getSupabaseProjectRefFromEnv(),
-        cookieProjectRef: getSupabaseProjectRefFromCookies(request),
-        projectRefMatch:
-          getSupabaseProjectRefFromEnv() === getSupabaseProjectRefFromCookies(request),
-        hint: "Cookies presentes pero getUser=false: revisa ANON_KEY en Vercel, fragmentos .0/.1, o projectRefMatch=false",
-      });
       const url = request.nextUrl.clone();
       url.pathname = "/login/";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
-      logDebugAuth("proxy", "Redirect → / (sin rol intranet)", {
-        role: userRole ?? null,
-        email: user.email,
-      });
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
-    logDebugAuth("proxy", "Acceso /liga/* permitido", {
-      email: user.email,
-      role: userRole ?? null,
-    });
   }
 
   const publicRoutes = ["/login", "/register", "/forgot-password", "/auth", "/normativas", "/busqueda-365"];
@@ -164,7 +99,6 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/validar");
 
   if (!user && !isPublicRoute) {
-    logDebugAuth("proxy", "307 → /login/ (ruta protegida sin sesión)", { pathname });
     const url = request.nextUrl.clone();
     url.pathname = "/login/";
     return NextResponse.redirect(url);
@@ -204,13 +138,12 @@ export async function proxy(request: NextRequest) {
             url.pathname = pathname.replace(requestedClubSlug, clubData.slug);
             return NextResponse.redirect(url);
           } else if (!clubData) {
-            logDebugAuth("proxy", "307 → /login/ (club_id JWT inválido)", { userClubId });
             const url = request.nextUrl.clone();
             url.pathname = "/login/";
             return NextResponse.redirect(url);
           }
-        } catch (err) {
-          console.error("[DEBUG AUTH] [proxy] Club lookup:", err);
+        } catch {
+          /* lookup de club falló; continuar sin redirigir por slug */
         }
       } else if (userRole === "CLUB_DELEGATE" || userRole === "LEAGUE_ADMIN") {
         if (pathnameCanon !== "/onboarding") {
@@ -248,7 +181,6 @@ export async function proxy(request: NextRequest) {
     pathnameCanon === "/dashboard" || pathnameCanon.startsWith("/dashboard/");
   if (isIntranetPath) {
     if (!user) {
-      logDebugAuth("proxy", "307 → /login/ (/dashboard/* sin sesión)", { pathname });
       const url = request.nextUrl.clone();
       url.pathname = "/login/";
       return NextResponse.redirect(url);
