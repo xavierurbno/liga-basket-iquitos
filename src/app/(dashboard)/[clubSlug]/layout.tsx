@@ -1,30 +1,16 @@
 /**
- * ============================================================
- * DASHBOARD LAYOUT - ROOT
- * ============================================================
- * Este es un React Server Component (RSC). Al ser un layout de
- * Next.js App Router, se renderiza en el servidor.
- *
- * VENTAJA RSC: La autenticación y la consulta del club activo
- * se resuelven en servidor, sin exponer tokens al cliente.
- *
- * ESTRUCTURA:
- * - Sidebar fijo (navegación principal)
- * - TopBar contextual (info del club + usuario)
- * - Main content area (donde se renderizan los children)
- * ============================================================
+ * LAYOUT — Panel del club (ruta `/{clubSlug}/...`)
  */
-
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { Sidebar } from "@/components/shared/Sidebar";
-import { TopBar } from "@/components/shared/TopBar";
+import { SponsorFooter } from "@/components/layout/SponsorFooter";
+import { ClubOperationalHeader } from "@/components/club/ClubOperationalHeader";
+import { ClubFinanceStrip } from "@/components/club/ClubFinanceStrip";
 
-// Definimos el tipo del contexto de club para pasar a componentes
 export interface ClubContext {
   id: string;
-  nombre: string;
+  name: string;
   slug: string;
   logoUrl?: string | null;
   colorPrimario: string;
@@ -36,13 +22,9 @@ export default async function DashboardLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { clubSlug: string };
+  params: Promise<{ clubSlug: string }>;
 }) {
-  /**
-   * Creamos el cliente Supabase para Server Components.
-   * Usamos cookies() para leer la sesión del usuario autenticado.
-   * Este patrón es el recomendado por Supabase para Next.js App Router.
-   */
+  const { clubSlug } = await params;
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -53,60 +35,41 @@ export default async function DashboardLayout({
         getAll() {
           return cookieStore.getAll();
         },
+        setAll() {},
       },
     }
   );
 
-  // Verificamos autenticación — si no hay sesión, mandamos al login
-  let {
+  const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    // redirect("/login");
-    user = { email: 'admin@quistococha.com' } as any;
+    redirect("/login");
   }
 
-  /**
-   * Obtenemos el club activo del parámetro de URL.
-   * La query incluye la verificación de membresía mediante RLS:
-   * si el usuario no pertenece al club, la query devuelve null.
-   */
-  let { data: club } = await supabase
+  const { data: club } = await supabase
     .from("clubs")
-    .select("id, nombre, slug, logo_url, color_primario, color_secundario")
-    .eq("slug", params.clubSlug)
+    .select("id, name, slug, logo_url, color_primary, color_secondary")
+    .eq("slug", clubSlug)
     .single();
 
-  // Si el club no existe o el usuario no tiene acceso → 404 (Lo mockeamos para pruebas UI)
   if (!club) {
-    club = {
-      id: "mock-uuid-1234",
-      nombre: "Liga Ficticia (Modo Prueba)",
-      slug: params.clubSlug,
-      logo_url: null,
-      color_primario: "#1e3a5f",
-      color_secundario: "#fbbf24",
-    };
+    redirect("/");
   }
 
   const clubContext: ClubContext = {
     id: club.id,
-    nombre: club.nombre,
+    name: club.name,
     slug: club.slug,
     logoUrl: club.logo_url,
-    colorPrimario: club.color_primario || "#1e3a5f",
-    colorSecundario: club.color_secundario || "#fbbf24",
+    colorPrimario: club.color_primary || "#1e3a5f",
+    colorSecundario: club.color_secondary || "#fbbf24",
   };
 
   return (
-    /*
-     * CSS Variables de tema del club: cada club puede tener su paleta.
-     * Las variables se aplican en cascada a todos los children.
-     * Esto es "theming por tenant" sin CSS-in-JS ni overhead de runtime.
-     */
     <div
-      className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden"
+      className="flex min-h-screen flex-col bg-[#F5F5F5]"
       style={
         {
           "--club-primary": clubContext.colorPrimario,
@@ -114,20 +77,15 @@ export default async function DashboardLayout({
         } as React.CSSProperties
       }
     >
-      {/* Sidebar: navegación principal del sistema */}
-      <Sidebar club={clubContext} />
+      <ClubOperationalHeader club={clubContext} user={user} />
+      <ClubFinanceStrip clubId={club.id} clubSlug={club.slug} />
 
-      {/* Área principal: top bar + contenido */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar club={clubContext} user={user!} />
-
-        {/* Main content con scroll independiente */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
-            {children}
-          </div>
-        </main>
-      </div>
+      <main className="flex flex-1 flex-col overflow-y-auto">
+        <div className="container mx-auto max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </div>
+        <SponsorFooter />
+      </main>
     </div>
   );
 }

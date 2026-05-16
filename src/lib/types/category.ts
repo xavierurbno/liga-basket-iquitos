@@ -1,0 +1,21 @@
+export type CategoriaWizardInitialData = {
+  categoryId?: string;
+  name?: string | null;
+  description?: string | null;
+  coachName?: string | null;
+  coachLastname?: string | null;
+  coachDocumentType?: string | null;
+  coachDocumentNumber?: string | null;
+  coachBirthdate?: string | Date | null;
+  coachContact?: string | null;
+  coachEmail?: string | null;
+  coachPhotoUrl?: string | null;
+  delegateName?: string | null;
+  delegateLastname?: string | null;
+  delegateDocumentType?: string | null;
+  delegateDocumentNumber?: string | null;
+  delegateBirthdate?: string | Date | null;
+  delegateContact?: string | null;
+  delegateEmail?: string | null;
+  delegatePhotoUrl?: string | null;
+};

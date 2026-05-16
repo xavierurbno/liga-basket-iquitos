@@ -1,0 +1,348 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:file((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/]+\\.\\w+)/",
+      "destination": "/:file",
+      "internal": true,
+      "priority": true,
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-nextjs-data"
+        }
+      ],
+      "statusCode": 308,
+      "regex": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/]+\\.\\w+))/$"
+    },
+    {
+      "source": "/:notfile((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+)",
+      "destination": "/:notfile/",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+))$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/liga/clubs/[clubId]",
+      "regex": "^/liga/clubs/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId"
+      },
+      "namedRegex": "^/liga/clubs/(?<nxtPclubId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/liga/clubs/[clubId]/categories/[categoryId]",
+      "regex": "^/liga/clubs/([^/]+?)/categories/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId",
+        "nxtPcategoryId": "nxtPcategoryId"
+      },
+      "namedRegex": "^/liga/clubs/(?<nxtPclubId>[^/]+?)/categories/(?<nxtPcategoryId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/liga/clubs/[clubId]/categories/[categoryId]/datasheet",
+      "regex": "^/liga/clubs/([^/]+?)/categories/([^/]+?)/datasheet(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId",
+        "nxtPcategoryId": "nxtPcategoryId"
+      },
+      "namedRegex": "^/liga/clubs/(?<nxtPclubId>[^/]+?)/categories/(?<nxtPcategoryId>[^/]+?)/datasheet(?:/)?$"
+    },
+    {
+      "page": "/liga/clubs/[clubId]/categories/[categoryId]/players/nuevo",
+      "regex": "^/liga/clubs/([^/]+?)/categories/([^/]+?)/players/nuevo(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId",
+        "nxtPcategoryId": "nxtPcategoryId"
+      },
+      "namedRegex": "^/liga/clubs/(?<nxtPclubId>[^/]+?)/categories/(?<nxtPcategoryId>[^/]+?)/players/nuevo(?:/)?$"
+    },
+    {
+      "page": "/liga/clubs/[clubId]/galeria",
+      "regex": "^/liga/clubs/([^/]+?)/galeria(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId"
+      },
+      "namedRegex": "^/liga/clubs/(?<nxtPclubId>[^/]+?)/galeria(?:/)?$"
+    },
+    {
+      "page": "/liga/system/clubs/[clubId]",
+      "regex": "^/liga/system/clubs/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPclubId": "nxtPclubId"
+      },
+      "namedRegex": "^/liga/system/clubs/(?<nxtPclubId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/validar/[id]",
+      "regex": "^/validar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/validar/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]",
+      "regex": "^/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]/caja",
+      "regex": "^/([^/]+?)/caja(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)/caja(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]/configuracion",
+      "regex": "^/([^/]+?)/configuracion(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)/configuracion(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]/jugadores",
+      "regex": "^/([^/]+?)/jugadores(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)/jugadores(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]/jugadores/nuevo",
+      "regex": "^/([^/]+?)/jugadores/nuevo(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)/jugadores/nuevo(?:/)?$"
+    },
+    {
+      "page": "/[clubSlug]/torneos",
+      "regex": "^/([^/]+?)/torneos(?:/)?$",
+      "routeKeys": {
+        "nxtPclubSlug": "nxtPclubSlug"
+      },
+      "namedRegex": "^/(?<nxtPclubSlug>[^/]+?)/torneos(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/acceso-pendiente",
+      "regex": "^/acceso\\-pendiente(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/acceso\\-pendiente(?:/)?$"
+    },
+    {
+      "page": "/auth/callback",
+      "regex": "^/auth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/callback(?:/)?$"
+    },
+    {
+      "page": "/auth/reset-password",
+      "regex": "^/auth/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/busqueda-365",
+      "regex": "^/busqueda\\-365(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/busqueda\\-365(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/forgot-password",
+      "regex": "^/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/liga",
+      "regex": "^/liga(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga(?:/)?$"
+    },
+    {
+      "page": "/liga/clubes",
+      "regex": "^/liga/clubes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/clubes(?:/)?$"
+    },
+    {
+      "page": "/liga/clubs",
+      "regex": "^/liga/clubs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/clubs(?:/)?$"
+    },
+    {
+      "page": "/liga/configuracion",
+      "regex": "^/liga/configuracion(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/configuracion(?:/)?$"
+    },
+    {
+      "page": "/liga/documentos",
+      "regex": "^/liga/documentos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/documentos(?:/)?$"
+    },
+    {
+      "page": "/liga/galeria-general",
+      "regex": "^/liga/galeria\\-general(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/galeria\\-general(?:/)?$"
+    },
+    {
+      "page": "/liga/patrocinadores",
+      "regex": "^/liga/patrocinadores(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/patrocinadores(?:/)?$"
+    },
+    {
+      "page": "/liga/system",
+      "regex": "^/liga/system(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/system(?:/)?$"
+    },
+    {
+      "page": "/liga/tesoreria",
+      "regex": "^/liga/tesoreria(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/tesoreria(?:/)?$"
+    },
+    {
+      "page": "/liga/torneos",
+      "regex": "^/liga/torneos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/liga/torneos(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/normativas",
+      "regex": "^/normativas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/normativas(?:/)?$"
+    },
+    {
+      "page": "/onboarding",
+      "regex": "^/onboarding(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding(?:/)?$"
+    },
+    {
+      "page": "/register",
+      "regex": "^/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/register(?:/)?$"
+    },
+    {
+      "page": "/super-admin/dashboard",
+      "regex": "^/super\\-admin/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/super\\-admin/dashboard(?:/)?$"
+    },
+    {
+      "page": "/super-admin/leagues",
+      "regex": "^/super\\-admin/leagues(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/super\\-admin/leagues(?:/)?$"
+    },
+    {
+      "page": "/super-admin/sponsors",
+      "regex": "^/super\\-admin/sponsors(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/super\\-admin/sponsors(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

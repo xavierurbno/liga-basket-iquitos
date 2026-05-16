@@ -1,1 +1,55 @@
-{"version":"7","dialect":"postgresql","entries":[]}
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1777500000000,
+      "tag": "0001_add_transactions_tesoreria",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777842304870,
+      "tag": "0001_shocking_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778163231459,
+      "tag": "0002_fts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778540308961,
+      "tag": "0003_gigantic_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778554276300,
+      "tag": "0004_woozy_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778556001202,
+      "tag": "0005_ambitious_proemial_gods",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778631208045,
+      "tag": "0006_purple_stephen_strange",
+      "breakpoints": true
+    }
+  ]
+}

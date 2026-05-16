@@ -2,7 +2,7 @@
  * ============================================================
  * COMPONENTES DE DASHBOARD: KpiCard + MovimientosRecientes + DistribucionCategorias
  * ============================================================
- * Estos son Server Components: no tienen estado propio,
+ * Estos son Server Components: no tienen status propio,
  * reciben datos puros como props y generan HTML estático.
  *
  * SEPARAMOS en componentes pequeños (no un archivo monolítico)
@@ -11,8 +11,8 @@
  * ============================================================
  */
 
-import type { MovimientoCaja } from "@/lib/db/schema";
-import { getCategoriaInfo, type Categoria } from "@/lib/utils/categoria";
+import type { TreasuryRecentMovement } from "@/lib/db/schema";
+import { getCategoriaInfo, type Categoria } from "@/lib/utils/category";
 
 // ─────────────────────────────────────────────────────────────
 // KPI CARD
@@ -22,7 +22,7 @@ interface KpiCardProps {
   titulo: string;
   valor: number;
   icono: string;
-  descripcion?: string;
+  notes?: string;
   formato?: "numero" | "moneda" | "porcentaje";
   tendencia?: "up" | "down" | "neutral";
   color?: "default" | "green" | "red" | "amber";
@@ -32,12 +32,12 @@ export function KpiCard({
   titulo,
   valor,
   icono,
-  descripcion,
+  notes,
   formato = "numero",
   tendencia = "neutral",
   color = "default",
 }: KpiCardProps) {
-  // Formateamos el valor según el tipo
+  // Formateamos el valor según el type
   const valorFormateado = (() => {
     if (formato === "moneda") {
       return new Intl.NumberFormat("es-PE", {
@@ -86,9 +86,9 @@ export function KpiCard({
         {titulo}
       </p>
 
-      {descripcion && (
+      {notes && (
         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
-          {descripcion}
+          {notes}
         </p>
       )}
     </div>
@@ -100,7 +100,7 @@ export function KpiCard({
 // ─────────────────────────────────────────────────────────────
 
 interface MovimientosRecientesProps {
-  movimientos: MovimientoCaja[];
+  movimientos: TreasuryRecentMovement[];
   clubSlug: string;
 }
 
@@ -122,7 +122,7 @@ export function MovimientosRecientes({ movimientos, clubSlug }: MovimientosRecie
           Últimos Movimientos de Caja
         </h2>
         <a
-          href={`/dashboard/${clubSlug}/caja`}
+          href={`/${clubSlug}/caja`}
           className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
           Ver todos →
@@ -140,38 +140,38 @@ export function MovimientosRecientes({ movimientos, clubSlug }: MovimientosRecie
             <div key={mov.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
               {/* Canal de pago como emoji */}
               <span className="text-lg shrink-0">
-                {CANAL_EMOJI[mov.canalPago] || "💳"}
+                {CANAL_EMOJI[mov.paymentChannel] || "💳"}
               </span>
 
-              {/* Concepto + fecha */}
+              {/* Concepto + transactionDate */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                  {mov.concepto}
+                  {mov.concept}
                 </p>
                 <p className="text-xs text-slate-400">
-                  {new Date(mov.fechaMovimiento).toLocaleDateString("es-PE", {
+                  {new Date(mov.transactionDate).toLocaleDateString("es-PE", {
                     day: "2-digit",
                     month: "short",
                   })}
                   {" · "}
-                  <span className="capitalize">{mov.canalPago.toLowerCase()}</span>
+                  <span className="capitalize">{mov.paymentChannel.toLowerCase()}</span>
                 </p>
               </div>
 
-              {/* Monto con color según tipo */}
+              {/* Monto con color según type */}
               <p
                 className={`text-sm font-semibold shrink-0 ${
-                  mov.tipo === "INGRESO"
+                  mov.type === "income"
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-red-500 dark:text-red-400"
                 }`}
               >
-                {mov.tipo === "INGRESO" ? "+" : "-"}
+                {mov.type === "income" ? "+" : "-"}
                 {new Intl.NumberFormat("es-PE", {
                   style: "currency",
                   currency: "PEN",
                   minimumFractionDigits: 2,
-                }).format(Number(mov.monto))}
+                }).format(Number(mov.amount))}
               </p>
             </div>
           ))}
@@ -187,7 +187,7 @@ export function MovimientosRecientes({ movimientos, clubSlug }: MovimientosRecie
 // ─────────────────────────────────────────────────────────────
 
 interface DistribucionCategoriasProps {
-  datos: { categoria: string; total: number }[];
+  datos: { category: string; total: number }[];
 }
 
 export function DistribucionCategorias({ datos }: DistribucionCategoriasProps) {
@@ -211,19 +211,19 @@ export function DistribucionCategorias({ datos }: DistribucionCategoriasProps) {
       {total === 0 ? (
         <div className="text-center py-8">
           <span className="text-3xl">🏀</span>
-          <p className="text-sm text-slate-400 mt-2">Sin jugadores inscritos</p>
+          <p className="text-sm text-slate-400 mt-2">Sin players inscritos</p>
         </div>
       ) : (
         <div className="space-y-3">
           {datos
             .sort((a, b) => Number(b.total) - Number(a.total))
             .map((item) => {
-              const info = getCategoriaInfo(item.categoria as Categoria);
+              const info = getCategoriaInfo(item.category as Categoria);
               const porcentaje = total > 0 ? (Number(item.total) / total) * 100 : 0;
-              const colorBar = colores[item.categoria] || "bg-slate-400";
+              const colorBar = colores[item.category] || "bg-slate-400";
 
               return (
-                <div key={item.categoria}>
+                <div key={item.category}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${colorBar}`} />

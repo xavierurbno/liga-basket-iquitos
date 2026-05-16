@@ -9,9 +9,9 @@ export default defineConfig({
   out: "./supabase/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    // Cambiamos a DATABASE_URL_POOLED para que coincida con tu .env.local
-    url: process.env.DATABASE_URL_POOLED!,
+    url: process.env.DATABASE_URL_POOLED || "",
   },
+  schemaFilter: ["public"],
   verbose: true,
   strict: true,
 });

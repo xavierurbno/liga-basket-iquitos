@@ -2,50 +2,100 @@
  * ============================================================
  * CLIENTE DE BASE DE DATOS - SINGLETON PATTERN
  * ============================================================
- * Usamos el patrón Singleton para que en desarrollo (con hot-reload)
- * no se creen múltiples conexiones a la BD en cada re-render.
+ * Si cambias DATABASE_URL_* en .env.local, debemos **recrear** el cliente
+ * postgres (ver `cachedConnectionString`).
  *
- * En producción (Next.js en Vercel/Antigravity), cada serverless
- * function tiene su propia instancia, así que este patrón
- * previene conexiones duplicadas durante el desarrollo local.
+ * Resolución de URL: `src/lib/db/resolve-postgres-url.ts` (pooler antes que
+ * directo por defecto, para evitar ENOTFOUND en `db.*.supabase.co`).
  * ============================================================
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { resolvePostgresConnectionString } from "./resolve-postgres-url";
 import * as schema from "./schema";
 
-// Variable global para el singleton en desarrollo
-// (evita "too many connections" con hot-reload de Next.js)
+type Db = PostgresJsDatabase<typeof schema>;
+
 const globalForDb = globalThis as unknown as {
-  connection: postgres.Sql | undefined;
+  sql?: postgres.Sql;
+  drizzleDb?: Db;
+  /** URL efectiva usada para abrir `sql`; si cambia el env, se reinicia la conexión */
+  cachedConnectionString?: string;
 };
 
-/**
- * CONNECTION STRING de Supabase.
- * Supabase provee DOS URLs:
- * - DATABASE_URL (puerto 5432): Para conexiones persistentes (no usar en serverless)
- * - DATABASE_URL_POOLED (puerto 6543): PgBouncer pooling (USAR en serverless/edge)
- *
- * En Antigravity/Vercel usamos la URL de pooling.
- */
-const connectionString =
-  process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL!;
-
-const connection =
-  globalForDb.connection ??
-  postgres(connectionString, {
-    // prepare: false es REQUERIDO con PgBouncer (Supabase pooler)
-    // PgBouncer no soporta prepared statements en modo transaction pooling
-    prepare: false,
-    max: 1, // Una conexión por función serverless es suficiente
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.connection = connection;
+function safeConnectionLog(connectionString: string, source: string) {
+  try {
+    const u = new URL(connectionString.replace(/^postgresql:/, "http:"));
+    const host = u.hostname;
+    const port = u.port;
+    console.info(`[db] ${source} → ${host}${port ? `:${port}` : ""}`);
+  } catch {
+    console.info(`[db] ${source} (URL no analizable)`);
+  }
 }
 
-export const db = drizzle(connection, { schema });
+function poolMaxFor(connectionString: string): number {
+  const raw = process.env.DATABASE_POOL_MAX?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 20) return parsed;
+  /** Con `max: 1`, varias peticiones RSC concurrentes encolan consultas y pueden superar `statement_timeout`. */
+  return connectionString.includes("supabase.co") ? 6 : 3;
+}
+
+function postgresOptions(connectionString: string): Parameters<typeof postgres>[1] {
+  const esSupabaseHost =
+    typeof connectionString === "string" && connectionString.includes("supabase.co");
+  return {
+    prepare: false,
+    max: poolMaxFor(connectionString),
+    connect_timeout: 25,
+    onnotice: () => {}, // Silenciar notices de Postgres en consola
+    connection: {
+      statement_timeout: 10000, // 10 segundos
+    },
+    ...(esSupabaseHost ? { ssl: "require" as const } : {}),
+  };
+}
+
+function ensureDb(): Db {
+  const { url: connectionString, label: source } = resolvePostgresConnectionString();
+  if (!connectionString) {
+    throw new Error(
+      "Falta cadena de conexión: define DATABASE_URL, DATABASE_URL_POOLED y/o DATABASE_URL_DIRECT en .env.local",
+    );
+  }
+
+  // Si ya existe una instancia con la misma URL, devolverla
+  if (globalForDb.drizzleDb && globalForDb.cachedConnectionString === connectionString) {
+    return globalForDb.drizzleDb;
+  }
+
+  // Cerrar conexión anterior si existe
+  if (globalForDb.sql) {
+    console.info("[db] Closing old connection...");
+    void globalForDb.sql.end({ timeout: 2 });
+  }
+
+  const options = postgresOptions(connectionString);
+
+  if (process.env.NODE_ENV !== "production") {
+    safeConnectionLog(connectionString, source);
+  }
+
+  const sql = postgres(connectionString, options);
+
+  globalForDb.sql = sql;
+  globalForDb.cachedConnectionString = connectionString;
+  globalForDb.drizzleDb = drizzle(sql, { schema });
+
+  return globalForDb.drizzleDb;
+}
+
+/** Instancia Drizzle (Singleton) */
+export const db = ensureDb();
 
 // Re-exportamos el schema para conveniencia
 export * from "./schema";
+export { schema };

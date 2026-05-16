@@ -1,0 +1,295 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { getLeagueSettingsAction } from "@/lib/actions/system-dashboard";
+import { useCountdown } from "@/hooks/useCountdown";
+
+// ─── Types ───────────────────────────────────────────────────
+import { LeagueSettings } from "@/lib/types/league";
+
+interface MasterClockCounterProps {
+  variant?: "flip" | "minimal";
+  /** Alineación del bloque (portal público: `start` con el eje del carrusel). */
+  layoutAlign?: "center" | "start";
+}
+
+// ─── Flip Card ───────────────────────────────────────────────
+function FlipCard({ value, label }: { value: number; label: string }) {
+  const display = String(value).padStart(2, "0");
+  const prevRef = useRef(display);
+  const [flipping, setFlipping] = useState(false);
+  const [prevDisplay, setPrevDisplay] = useState(display);
+
+  useEffect(() => {
+    if (prevRef.current !== display) {
+      setPrevDisplay(prevRef.current);
+      setFlipping(true);
+      prevRef.current = display;
+
+      const t = setTimeout(() => setFlipping(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [display]);
+
+  // Text container styles to ensure perfect vertical centering
+  const textStyles = {
+    color: "#F5F5F5",
+    fontSize: 42,
+    fontWeight: 900,
+    lineHeight: 1,
+    fontVariantNumeric: "tabular-nums",
+    letterSpacing: "-0.02em",
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div
+        className="relative select-none"
+        style={{
+          width: 64,
+          height: 80,
+          perspective: "400px",
+          borderRadius: 14,
+          boxShadow: "0 4px 10px rgba(0,0,0,0.05)", // Softened shadow
+        }}
+      >
+        {/* Static Top Half */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "50%",
+            overflow: "hidden",
+            background: "linear-gradient(180deg, #0065FF 0%, #005CEE 100%)",
+            borderRadius: "14px 14px 0 0",
+            zIndex: 2,
+          }}
+        >
+          <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={textStyles}>{display}</span>
+          </div>
+        </div>
+
+        {/* Static Bottom Half */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: "50%",
+            overflow: "hidden",
+            background: "linear-gradient(180deg, #004FCC 0%, #0047C0 100%)",
+            borderRadius: "0 0 14px 14px",
+            zIndex: 2,
+          }}
+        >
+          <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", marginTop: -40 }}>
+            <span style={textStyles}>{display}</span>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 2, background: "rgba(0,0,0,0.15)", zIndex: 10 }} />
+
+        {/* Animated Top Flap (Previous Value) */}
+        {flipping && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "50%",
+              overflow: "hidden",
+              background: "linear-gradient(180deg, #0065FF 0%, #005CEE 100%)",
+              borderRadius: "14px 14px 0 0",
+              zIndex: 6,
+              transformOrigin: "bottom center",
+              transformStyle: "preserve-3d",
+              animation: "flipDown 0.38s ease-in forwards",
+            }}
+          >
+            <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", backfaceVisibility: "hidden" }}>
+              <span style={textStyles}>{prevDisplay}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Animated Bottom Flap (New Value) */}
+        {flipping && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "50%",
+              overflow: "hidden",
+              background: "linear-gradient(180deg, #004FCC 0%, #0047C0 100%)",
+              borderRadius: "0 0 14px 14px",
+              zIndex: 5,
+              transformOrigin: "top center",
+              transformStyle: "preserve-3d",
+              animation: "flipReveal 0.38s ease-out forwards",
+            }}
+          >
+            <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", marginTop: -40 }}>
+              <span style={textStyles}>{display}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "#1e3a5f",
+          opacity: 0.75,
+        }}
+      >
+        {label}
+      </span>
+
+      <style>{`
+        @keyframes flipDown {
+          0%   { transform: rotateX(0deg); }
+          100% { transform: rotateX(-90deg); opacity: 0; }
+        }
+        @keyframes flipReveal {
+          0%   { transform: rotateX(90deg); opacity: 0; }
+          100% { transform: rotateX(0deg); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Separator ───────────────────────────────────────────────
+function Separator() {
+  return (
+    <div className="flex flex-col gap-3 mb-6 self-center">
+      <div className="h-2 w-2 rounded-full" style={{ background: "#005CEE", opacity: 0.7 }} />
+      <div className="h-2 w-2 rounded-full" style={{ background: "#005CEE", opacity: 0.7 }} />
+    </div>
+  );
+}
+
+// ─── Skeleton ────────────────────────────────────────────────
+function ClockSkeleton({ minimal }: { minimal?: boolean }) {
+  if (minimal) {
+    return <div className="h-7 w-32 rounded-lg bg-slate-200 animate-pulse" />;
+  }
+  return (
+    <div className="flex gap-3 justify-center animate-pulse">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col items-center gap-1.5">
+          <div className="rounded-xl" style={{ width: 64, height: 80, background: "rgba(0,92,238,0.12)" }} />
+          <div className="rounded" style={{ height: 8, width: 36, background: "rgba(0,92,238,0.08)" }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────
+export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }: MasterClockCounterProps) {
+  const [settings, setSettings] = useState<LeagueSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    getLeagueSettingsAction().then((s) => {
+      setSettings(s);
+      setLoading(false);
+    });
+  }, []);
+
+  const now = new Date();
+  const endRaw = settings?.transferPeriodEnd ?? null;
+  const end = endRaw ? new Date(endRaw) : null;
+  const startRaw = settings?.transferPeriodStart ?? null;
+  const start = startRaw ? new Date(startRaw) : null;
+  const isManual = settings?.isManualOverride ?? false;
+
+  const isActive = isManual || (end !== null && start !== null && now >= start && now <= end);
+  const targetDate = isActive ? end : null;
+  const countdown = useCountdown(targetDate);
+
+  // ─── VALIDACIÓN CRÍTICA DE VISIBILIDAD ───
+  // El componente es "invisible por defecto". Solo aparece si está activo Y tiene tiempo restante.
+  if (!mounted || loading || !isActive || countdown.isExpired) return null;
+
+  if (variant === "minimal") {
+    
+    return (
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#005CEE] opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-[#005CEE]" />
+        </span>
+        <span className="text-sm font-extrabold text-[#1e3a5f]">
+          {isManual ? (
+            <span className="text-[#005CEE] tracking-tight">{settings?.bannerText || "SISTEMA ACTIVO"}</span>
+          ) : (
+            <>
+              CIERRE:{" "}
+              <span className="text-[#005CEE] tabular-nums tracking-wide">
+                {String(countdown.days).padStart(2, "0")}d : {String(countdown.hours).padStart(2, "0")}h : {String(countdown.minutes).padStart(2, "0")}m
+              </span>
+            </>
+          )}
+        </span>
+      </div>
+    );
+  }
+
+  const alignStart = layoutAlign === "start";
+
+  // ── Render Flip Variant ──
+  return (
+    <div
+      className={
+        alignStart
+          ? "w-full py-5 text-left"
+          : "w-full px-6 py-7 text-center"
+      }
+    >
+
+      {loading ? (
+        <ClockSkeleton />
+      ) : (
+        <div
+          className={`flex items-center gap-1.5 sm:gap-2 ${alignStart ? "justify-start" : "justify-center"}`}
+        >
+          <FlipCard value={countdown.days} label="Días" />
+          <Separator />
+          <FlipCard value={countdown.hours} label="Horas" />
+          <Separator />
+          <FlipCard value={countdown.minutes} label="Min" />
+          <Separator />
+          <FlipCard value={countdown.seconds} label="Seg" />
+        </div>
+      )}
+
+      {!loading && end && !isManual && (
+        <p className="mt-5 text-[11px] font-medium" style={{ color: "#1e3a5f", opacity: 0.55 }}>
+          Cierra el{" "}
+          {end.toLocaleDateString("es-PE", {
+            weekday: "long",
+            day: "2-digit",
+            month: "long",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      )}
+    </div>
+  );
+}

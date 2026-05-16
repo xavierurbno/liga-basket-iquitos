@@ -1,16 +1,3 @@
-/**
- * ============================================================
- * ESQUEMA DE BASE DE DATOS - LIGA DE BASKET IQUITOS
- * ============================================================
- * Usamos Drizzle ORM porque es "type-safe by design": TypeScript
- * conoce la estructura exacta de cada tabla en tiempo de compilación,
- * eliminando errores de columna en producción.
- *
- * Multi-tenancy: Cada tabla con datos de club tiene `club_id`,
- * columna que Supabase RLS usa para aislar datos entre organizaciones.
- * ============================================================
- */
-
 import {
   pgTable,
   uuid,
@@ -23,19 +10,33 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  jsonb,
+  serial,
+  pgSchema,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
-// ─────────────────────────────────────────────────────────────
-// ENUMS: Valores cerrados para evitar datos corruptos en BD
-// ─────────────────────────────────────────────────────────────
+// Auth schema para referenciar auth.users
+export const authSchema = pgSchema("auth");
+export const authUsers = authSchema.table("users", {
+  id: uuid("id").primaryKey(),
+  email: varchar("email", { length: 255 }),
+});
 
-/**
- * Categorías FIBA estándar peruanas.
- * Usamos enum de BD (no solo TypeScript) para que PostgreSQL
- * rechace cualquier valor inválido a nivel de motor.
- */
-export const categoriaEnum = pgEnum("categoria", [
+export const leagues = pgTable(
+  "leagues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("leagues_slug_idx").on(table.slug),
+  })
+);
+
+export const categoryEnum = pgEnum("categoria", [
   "SUB_13",
   "SUB_15",
   "SUB_17",
@@ -43,35 +44,21 @@ export const categoriaEnum = pgEnum("categoria", [
   "VETERANOS",
 ]);
 
-/**
- * Géneros para inscripción federativa.
- */
-export const generoEnum = pgEnum("genero", ["MASCULINO", "FEMENINO", "MIXTO"]);
+export const genderEnum = pgEnum("genero", ["MASCULINO", "FEMENINO", "MIXTO"]);
 
-/**
- * Estado de inscripción del jugador en la liga.
- */
-export const estadoJugadorEnum = pgEnum("estado_jugador", [
+export const playerStatusEnum = pgEnum("estado_jugador", [
   "ACTIVO",
   "SUSPENDIDO",
   "INACTIVO",
   "PENDIENTE_PAGO",
 ]);
 
-/**
- * Tipo de movimiento de caja (Ingreso vs Egreso).
- * Este enum alimenta los KPIs financieros del dashboard.
- */
-export const tipoMovimientoEnum = pgEnum("tipo_movimiento", [
-  "INGRESO",
-  "EGRESO",
+export const transactionTypeEnum = pgEnum("tipo_movimiento", [
+  "income",
+  "expense",
 ]);
 
-/**
- * Canal de pago digital: crítico para la realidad de Iquitos
- * donde Yape/Plin son los métodos predominantes.
- */
-export const canalPagoEnum = pgEnum("canal_pago", [
+export const paymentChannelEnum = pgEnum("canal_pago", [
   "YAPE",
   "PLIN",
   "EFECTIVO",
@@ -81,11 +68,13 @@ export const canalPagoEnum = pgEnum("canal_pago", [
   "INTERBANK",
 ]);
 
-/**
- * Tipos de documento gestionable en el sistema.
- */
-export const tipoDocumentoEnum = pgEnum("tipo_documento", [
+export const documentTypeEnum = pgEnum("tipo_documento", [
   "DNI",
+  "CE",
+  "PASAPORTE",
+]);
+
+export const playerDocumentTypeEnum = pgEnum("tipo_documento_jugador", [
   "FICHA_MEDICA",
   "FOTO_CARNET",
   "AUTORIZACION_PADRES",
@@ -94,291 +83,535 @@ export const tipoDocumentoEnum = pgEnum("tipo_documento", [
   "OTRO",
 ]);
 
-// ─────────────────────────────────────────────────────────────
-// TABLA: clubs
-// Raíz del árbol multi-tenant. Cada club es un "tenant".
-// ─────────────────────────────────────────────────────────────
+export const roleEnum = pgEnum("role", [
+  "SUPER_ADMIN",
+  "LEAGUE_ADMIN",
+  "CLUB_DELEGATE",
+]);
+
+export const sponsorCategoryEnum = pgEnum("sponsor_category", [
+  "SOCIOS_PATROCINADORES",
+  "PATR_TECNICO",
+  "PATROCINADORES_OFICIALES",
+  "PROVEEDORES",
+  "INSTITUCIONALES",
+]);
+
+/** Normativas: tabla Postgres `normativas` (campos en español). Bucket público típico: `Nomativa`. */
+export const normativaDocumentCategoryEnum = pgEnum("normativa_document_category", [
+  "REGLAMENTO",
+  "BASES",
+  "COMUNICADO",
+]);
+
+export const normativas = pgTable(
+  "normativas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    titulo: text("titulo").notNull(),
+    descripcion: text("descripcion"),
+    urlArchivo: text("url_archivo").notNull(),
+    categoria: normativaDocumentCategoryEnum("categoria").notNull(),
+    esPublico: boolean("es_publico").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    esPublicoIdx: index("normativas_es_publico_idx").on(table.esPublico),
+  })
+);
 
 export const clubs = pgTable(
   "clubs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-
-    // Nombre oficial para documentos y carnets
-    nombre: varchar("nombre", { length: 100 }).notNull(),
-
-    // Slug para URLs limpias: /dashboard/aguila-fc
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
+    ownerId: uuid("owner_id").references(() => authUsers.id, { onDelete: "set null" }).unique(),
+    name: varchar("name", { length: 100 }).notNull(),
     slug: varchar("slug", { length: 50 }).notNull(),
-
-    // RUC o código FEDERACIÓN PERUANA DE BASKETBALL
-    codigoFederacion: varchar("codigo_federacion", { length: 20 }),
-
-    // Colores corporativos para personalización del portal
-    colorPrimario: varchar("color_primario", { length: 7 }).default("#1e3a5f"),
-    colorSecundario: varchar("color_secundario", { length: 7 }).default(
-      "#fbbf24"
-    ),
-
-    // Referencia al logo en Supabase Storage (bucket: club-assets)
+    federationCode: varchar("federation_code", { length: 20 }),
+    colorPrimary: varchar("color_primary", { length: 7 }).default("#1e3a5f"),
+    colorSecondary: varchar("color_secondary", { length: 7 }).default("#fbbf24"),
     logoUrl: text("logo_url"),
-
-    // Dirección del coliseo/cancha principal
-    direccionCancha: text("direccion_cancha"),
-    distrito: varchar("distrito", { length: 50 }).default("Iquitos"),
-    provincia: varchar("provincia", { length: 50 }).default("Maynas"),
+    courtAddress: text("court_address"),
+    foundationDate: timestamp("foundation_date"),
+    district: varchar("district", { length: 50 }).default("Iquitos"),
+    province: varchar("province", { length: 50 }).default("Maynas"),
     region: varchar("region", { length: 50 }).default("Loreto"),
-
-    // Contacto del administrador del club
     adminEmail: varchar("admin_email", { length: 100 }).notNull(),
-    adminTelefono: varchar("admin_telefono", { length: 15 }),
-
-    // Control de suscripción SaaS
-    planActivo: boolean("plan_activo").default(true),
-    fechaVencimientoPlan: timestamp("fecha_vencimiento_plan"),
-
-    // Auditoría: cuándo se creó y modificó el registro
+    adminPhone: varchar("admin_phone", { length: 15 }),
+    presidentName: varchar("president_name", { length: 80 }),
+    presidentLastname: varchar("president_lastname", { length: 80 }),
+    presidentDocumentType: documentTypeEnum("president_document_type").default("DNI"),
+    presidentDocumentNumber: varchar("president_document_number", { length: 20 }),
+    presidentBirthdate: timestamp("president_birthdate"),
+    presidentContact: varchar("president_contact", { length: 20 }),
+    presidentEmail: varchar("president_email", { length: 120 }),
+    presidentPhotoUrl: text("president_photo_url"),
+    secretaryName: varchar("secretary_name", { length: 80 }),
+    secretaryLastname: varchar("secretary_lastname", { length: 80 }),
+    secretaryDocumentType: documentTypeEnum("secretary_document_type").default("DNI"),
+    secretaryDocumentNumber: varchar("secretary_document_number", { length: 20 }),
+    secretaryBirthdate: timestamp("secretary_birthdate"),
+    secretaryContact: varchar("secretary_contact", { length: 20 }),
+    secretaryEmail: varchar("secretary_email", { length: 120 }),
+    secretaryPhotoUrl: text("secretary_photo_url"),
+    treasurerName: varchar("treasurer_name", { length: 80 }),
+    treasurerLastname: varchar("treasurer_lastname", { length: 80 }),
+    treasurerDocumentType: documentTypeEnum("treasurer_document_type").default("DNI"),
+    treasurerDocumentNumber: varchar("treasurer_document_number", { length: 20 }),
+    treasurerBirthdate: timestamp("treasurer_birthdate"),
+    treasurerContact: varchar("treasurer_contact", { length: 20 }),
+    treasurerEmail: varchar("treasurer_email", { length: 120 }),
+    treasurerPhotoUrl: text("treasurer_photo_url"),
+    activePlan: boolean("active_plan").default(true),
+    planExpirationDate: timestamp("plan_expiration_date"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    // Índice único para que dos clubs no compartan slug en URLs
     slugIdx: uniqueIndex("clubs_slug_idx").on(table.slug),
     emailIdx: index("clubs_email_idx").on(table.adminEmail),
   })
 );
 
-// ─────────────────────────────────────────────────────────────
-// TABLA: jugadores
-// Registro federativo completo por jugador.
-// ─────────────────────────────────────────────────────────────
-
-export const jugadores = pgTable(
-  "jugadores",
+export const clubMembers = pgTable(
+  "club_members",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-
-    // FK al club → base del aislamiento multi-tenant
+    userId: uuid("user_id").notNull(),
     clubId: uuid("club_id")
       .notNull()
       .references(() => clubs.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 30 }).notNull().default("ADMIN"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userClubUnique: uniqueIndex("club_members_user_id_club_id_key").on(
+      table.userId,
+      table.clubId
+    ),
+    userIdx: index("club_members_user_idx").on(table.userId),
+  })
+);
 
-    // Datos personales federativos
-    nombres: varchar("nombres", { length: 80 }).notNull(),
-    apellidos: varchar("apellidos", { length: 80 }).notNull(),
-    dni: varchar("dni", { length: 8 }).notNull(), // DNI peruano = 8 dígitos exactos
-    fechaNacimiento: timestamp("fecha_nacimiento").notNull(),
+export const userAssignments = pgTable(
+  "user_assignments",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    leagueId: uuid("league_id").references(() => leagues.id, {
+      onDelete: "cascade",
+    }),
+    clubId: uuid("club_id").references(() => clubs.id, { onDelete: "cascade" }),
+    role: roleEnum("role").notNull().default("CLUB_DELEGATE"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userLeagueClubUnique: uniqueIndex("user_assignments_unique").on(
+      table.userId,
+      table.leagueId,
+      table.clubId
+    ),
+  })
+);
 
-    genero: generoEnum("genero").notNull(),
-
-    /**
-     * Categoría AUTO-CALCULADA en backend según fecha de nacimiento.
-     * Almacenamos el valor calculado para consultas eficientes,
-     * pero la lógica real está en /lib/utils/categoria.ts
-     */
-    categoria: categoriaEnum("categoria").notNull(),
-
-    // Contacto jugador o tutor (si es menor)
-    telefono: varchar("telefono", { length: 15 }),
-    email: varchar("email", { length: 100 }),
-    direccion: text("direccion"),
-
-    // Posición preferida en cancha
-    posicion: varchar("posicion", { length: 30 }),
-    numeroCamiseta: integer("numero_camiseta"),
-    talla: varchar("talla", { length: 5 }), // XS/S/M/L/XL/XXL
-
-    // URL de foto en Supabase Storage (bucket: jugador-fotos)
-    fotoUrl: text("foto_url"),
-
-    // Estado en la competición
-    estado: estadoJugadorEnum("estado").default("PENDIENTE_PAGO"),
-
-    // Número de ficha asignado por la liga (generado automáticamente)
-    numeroFicha: varchar("numero_ficha", { length: 20 }),
-
-    // Datos para menores de edad
-    nombreTutor: varchar("nombre_tutor", { length: 100 }),
-    dniTutor: varchar("dni_tutor", { length: 8 }),
-    telefonoTutor: varchar("telefono_tutor", { length: 15 }),
-
-    // Información médica básica
-    grupoSanguineo: varchar("grupo_sanguineo", { length: 5 }),
-    alergias: text("alergias"),
-    contactoEmergencia: varchar("contacto_emergencia", { length: 15 }),
-
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 80 }).notNull(),
+    description: text("description"),
+    coachName: varchar("coach_name", { length: 120 }),
+    coachLastname: varchar("coach_lastname", { length: 120 }),
+    coachDocumentType: documentTypeEnum("coach_document_type").default("DNI"),
+    coachDocumentNumber: varchar("coach_document_number", { length: 20 }),
+    coachBirthdate: timestamp("coach_birthdate"),
+    coachContact: varchar("coach_contact", { length: 20 }),
+    coachEmail: varchar("coach_email", { length: 120 }),
+    coachPhotoUrl: text("coach_photo_url"),
+    delegateName: varchar("delegate_name", { length: 120 }),
+    delegateLastname: varchar("delegate_lastname", { length: 120 }),
+    delegateDocumentType: documentTypeEnum("delegate_document_type").default("DNI"),
+    delegateDocumentNumber: varchar("delegate_document_number", { length: 20 }),
+    delegateBirthdate: timestamp("delegate_birthdate"),
+    delegateContact: varchar("delegate_contact", { length: 20 }),
+    delegateEmail: varchar("delegate_email", { length: 120 }),
+    delegatePhotoUrl: text("delegate_photo_url"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    // Índice compuesto: buscar jugadores de un club por categoría (filtro más común)
-    clubCategoriaIdx: index("jugadores_club_categoria_idx").on(
+    clubIdx: index("categories_club_idx").on(table.clubId),
+    clubNameUnique: uniqueIndex("categories_unique").on(
       table.clubId,
-      table.categoria
+      table.name
     ),
-
-    // DNI único POR CLUB (un jugador no puede inscribirse 2 veces en el mismo club)
-    dniClubIdx: uniqueIndex("jugadores_dni_club_idx").on(table.dni, table.clubId),
-
-    // Índice de búsqueda rápida por apellido
-    apellidosIdx: index("jugadores_apellidos_idx").on(table.apellidos),
   })
 );
 
-// ─────────────────────────────────────────────────────────────
-// TABLA: movimientos_caja
-// Libro de ingresos/egresos del club.
-// ─────────────────────────────────────────────────────────────
-
-export const movimientosCaja = pgTable(
-  "movimientos_caja",
+export const players = pgTable(
+  "players",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
     clubId: uuid("club_id")
       .notNull()
       .references(() => clubs.id, { onDelete: "cascade" }),
-
-    // Referencia al jugador si el movimiento es una inscripción/cuota
-    jugadorId: uuid("jugador_id").references(() => jugadores.id, {
+    categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
-
-    tipo: tipoMovimientoEnum("tipo").notNull(),
-
-    /**
-     * numeric(12,2) = hasta 9.999.999.999,99 soles.
-     * Usamos numeric (no float) para EVITAR errores de redondeo
-     * en cálculos financieros. Un float puede dar 9.999999... en vez de 10.
-     */
-    monto: numeric("monto", { precision: 12, scale: 2 }).notNull(),
-
-    concepto: varchar("concepto", { length: 200 }).notNull(),
-
-    // Canal de pago digital — clave para reportes de cobranza
-    canalPago: canalPagoEnum("canal_pago").notNull().default("EFECTIVO"),
-
-    // Número de operación Yape/Plin o referencia bancaria
-    codigoOperacion: varchar("codigo_operacion", { length: 50 }),
-
-    // URL del comprobante en Supabase Storage (bucket: comprobantes)
-    comprobanteUrl: text("comprobante_url"),
-
-    // Quién registró el movimiento (auth.uid() de Supabase)
-    registradoPor: uuid("registrado_por"),
-
-    // Fecha efectiva del movimiento (puede diferir de created_at si se registra después)
-    fechaMovimiento: timestamp("fecha_movimiento").defaultNow().notNull(),
-
-    observaciones: text("observaciones"),
-
+    name: varchar("name", { length: 80 }).notNull(),
+    lastname: varchar("lastname", { length: 80 }).notNull(),
+    documentType: documentTypeEnum("document_type").notNull().default("DNI"),
+    documentNumber: varchar("document_number", { length: 20 }).notNull(),
+    birthdate: timestamp("birthdate").notNull(),
+    gender: genderEnum("gender").notNull(),
+    category: categoryEnum("category").notNull(),
+    phone: varchar("phone", { length: 15 }),
+    email: varchar("email", { length: 100 }).unique(),
+    address: text("address"),
+    position: varchar("position", { length: 30 }),
+    jerseyNumber: integer("jersey_number"),
+    size: varchar("size", { length: 5 }),
+    photoUrl: text("photo_url"),
+    status: playerStatusEnum("status").default("PENDIENTE_PAGO"),
+    carnetNumber: varchar("carnet_number", { length: 20 }),
+    tutorName: varchar("tutor_name", { length: 100 }),
+    tutorDocumentType: documentTypeEnum("tutor_document_type").default("DNI"),
+    tutorDocumentNumber: varchar("tutor_document_number", { length: 20 }),
+    tutorPhone: varchar("tutor_phone", { length: 15 }),
+    bloodType: varchar("blood_type", { length: 5 }),
+    allergies: text("allergies"),
+    emergencyContact: varchar("emergency_contact", { length: 15 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    // Índice para reportes financieros por rango de fechas
-    clubFechaIdx: index("caja_club_fecha_idx").on(
+    clubCategoryIdx: index("players_club_category_idx").on(
       table.clubId,
-      table.fechaMovimiento
+      table.category
     ),
-
-    // Índice para dashboard: sumar ingresos/egresos por tipo
-    clubTipoIdx: index("caja_club_tipo_idx").on(table.clubId, table.tipo),
+    documentLeagueIdx: uniqueIndex("players_doc_league_idx").on(
+      table.documentType,
+      table.documentNumber,
+      table.leagueId
+    ),
+    lastnameIdx: index("players_lastname_idx").on(table.lastname),
+    ftsIdx: index("players_fts_idx").using(
+      "gin",
+      sql`to_tsvector('spanish', ${table.name} || ' ' || ${table.lastname})`
+    ),
+    leagueIdDocumentIdx: index("idx_players_lookup").on(
+      table.leagueId,
+      table.documentNumber
+    ),
   })
 );
 
-// ─────────────────────────────────────────────────────────────
-// TABLA: documentos_jugador
-// Gestión documental: DNI, fichas médicas, autorizaciones.
-// ─────────────────────────────────────────────────────────────
-
-export const documentosJugador = pgTable(
-  "documentos_jugador",
+export const treasury = pgTable(
+  "treasury",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-
-    // FK al jugador
-    jugadorId: uuid("jugador_id")
-      .notNull()
-      .references(() => jugadores.id, { onDelete: "cascade" }),
-
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
     clubId: uuid("club_id")
       .notNull()
       .references(() => clubs.id, { onDelete: "cascade" }),
-
-    tipo: tipoDocumentoEnum("tipo").notNull(),
-
-    // Nombre original del archivo (para mostrar al usuario)
-    nombreArchivo: varchar("nombre_archivo", { length: 255 }).notNull(),
-
-    // Ruta en Supabase Storage
-    storageKey: text("storage_key").notNull(),
-
-    // URL pública o firmada según política del bucket
-    urlPublica: text("url_publica"),
-
-    // Tamaño en bytes para control de cuota del plan
-    tamanoBytes: integer("tamano_bytes"),
-    mimeType: varchar("mime_type", { length: 100 }),
-
-    // Estado de verificación del documento
-    verificado: boolean("verificado").default(false),
-    verificadoPor: uuid("verificado_por"),
-    fechaVerificacion: timestamp("fecha_verificacion"),
-
-    // Fecha de vencimiento (ej: ficha médica vence cada año)
-    fechaVencimiento: timestamp("fecha_vencimiento"),
-
+    playerId: uuid("player_id").references(() => players.id, {
+      onDelete: "set null",
+    }),
+    type: transactionTypeEnum("type").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    concept: varchar("concept", { length: 200 }).notNull(),
+    paymentChannel: paymentChannelEnum("payment_channel").notNull().default("EFECTIVO"),
+    operationCode: varchar("operation_code", { length: 50 }),
+    proofUrl: text("proof_url"),
+    registeredBy: uuid("registered_by").references(() => authUsers.id, { onDelete: "set null" }),
+    transactionDate: timestamp("transaction_date").defaultNow().notNull(),
+    notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    jugadorIdx: index("docs_jugador_idx").on(table.jugadorId),
+    clubDateIdx: index("treasury_club_date_idx").on(
+      table.clubId,
+      table.transactionDate
+    ),
+    clubTypeIdx: index("treasury_club_type_idx").on(table.clubId, table.type),
+    clubIdIdx: index("idx_treasury_club").on(table.clubId),
+  })
+);
+
+export const leagueSettings = pgTable(
+  "league_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .references(() => leagues.id, { onDelete: "cascade" })
+      .unique(),
+    seasonName: text("season_name"),
+    transferPeriodStart: timestamp("transfer_period_start"),
+    transferPeriodEnd: timestamp("transfer_period_end"),
+    bannerText: text("banner_text"),
+    loginLogoUrl: text("login_logo_url"),
+    pointsWin: integer("points_win").default(2),
+    pointsLoss: integer("points_loss").default(1),
+    pointsWalkover: integer("points_walkover").default(0),
+    maxPlayersPerClub: integer("max_players_per_club").default(15),
+    isManualOverride: boolean("is_manual_override").default(false),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    leagueIdIdx: index("league_settings_league_id_idx").on(table.leagueId),
+  })
+);
+
+export const leagueSettingsRelations = relations(leagueSettings, ({ one }) => ({
+  league: one(leagues, {
+    fields: [leagueSettings.leagueId],
+    references: [leagues.id],
+  }),
+}));
+
+export const playerDocuments = pgTable(
+  "player_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id, { onDelete: "cascade" }),
+    type: playerDocumentTypeEnum("type").notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    storageKey: text("storage_key").notNull(),
+    publicUrl: text("public_url"),
+    sizeBytes: integer("size_bytes"),
+    mimeType: varchar("mime_type", { length: 100 }),
+    verified: boolean("verified").default(false),
+    verifiedBy: uuid("verified_by").references(() => authUsers.id, { onDelete: "set null" }),
+    verificationDate: timestamp("verification_date"),
+    expirationDate: timestamp("expiration_date"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    playerIdx: index("docs_player_idx").on(table.playerId),
     clubIdx: index("docs_club_idx").on(table.clubId),
   })
 );
 
-// ─────────────────────────────────────────────────────────────
-// RELACIONES: Le decimos a Drizzle cómo relacionar las tablas
-// para poder hacer queries con .with() de forma type-safe
-// ─────────────────────────────────────────────────────────────
+export const documentHistory = pgTable(
+  "document_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: varchar("type", { length: 50 }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    shortIdentifier: varchar("short_identifier", { length: 20 }).notNull(),
+    correlative: serial("correlative").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    entityIdx: index("docs_hist_entity_idx").on(table.entityId),
+    typeIdx: index("docs_hist_type_idx").on(table.type),
+  })
+);
 
-export const clubsRelations = relations(clubs, ({ many }) => ({
-  jugadores: many(jugadores),
-  movimientosCaja: many(movimientosCaja),
-  documentos: many(documentosJugador),
+export const ownershipHistory = pgTable(
+  "ownership_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    previousOwnerId: uuid("previous_owner_id").references(() => authUsers.id),
+    newOwnerId: uuid("new_owner_id").notNull().references(() => authUsers.id),
+    transferDate: timestamp("transfer_date").defaultNow().notNull(),
+    registeredBy: uuid("registered_by").notNull(),
+  },
+  (table) => ({
+    clubIdx: index("ownership_club_idx").on(table.clubId),
+  })
+);
+
+export const clubsRelations = relations(clubs, ({ one, many }) => ({
+  league: one(leagues, {
+    fields: [clubs.leagueId],
+    references: [leagues.id],
+  }),
+  categories: many(categories),
+  players: many(players),
+  treasury: many(treasury),
+  playerDocuments: many(playerDocuments),
 }));
 
-export const jugadoresRelations = relations(jugadores, ({ one, many }) => ({
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  league: one(leagues, {
+    fields: [categories.leagueId],
+    references: [leagues.id],
+  }),
   club: one(clubs, {
-    fields: [jugadores.clubId],
+    fields: [categories.clubId],
     references: [clubs.id],
   }),
-  documentos: many(documentosJugador),
-  pagos: many(movimientosCaja),
+  players: many(players),
 }));
 
-export const movimientosCajaRelations = relations(
-  movimientosCaja,
+export const playersRelations = relations(players, ({ one, many }) => ({
+  league: one(leagues, {
+    fields: [players.leagueId],
+    references: [leagues.id],
+  }),
+  club: one(clubs, {
+    fields: [players.clubId],
+    references: [clubs.id],
+  }),
+  category: one(categories, {
+    fields: [players.categoryId],
+    references: [categories.id],
+  }),
+  documents: many(playerDocuments),
+  payments: many(treasury),
+}));
+
+export const treasuryRelations = relations(
+  treasury,
   ({ one }) => ({
+    league: one(leagues, {
+      fields: [treasury.leagueId],
+      references: [leagues.id],
+    }),
     club: one(clubs, {
-      fields: [movimientosCaja.clubId],
+      fields: [treasury.clubId],
       references: [clubs.id],
     }),
-    jugador: one(jugadores, {
-      fields: [movimientosCaja.jugadorId],
-      references: [jugadores.id],
+    player: one(players, {
+      fields: [treasury.playerId],
+      references: [players.id],
     }),
   })
 );
 
-// ─────────────────────────────────────────────────────────────
-// TYPE EXPORTS: Inferimos tipos TS desde el schema (DRY principle)
-// Así no repetimos la definición de tipos manualmente.
-// ─────────────────────────────────────────────────────────────
+export const galleryPhotos = pgTable(
+  "gallery_photos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    caption: varchar("caption", { length: 255 }),
+    clubId: uuid("club_id").references(() => clubs.id, { onDelete: "set null" }),
+    registeredBy: uuid("registered_by").notNull().references(() => authUsers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    clubIdx: index("gallery_club_idx").on(table.clubId),
+  })
+);
 
+export const sponsors = pgTable(
+  "sponsors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    category: sponsorCategoryEnum("category").notNull(),
+    logoUrl: text("logo_url").notNull(),
+    websiteUrl: text("website_url"),
+    displayOrder: integer("display_order").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    leagueIdIdx: index("sponsors_league_id_idx").on(table.leagueId),
+  })
+);
+
+export const galleryPhotosRelations = relations(galleryPhotos, ({ one }) => ({
+  league: one(leagues, {
+    fields: [galleryPhotos.leagueId],
+    references: [leagues.id],
+  }),
+  club: one(clubs, {
+    fields: [galleryPhotos.clubId],
+    references: [clubs.id],
+  }),
+}));
+
+export const userAssignmentsRelations = relations(userAssignments, ({ one }) => ({
+  user: one(authUsers, {
+    fields: [userAssignments.userId],
+    references: [authUsers.id],
+  }),
+  league: one(leagues, {
+    fields: [userAssignments.leagueId],
+    references: [leagues.id],
+  }),
+  club: one(clubs, {
+    fields: [userAssignments.clubId],
+    references: [clubs.id],
+  }),
+}));
+
+export const authUsersRelations = relations(authUsers, ({ many }) => ({
+  assignments: many(userAssignments),
+}));
+
+export const leaguesRelations = relations(leagues, ({ many, one }) => ({
+  assignments: many(userAssignments),
+  clubs: many(clubs),
+  sponsors: many(sponsors),
+  settings: one(leagueSettings),
+}));
+
+export const sponsorsRelations = relations(sponsors, ({ one }) => ({
+  league: one(leagues, {
+    fields: [sponsors.leagueId],
+    references: [leagues.id],
+  }),
+}));
+
+export type League = typeof leagues.$inferSelect;
+export type NewLeague = typeof leagues.$inferInsert;
 export type Club = typeof clubs.$inferSelect;
-export type NuevoClub = typeof clubs.$inferInsert;
-export type Jugador = typeof jugadores.$inferSelect;
-export type NuevoJugador = typeof jugadores.$inferInsert;
-export type MovimientoCaja = typeof movimientosCaja.$inferSelect;
-export type NuevoMovimiento = typeof movimientosCaja.$inferInsert;
-export type DocumentoJugador = typeof documentosJugador.$inferSelect;
-export type NuevoDocumento = typeof documentosJugador.$inferInsert;
+export type NewClub = typeof clubs.$inferInsert;
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+export type Player = typeof players.$inferSelect;
+export type NewPlayer = typeof players.$inferInsert;
+export type Treasury = typeof treasury.$inferSelect;
+export type TreasuryRecentMovement = Pick<
+  Treasury,
+  "id" | "type" | "amount" | "concept" | "paymentChannel" | "transactionDate"
+>;
+export type NewTreasury = typeof treasury.$inferInsert;
+export type PlayerDocument = typeof playerDocuments.$inferSelect;
+export type NewPlayerDocument = typeof playerDocuments.$inferInsert;
+export type DocumentHistory = typeof documentHistory.$inferSelect;
+export type NewDocumentHistory = typeof documentHistory.$inferInsert;
+export type LeagueSettings = typeof leagueSettings.$inferSelect;
+export type NewLeagueSettings = typeof leagueSettings.$inferInsert;
+export type OwnershipHistory = typeof ownershipHistory.$inferSelect;
+export type NewOwnershipHistory = typeof ownershipHistory.$inferInsert;
+export type GalleryPhoto = typeof galleryPhotos.$inferSelect;
+export type NewGalleryPhoto = typeof galleryPhotos.$inferInsert;
+export type UserAssignment = typeof userAssignments.$inferSelect;
+export type NewUserAssignment = typeof userAssignments.$inferInsert;
+export type Sponsor = typeof sponsors.$inferSelect;
+export type NewSponsor = typeof sponsors.$inferInsert;
+
+// Enum types
+export type IdentityDocumentType = typeof documentTypeEnum.enumValues[number];
+export type PlayerStatus = typeof playerStatusEnum.enumValues[number];
+export type TransactionType = typeof transactionTypeEnum.enumValues[number];
+export type PaymentChannel = typeof paymentChannelEnum.enumValues[number];
+export type UserRole = typeof roleEnum.enumValues[number];
+export type SponsorCategory = typeof sponsorCategoryEnum.enumValues[number];
+export type PlayerCategory = typeof categoryEnum.enumValues[number];
+export type NormativaCategoria = typeof normativaDocumentCategoryEnum.enumValues[number];
+export type Normativa = typeof normativas.$inferSelect;
+export type NewNormativa = typeof normativas.$inferInsert;

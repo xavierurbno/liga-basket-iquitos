@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS players_fts_idx ON "players" USING gin (to_tsvector('spanish', name || ' ' || lastname));
