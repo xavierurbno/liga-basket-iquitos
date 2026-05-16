@@ -25,6 +25,8 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
 
+  console.log("[DEBUG MIDDLEWARE] Evaluando ruta:", request.nextUrl.pathname);
+
   if (
     pathnameCanon === "/liga/busqueda-365" ||
     pathname.startsWith("/liga/busqueda-365/")
@@ -75,6 +77,8 @@ export async function proxy(request: NextRequest) {
     console.error("[proxy] auth getUser:", error);
   }
 
+  console.log("[DEBUG MIDDLEWARE] ¿Tiene sesión activa?:", !!user);
+
   const userAppMetadata = (user?.app_metadata as {
     role?: string;
     club_slug?: string;
@@ -87,11 +91,21 @@ export async function proxy(request: NextRequest) {
 
   if (isLigaOperationalPath(pathnameCanon, pathname)) {
     if (!user) {
+      console.log(
+        "[DEBUG MIDDLEWARE] Redirect → /login | razón: ruta /liga/* sin usuario (sesión/cookies no visibles en proxy)",
+      );
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
+      console.log(
+        "[DEBUG MIDDLEWARE] Redirect → / | razón: intranet denegada (rol JWT:",
+        userRole ?? "(vacío)",
+        "| email:",
+        user.email ?? "(sin email)",
+        "| no cumple INTRANET_LIGA_ROLES ni correo maestro)",
+      );
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
@@ -105,6 +119,11 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/validar");
 
   if (!user && !isPublicRoute) {
+    console.log(
+      "[DEBUG MIDDLEWARE] Redirect → /login | razón: sin sesión en ruta protegida",
+      pathname,
+      "(no es ruta pública)",
+    );
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -144,6 +163,10 @@ export async function proxy(request: NextRequest) {
             url.pathname = pathname.replace(requestedClubSlug, clubData.slug);
             return NextResponse.redirect(url);
           } else if (!clubData) {
+            console.log(
+              "[DEBUG MIDDLEWARE] Redirect → /login | razón: club_id en JWT no existe en tabla clubs",
+              userClubId,
+            );
             const url = request.nextUrl.clone();
             url.pathname = "/login";
             return NextResponse.redirect(url);
@@ -187,11 +210,21 @@ export async function proxy(request: NextRequest) {
     pathnameCanon === "/dashboard" || pathnameCanon.startsWith("/dashboard/");
   if (isIntranetPath) {
     if (!user) {
+      console.log(
+        "[DEBUG MIDDLEWARE] Redirect → /login | razón: /dashboard/* sin sesión",
+      );
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
     if (!canAccessIntranet(user, userRole)) {
+      console.log(
+        "[DEBUG MIDDLEWARE] Redirect → / | razón: /dashboard/* sin rol intranet (rol:",
+        userRole ?? "(vacío)",
+        "| email:",
+        user.email ?? "(sin email)",
+        ")",
+      );
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);

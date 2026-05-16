@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import type { AuthError } from "@supabase/supabase-js";
 import { FcGoogle } from "react-icons/fc";
+import { signInWithGoogleAction } from "@/lib/actions/auth";
 
 function mensajeLogin(error: AuthError): string {
   const msg = error.message ?? "";
@@ -91,18 +92,27 @@ export function LoginForm({
     setGoogleLoading(true);
     setError(null);
 
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(resolvedPostLogin)}`;
+    try {
+      const origin = window.location.origin;
+      const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(resolvedPostLogin)}`;
 
-    const { error: googleError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: callbackUrl,
-      },
-    });
+      const res = await signInWithGoogleAction(callbackUrl);
 
-    if (googleError) {
-      setError(googleError.message);
+      if (res.error) {
+        setError(res.error);
+        setGoogleLoading(false);
+        return;
+      }
+
+      if (res.url) {
+        window.location.href = res.url;
+        return;
+      }
+
+      setError("No se pudo iniciar sesión con Google.");
+      setGoogleLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error inesperado al conectar con Google.");
       setGoogleLoading(false);
     }
   }

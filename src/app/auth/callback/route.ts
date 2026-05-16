@@ -17,6 +17,8 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = safeInternalNext(searchParams.get("next"));
 
+  console.log("[DEBUG CALLBACK] Inicio — code presente:", Boolean(code), "next:", next);
+
   if (code) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)
               );
-            } catch (error) {
+            } catch {
               // The `setAll` method was called from a Server Component.
               // This can be ignored if you have proxy (or middleware) refreshing
               // user sessions.
@@ -41,12 +43,24 @@ export async function GET(request: Request) {
         },
       }
     );
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    const session = data.session;
+    console.log(
+      "[DEBUG CALLBACK] Email del usuario intentando entrar:",
+      session?.user?.email ?? data.user?.email,
+    );
+
     if (!error) {
+      console.log("[DEBUG CALLBACK] exchangeCodeForSession OK — redirigiendo a:", next);
       return NextResponse.redirect(`${origin}${next}`);
     }
+
+    console.error("[DEBUG CALLBACK] ERROR REAL EN EL CALLBACK:", error);
+  } else {
+    console.warn("[DEBUG CALLBACK] Sin parámetro ?code= en la URL del callback");
   }
 
-  // Si hay error o no hay código, volvemos a login
+  console.log("[DEBUG CALLBACK] Redirigiendo a /login (fallo o sin código)");
   return NextResponse.redirect(`${origin}/login`);
 }
