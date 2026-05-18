@@ -6,8 +6,6 @@ import { FichaVistaPrevia } from "@/components/ficha/FichaVistaPrevia";
 import { GenerateFichaPDF } from "@/components/ficha/GenerateFichaPDF";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 
-export const dynamic = "force-dynamic";
-
 function aIso(transactionDate: Date | null | undefined): string | null {
   if (!transactionDate) return null;
   const t = new Date(transactionDate);

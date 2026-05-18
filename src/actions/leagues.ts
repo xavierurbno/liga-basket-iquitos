@@ -3,9 +3,15 @@
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { leagues, leagueSettings } from "@/lib/db/schema";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { getActiveLeagueIdFromCookies } from "@/lib/auth/active-league";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
+import {
+  persistActiveLeagueContext,
+  revalidateActiveLeaguePaths,
+} from "@/lib/auth/set-active-league-cookie";
 import { leagueRepository } from "@/repositories/league.repository";
 
 const createLeagueSchema = z.object({
@@ -18,13 +24,15 @@ export type CreateLeagueState = {
   message?: string;
   error?: string;
   errors?: Record<string, string[]>;
+  /** Liga recién creada; la acción ya la dejó como liga activa en cookie. */
+  leagueId?: string;
 };
 
 export const createLeagueAction = withAuth(
   async (
     _prevState: CreateLeagueState,
     formData: FormData,
-    _user: User,
+    user: User,
     _context: AuthContext,
   ): Promise<CreateLeagueState> => {
     const rawData = {
@@ -55,11 +63,14 @@ export const createLeagueAction = withAuth(
         seasonName: `Temporada ${new Date().getFullYear()}`,
       });
 
+      await persistActiveLeagueContext(user.id, newLeague.id);
       revalidatePath("/super-admin/leagues");
+      revalidateActiveLeaguePaths();
 
       return {
         success: true,
-        message: "Liga creada correctamente",
+        message: "Liga creada y seleccionada como liga activa",
+        leagueId: newLeague.id,
       };
     } catch (error: unknown) {
       console.error("[CREATE_LEAGUE_ERROR]", error);
@@ -83,9 +94,15 @@ export const createLeagueAction = withAuth(
 );
 
 export const deleteLeagueAction = withAuth(
-  async (id: string, _user: User, _context: AuthContext) => {
+  async (id: string, user: User, _context: AuthContext) => {
     try {
+      const cookieStore = await cookies();
+      const activeId = getActiveLeagueIdFromCookies(cookieStore);
       await leagueRepository.delete(id);
+      if (activeId === id) {
+        await persistActiveLeagueContext(user.id, null);
+        revalidateActiveLeaguePaths();
+      }
       revalidatePath("/super-admin/leagues");
       return { success: true, message: "Liga eliminada correctamente" };
     } catch (error) {

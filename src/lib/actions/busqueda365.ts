@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { asc, eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { categories, clubs, players } from "@/lib/db/schema";
+import { isValidUuid, sanitizeTsQueryInput } from "@/lib/db/public-read-guards";
 import { resolvePublicJugadorImageUrl } from "@/lib/utils/jugador-image-url";
 
 /** Option del buscador: cada fila en `categories` (category interna al club). */
@@ -42,9 +43,6 @@ export type ListarCategoriasResult =
 export type ListarPlantillaResult =
   | { success: true; clubs: Busqueda365ClubBloque[] }
   | { success: false; error: string };
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const getCachedCategoriasGlobal = unstable_cache(
   async () => {
@@ -104,14 +102,14 @@ export async function listarPlantillaPorCategoriaId(
   searchTerm?: string
 ): Promise<ListarPlantillaResult> {
   const id = categoriaClubId.trim();
-  if (!UUID_RE.test(id)) {
+  if (!isValidUuid(id)) {
     return { success: false, error: "Identificador de category no valid." };
   }
 
   try {
     const baseConditions = [eq(categories.id, id)];
-    if (searchTerm && searchTerm.trim() !== "") {
-      const tsQueryTerm = searchTerm.trim().split(/\s+/).map(w => w + ":*").join(" & ");
+    const tsQueryTerm = searchTerm ? sanitizeTsQueryInput(searchTerm) : "";
+    if (tsQueryTerm) {
       baseConditions.push(
         sql`to_tsvector('spanish', ${players.name} || ' ' || ${players.lastname}) @@ to_tsquery('spanish', ${tsQueryTerm})`
       );

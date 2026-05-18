@@ -14,12 +14,20 @@ import { createClubService } from "@/services/clubService";
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { isSuperAdminDataScope } from "@/lib/auth/intranet-roles";
+import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
 import { User } from "@supabase/supabase-js";
 import { db } from "@/lib/db/client";
 import { treasury, clubMembers, playerStatusEnum, type PlayerStatus } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { movimientoCajaSchema, registroJugadorSchema } from "@/lib/validations/schemas";
-import { generarNumeroFicha } from "@/lib/utils/category";
+import {
+  formatRegistroJugadorZodError,
+  movimientoCajaSchema,
+  registroJugadorServerSchema,
+} from "@/lib/validations/schemas";
+import {
+  calcularCategoria,
+  generarNumeroFichaDesdeCategoriaClub,
+} from "@/lib/utils/category";
 
 // --- Helpers ---
 
@@ -70,6 +78,79 @@ function asText(v: FormDataEntryValue | null) {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/** Primer valor no vacío entre varias claves de FormData (formularios legacy vs actuales). */
+function pickFormText(formData: FormData, ...keys: string[]): string {
+  for (const key of keys) {
+    const v = asText(formData.get(key));
+    if (v) return v;
+  }
+  return "";
+}
+
+async function resolveLeagueAndClubForPlayerAction(
+  formData: FormData,
+  context: AuthContext,
+): Promise<{ leagueId: string; clubId: string } | { error: string }> {
+  const clubId = context.clubId || asText(formData.get("clubId"));
+  if (!clubId) {
+    return { error: "Contexto de club no encontrado." };
+  }
+
+  const club = await clubRepository.findById(clubId);
+  if (!club?.leagueId) {
+    return { error: "Club no encontrado." };
+  }
+
+  if (
+    !clubBelongsToOperationalLeague(club.leagueId, context.leagueId, context.role)
+  ) {
+    return {
+      error:
+        context.role === "SUPER_ADMIN"
+          ? "Este club no pertenece a la liga activa. Elige la liga correcta en el panel."
+          : "No puedes registrar deportistas en este club.",
+    };
+  }
+
+  if (context.role === "CLUB_DELEGATE" && context.clubId && clubId !== context.clubId) {
+    return { error: "Acceso denegado: club no autorizado." };
+  }
+
+  const leagueId = context.leagueId?.trim() || club.leagueId;
+  return { leagueId, clubId };
+}
+
+function buildRegistroJugadorRawData(formData: FormData) {
+  const jerseyRaw = pickFormText(formData, "jerseyNumber", "numeroPolo");
+  return {
+    name: pickFormText(formData, "name", "nombres"),
+    lastname: pickFormText(formData, "lastname", "apellidos"),
+    documentType: (pickFormText(formData, "documentType", "document_type") || "DNI") as
+      | "DNI"
+      | "CE"
+      | "PASAPORTE",
+    documentNumber: pickFormText(formData, "documentNumber", "document_number"),
+    birthdate: pickFormText(formData, "birthdate", "fecha_nacimiento"),
+    gender: (pickFormText(formData, "gender", "genero") || "MIXTO") as
+      | "MASCULINO"
+      | "FEMENINO"
+      | "MIXTO",
+    phone: pickFormText(formData, "phone", "telefono").replace(/\D/g, ""),
+    address: pickFormText(formData, "address", "direccion"),
+    position: pickFormText(formData, "position"),
+    jerseyNumber: jerseyRaw ? Number(jerseyRaw) : undefined,
+    tutorName: pickFormText(formData, "tutorName"),
+    tutorDocumentType: (pickFormText(formData, "tutorDocumentType") || "DNI") as
+      | "DNI"
+      | "CE"
+      | "PASAPORTE",
+    tutorDocumentNumber: pickFormText(formData, "tutorDocumentNumber"),
+    tutorPhone: pickFormText(formData, "tutorPhone").replace(/\D/g, ""),
+    email: pickFormText(formData, "email") || "",
+    emergencyContact: "",
+  };
+}
+
 function formatActionError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
   if (msg.toLowerCase().includes("bucket not found")) {
@@ -118,12 +199,15 @@ const crearCategoriaSchema = z.object({
 
 export const crearClubSistemaAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
-    if (context.role === "LEAGUE_ADMIN") {
-      const lid = context.leagueId?.trim();
-      if (!lid) {
+    const operationalLeagueId = context.leagueId?.trim() || null;
+    if (context.role === "LEAGUE_ADMIN" || context.role === "SUPER_ADMIN") {
+      if (!operationalLeagueId) {
         return {
           success: false,
-          error: "Tu cuenta no tiene liga asignada; no puedes crear clubes.",
+          error:
+            context.role === "SUPER_ADMIN"
+              ? "Selecciona una liga activa antes de crear clubes."
+              : "Tu cuenta no tiene liga asignada; no puedes crear clubes.",
         };
       }
     }
@@ -143,9 +227,7 @@ export const crearClubSistemaAction = withAuth(
       formData,
       { id: user.id, email: user.email || "" },
       supabase,
-      context.role === "LEAGUE_ADMIN"
-        ? { leagueId: context.leagueId!.trim() }
-        : undefined,
+      operationalLeagueId ? { leagueId: operationalLeagueId } : undefined,
     );
 
     if (!res.success) {
@@ -159,7 +241,7 @@ export const crearClubSistemaAction = withAuth(
     }
 
     revalidateTag("clubs-list", "max");
-    revalidatePath(`/${clubSlug}/`);
+    revalidatePath(`/liga/clubs/${clubId}/`);
     return { success: true, clubId, clubSlug };
   },
   ["SUPER_ADMIN", "LEAGUE_ADMIN"]
@@ -167,7 +249,7 @@ export const crearClubSistemaAction = withAuth(
 
 export const crearCategoriaAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
-    const { clubId } = context;
+    const clubId = context.clubId || asText(formData.get("clubId"));
     const name = asText(formData.get("nombre_categoria"));
     const notes = asText(formData.get("descripcion"));
 
@@ -217,13 +299,13 @@ export const crearCategoriaAction = withAuth(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
       `clubs/${clubId}/categories/${slugifyNombre(name)}/entrenador`,
-      formData.get("entrenador_foto")
+      formData.get("entrenadorFotoFile")
     );
     const delegadoFotoSubida = await uploadImageIfPresent(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
       `clubs/${clubId}/categories/${slugifyNombre(name)}/delegado`,
-      formData.get("delegado_foto")
+      formData.get("delegadoFotoFile")
     );
 
     await categoryRepository.create({
@@ -269,6 +351,10 @@ export const eliminarCategoriaAction = withAuth(
   },
   ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"]
 );
+
+export async function eliminarCategoriaFormAction(formData: FormData): Promise<void> {
+  await eliminarCategoriaAction(formData);
+}
 
 export const actualizarCategoriaAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
@@ -342,35 +428,23 @@ export const registrarJugadorAction = withAuth(
     let uploadedPhotoKey: string | null = null;
 
     try {
-      const { leagueId, clubId } = context;
+      const tenant = await resolveLeagueAndClubForPlayerAction(formData, context);
+      if ("error" in tenant) {
+        return { success: false, error: tenant.error };
+      }
+      const { leagueId, clubId } = tenant;
       const categoryId = asText(formData.get("categoryId"));
-
-      if (!leagueId || !clubId || !categoryId) {
-        return { success: false, error: "Contexto de liga o club no encontrado." };
+      if (!categoryId) {
+        return { success: false, error: "Categoría no indicada." };
       }
 
-      // Normalización de campos del FormData para que coincidan con el esquema
-      const rawData = {
-        name: asText(formData.get("name")),
-        lastname: asText(formData.get("lastname")),
-        documentType: (formData.get("documentType") as any) ?? "DNI",
-        documentNumber: asText(formData.get("documentNumber")),
-        birthdate: asText(formData.get("birthdate")),
-        gender: (formData.get("gender") as any) ?? "MIXTO",
-        phone: asText(formData.get("phone")),
-        address: asText(formData.get("address")),
-        position: asText(formData.get("position")),
-        jerseyNumber: formData.get("jerseyNumber") ? Number(formData.get("jerseyNumber")) : undefined,
-        tutorName: asText(formData.get("tutorName")),
-        tutorDocumentType: (formData.get("tutorDocumentType") as any) ?? "DNI",
-        tutorDocumentNumber: asText(formData.get("tutorDocumentNumber")),
-        tutorPhone: asText(formData.get("tutorPhone")),
-      };
-
-      const validated = registroJugadorSchema.safeParse(rawData);
+      const rawData = buildRegistroJugadorRawData(formData);
+      const validated = registroJugadorServerSchema.safeParse(rawData);
       if (!validated.success) {
-        const errorMsg = validated.error.issues[0]?.message || "Datos de formulario inválidos.";
-        return { success: false, error: errorMsg };
+        return {
+          success: false,
+          error: formatRegistroJugadorZodError(validated.error),
+        };
       }
 
       const { data } = validated;
@@ -389,7 +463,7 @@ export const registrarJugadorAction = withAuth(
 
       // 1. Pre-subida de Imagen (Fuera de la transacción de DB pero controlada)
       let photoUrl: string | null = null;
-      const fotoArchivo = formData.get("foto");
+      const fotoArchivo = formData.get("foto") ?? formData.get("foto_archivo");
       
       if (fotoArchivo instanceof File && fotoArchivo.size > 0) {
         const ext = fotoArchivo.name.split(".").pop() || "jpg";
@@ -411,12 +485,19 @@ export const registrarJugadorAction = withAuth(
       // 2. Transacción de Base de Datos
       await db.transaction(async (tx) => {
         const catRow = await categoryRepository.findById(categoryId, tx);
-        if (!catRow) throw new Error("Categoría no encontrada.");
+        if (!catRow || catRow.clubId !== clubId) {
+          throw new Error("Categoría no encontrada para este club.");
+        }
 
         // V-03: Concurrency Fix mediante Secuencia de Postgres
         const seqResult = await tx.execute(sql`SELECT nextval('carnet_deportista_seq')`);
         const nextVal = Number(seqResult[0].nextval);
-        const carnetNumber = generarNumeroFicha(catRow.name as any, nextVal);
+        const categoriaPorEdad = calcularCategoria(data.birthdate);
+        const carnetNumber = generarNumeroFichaDesdeCategoriaClub(
+          catRow.name,
+          data.birthdate,
+          nextVal,
+        );
 
         await playerRepository.create({
           leagueId, // Inyección automática
@@ -428,7 +509,7 @@ export const registrarJugadorAction = withAuth(
           documentNumber: data.documentNumber,
           birthdate: data.birthdate,
           gender: data.gender,
-          category: catRow.name as any,
+          category: categoriaPorEdad,
           phone: data.phone || undefined,
           photoUrl,
           jerseyNumber: data.jerseyNumber,
@@ -476,10 +557,18 @@ export const eliminarClubAction = withAuth(
       return { success: false, error: "Club no encontrado." };
     }
 
+    const actorLeague = context.leagueId?.trim();
     if (context.role === "LEAGUE_ADMIN") {
-      const actorLeague = context.leagueId?.trim();
       if (!actorLeague || existing.leagueId !== actorLeague) {
         return { success: false, error: "No puedes eliminar clubes fuera de tu liga." };
+      }
+    }
+    if (context.role === "SUPER_ADMIN") {
+      if (!actorLeague || existing.leagueId !== actorLeague) {
+        return {
+          success: false,
+          error: "Este club no pertenece a la liga activa. Cambia de liga en la barra superior.",
+        };
       }
     }
 
@@ -690,24 +779,27 @@ export const updateLeagueSettingsAction = withAuth(
   ["SUPER_ADMIN", "LEAGUE_ADMIN"]
 );
 
-export async function seedLeagueSettingsAction(): Promise<ActionResult> {
-  try {
-    const existing = await settingsRepository.getSettings();
-    if (existing) return { success: true };
+export const seedLeagueSettingsAction = withAuth(
+  async (): Promise<ActionResult> => {
+    try {
+      const existing = await settingsRepository.getSettings();
+      if (existing) return { success: true };
 
-    await settingsRepository.upsert({
-      transferPeriodStart: null,
-      transferPeriodEnd: null,
-      bannerText: "El Mercado de Pases está cerrado temporalmente.",
-      isManualOverride: false,
-    });
+      await settingsRepository.upsert({
+        transferPeriodStart: null,
+        transferPeriodEnd: null,
+        bannerText: "El Mercado de Pases está cerrado temporalmente.",
+        isManualOverride: false,
+      });
 
-    revalidateTag("league-settings", "max");
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: formatActionError(error) };
-  }
-}
+      revalidateTag("league-settings", "max");
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: formatActionError(error) };
+    }
+  },
+  "SUPER_ADMIN"
+);
 
 /**
  * registrarMovimientoAction

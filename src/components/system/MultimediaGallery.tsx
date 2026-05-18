@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import { GalleryCarousel } from "@/components/gallery/GalleryCarousel";
 import { SponsorCarousel } from "@/components/sponsors/SponsorCarousel";
 import { PublicNormativasHomeWidget } from "@/components/normativas/PublicNormativasHomeWidget";
-import { sponsorRepository } from "@/repositories/sponsorRepository";
 import type { SponsorCarouselItem } from "@/components/sponsors/SponsorCarousel";
 
 interface GalleryImage {
@@ -15,12 +15,13 @@ interface MultimediaGalleryProps {
   images: GalleryImage[];
   /** `feb`: rejilla 4 columnas (75 % + 25 %); el padre debe aportar `PORTAL_SHELL_CLASS`. */
   layout?: "full" | "feb";
-  leagueId?: string;
+  /** Columna derecha FEB (patrocinadores + normativas); el padre puede envolverla en Suspense. */
+  febRightColumn?: ReactNode;
 }
 
 const align = "px-4 sm:px-6 lg:px-8";
 
-function FebRightColumn({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
+export function FebRightColumn({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:col-span-1 lg:min-h-0">
       <SponsorCarousel sponsors={sponsors} />
@@ -29,22 +30,16 @@ function FebRightColumn({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
   );
 }
 
-async function mapSponsors(leagueId: string | undefined) {
-  if (leagueId == null) return [];
-  return (await sponsorRepository.findByLeague(leagueId)).map((s) => ({
-    id: s.id,
-    name: s.name,
-    logoUrl: s.logoUrl,
-    websiteUrl: s.websiteUrl,
-  }));
+export function FebRightColumnSkeleton() {
+  return <FebRightColumn sponsors={[]} />;
 }
 
-export async function MultimediaGallery({
+export function MultimediaGallery({
   images,
   layout = "feb",
-  leagueId,
+  febRightColumn,
 }: MultimediaGalleryProps) {
-  const sponsorsForCarousel = await mapSponsors(leagueId);
+  const rightColumn = febRightColumn ?? <FebRightColumnSkeleton />;
 
   if (!images || images.length === 0) {
     if (layout === "feb") {
@@ -57,7 +52,7 @@ export async function MultimediaGallery({
               </p>
             </div>
           </div>
-          <FebRightColumn sponsors={sponsorsForCarousel} />
+          {rightColumn}
         </div>
       );
     }
@@ -86,7 +81,7 @@ export async function MultimediaGallery({
             visualVariant="feb"
           />
         </div>
-        <FebRightColumn sponsors={sponsorsForCarousel} />
+        {rightColumn}
       </div>
     );
   }
@@ -97,3 +92,4 @@ export async function MultimediaGallery({
     </div>
   );
 }
+

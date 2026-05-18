@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
   // Verificar si ya tiene club para no dejarlo en onboarding
   const existingClub = await db.select().from(clubs).where(eq(clubs.ownerId, user.id)).limit(1);
   if (existingClub.length > 0) {
-    redirect(`/${existingClub[0].slug}`);
+    redirect(`/liga/clubs/${existingClub[0].id}/`);
   }
 
   return (

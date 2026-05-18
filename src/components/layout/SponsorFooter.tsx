@@ -1,15 +1,29 @@
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
+import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { Sponsor } from "@/lib/db/schema";
+
+const FOOTER_MS = 8_000;
 
 export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: string }) {
   try {
-    const settings = await getCachedLeagueSettings();
-    let leagueId = propLeagueId || settings?.leagueId;
+    let leagueId = propLeagueId;
+    if (!leagueId) {
+      const settings = await withQueryTimeout(
+        getCachedLeagueSettings(),
+        FOOTER_MS,
+        "footerSettings"
+      );
+      leagueId = settings?.leagueId ?? undefined;
+    }
 
     if (!leagueId) return null;
 
-    const sponsors = await getSponsorsByLeagueAction(leagueId);
+    const sponsors = await withQueryTimeout(
+      getSponsorsByLeagueAction(leagueId),
+      FOOTER_MS,
+      "footerSponsors"
+    );
 
     if (!sponsors || sponsors.length === 0) {
       return (

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { UserAccountMenu } from "@/components/nav/UserAccountMenu";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
-
 const navBtn =
   "inline-flex items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 text-xs font-bold tracking-wide text-slate-600 transition hover:border-[#005CEE] hover:text-[#005CEE]";
 const navBtnActive =

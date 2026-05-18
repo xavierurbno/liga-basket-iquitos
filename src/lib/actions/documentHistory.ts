@@ -3,7 +3,10 @@
 import { db } from "@/lib/db/client";
 import { documentHistory } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
+import { requireAuth } from "@/lib/auth/require-auth";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
+
+const DOCUMENT_HISTORY_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
 
 export type RegistroEmisionResult =
   | { ok: true; correlative: number; createdAt: string }
@@ -12,10 +15,11 @@ export type RegistroEmisionResult =
 export async function registrarEmisionDocumento(
   data: DocumentoInput & { shortIdentifier: string }
 ): Promise<RegistroEmisionResult> {
-  try {
-    const { type, entityId, shortIdentifier, ...snapshotData } = data;
+  const auth = await requireAuth([...DOCUMENT_HISTORY_ROLES]);
+  if (auth.denied) return { ok: false, error: auth.error };
 
-    // Aseguramos que el snapshot contenga todo el payload incluyendo la data base64 de la foto
+  try {
+    const { type, entityId, shortIdentifier } = data;
     const snapshot = data;
 
     const [row] = await db
@@ -43,6 +47,9 @@ export async function registrarEmisionDocumento(
 }
 
 export async function obtenerUltimasEmisiones() {
+  const auth = await requireAuth([...DOCUMENT_HISTORY_ROLES]);
+  if (auth.denied) return { ok: false as const, error: auth.error };
+
   try {
     const rows = await db
       .select({
@@ -57,9 +64,9 @@ export async function obtenerUltimasEmisiones() {
       .orderBy(desc(documentHistory.createdAt))
       .limit(20);
 
-    return { ok: true, emisiones: rows };
+    return { ok: true as const, emisiones: rows };
   } catch (error) {
     console.error("[obtenerUltimasEmisiones]", error);
-    return { ok: false, error: "Error al obtener el historial." };
+    return { ok: false as const, error: "Error al obtener el historial." };
   }
 }

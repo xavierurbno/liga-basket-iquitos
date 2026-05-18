@@ -2,12 +2,14 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { calcularEdad } from "@/lib/utils/age";
 import { FOTO_CELDA_ALTO_MM, FOTO_CELDA_ANCHO_MM } from "@/lib/pdf/fichaLayout";
+import { FICHA_COLUMNAS_TABLA } from "@/lib/pdf/fichaInstitucionalTextos";
 import {
-  FICHA_COLUMNAS_TABLA,
-  FICHA_T1 as T1,
-  FICHA_T2 as T2,
-  FICHA_T3 as T3,
-} from "@/lib/pdf/fichaInstitucionalTextos";
+  PAGE_X_MARGIN_MM,
+  calcCabeceraInstitucionalMetrics,
+  drawCabeceraInstitucional,
+  drawMarcaAguaCentrada,
+  type CabeceraInstitucionalMetrics,
+} from "@/lib/pdf/pdfInstitucionalCabecera";
 
 export type FichaPdfJugadorInput = {
   name: string;
@@ -52,256 +54,41 @@ const HEAD_FILL: [number, number, number] = [37, 99, 235];
 /** Acento “azul eléctrico” (#0070f3) — borde inferior del encabezado. */
 const HEAD_ACCENT_ELECTRIC: [number, number, number] = [0, 112, 243];
 
-/** Mismo valor que el margen X de los logos Federación (izq) y Liga (der) — regla de alineación con la tabla. */
-const PAGE_X_MARGIN_MM = 14;
 const FOOTER_FONT_SIZE = 7;
 const FOOTER_TEXT_COLOR: [number, number, number] = [75, 85, 99];
-
-function drawLogoFit(
-  doc: jsPDF,
-  dataUrl: string | null,
-  x: number,
-  y: number,
-  maxW: number,
-  maxH: number
-) {
-  if (!dataUrl || !dataUrl.startsWith("data:image")) {
-    // Fallback silencioso: no dibujamos nada para mantener la limpieza editorial
-    return;
-  }
-  let fmt: "PNG" | "JPEG" = "PNG";
-  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")) {
-    fmt = "JPEG";
-  }
-  const props = doc.getImageProperties(dataUrl);
-  const ratio = props.width / props.height;
-  let w = maxW;
-  let h = w / ratio;
-  if (h > maxH) {
-    h = maxH;
-    w = h * ratio;
-  }
-  const ox = x + (maxW - w) / 2;
-  const oy = y + (maxH - h) / 2;
-  doc.addImage({
-    imageData: dataUrl,
-    format: fmt,
-    x: ox,
-    y: oy,
-    width: w,
-    height: h,
-    compression: "NONE",
-  });
-}
-
-/** Marca de agua: logo liga centrado, 160 mm de ancho, 0°, opacidad 0.07 — siempre detrás del contenido. */
-const WATERMARK_WIDTH_MM = 160;
-const WATERMARK_OPACITY = 0.07;
-
-function drawMarcaAguaCentrada(doc: jsPDF, ligaLogoDataUrl: string | null) {
-  if (!ligaLogoDataUrl) return;
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  let fmt: "PNG" | "JPEG" = "PNG";
-  if (ligaLogoDataUrl.startsWith("data:image/jpeg") || ligaLogoDataUrl.startsWith("data:image/jpg")) {
-    fmt = "JPEG";
-  }
-  const props = doc.getImageProperties(ligaLogoDataUrl);
-  let wMm = WATERMARK_WIDTH_MM;
-  let hMm = wMm * (props.height / props.width);
-  const maxH = pageH - 24;
-  if (hMm > maxH) {
-    const s = maxH / hMm;
-    hMm *= s;
-    wMm *= s;
-  }
-  const x = (pageW - wMm) / 2;
-  const y = (pageH - hMm) / 2;
-  doc.saveGraphicsState();
-  doc.setGState(doc.GState({ opacity: WATERMARK_OPACITY }));
-  doc.addImage({
-    imageData: ligaLogoDataUrl,
-    format: fmt,
-    x,
-    y,
-    width: wMm,
-    height: hMm,
-    compression: "NONE",
-  });
-  doc.restoreGraphicsState();
-}
-
-/** Métricas compartidas entre el dibujo del encabezado y `tablaStartY`. */
-type CabeceraCompactaMetrics = {
-  pageW: number;
-  margin: number;
-  sideW: number;
-  centerX: number;
-  centerMaxW: number;
-  bandH: number;
-  lines1: string[];
-  lines2: string[];
-  lineH14: number;
-  lineH12: number;
-  gapTitulos: number;
-  gapBeforeT3: number;
-  gapAfterLiga: number;
-  lineT3: number;
-  blockH: number;
-  gapAfterTitlesBand: number;
-  gapAfterSeparator: number;
-  gapIdentityToTable: number;
-  clubDataLines: string[];
-  catDataLines: string[];
-  lineData11: number;
-  gapClubCat: number;
-  identityRowH: number;
-  /** Offset desde `headerTop` hasta la Y donde empieza la tabla de players. */
-  alturaHastaInicioTabla: number;
-};
 
 function calcCabeceraCompactaMetrics(
   doc: jsPDF,
   categoriaDetalle: string,
   clubName: string
-): CabeceraCompactaMetrics {
-  const pageW = doc.internal.pageSize.getWidth();
-  const margin = PAGE_X_MARGIN_MM;
-  const sideW = 30;
-  const centerX = pageW / 2;
-  const centerMaxW = pageW - margin * 2 - sideW * 2 - 10;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  const lines1 = doc.splitTextToSize(T1, centerMaxW);
-  doc.setFontSize(12);
-  const lines2 = doc.splitTextToSize(T2, centerMaxW);
-
-  const lineH14 = 5.5;
-  const lineH12 = 4.8;
-  const gapTitulos = 3.5;
-  const gapAfterLiga = 1.2;
-  const gapBeforeT3 = 1.4;
-  const lineT3 = 5.2;
-
-  const blockH =
-    lines1.length * lineH14 +
-    gapTitulos +
-    lines2.length * lineH12 +
-    gapAfterLiga +
-    gapBeforeT3 +
-    lineT3;
-  const bandH = Math.max(38, blockH + 12);
-
-  const gapAfterTitlesBand = 2;
-  const gapAfterSeparator = 1;
-  const gapIdentityToTable = 1;
-  const lineData11 = 5.5;
-  const gapClubCat = 1.2;
-
-  const sealMm = 18;
-  const dataMaxW = pageW - 2 * margin - sealMm - 4;
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  const clubDataLines = doc.splitTextToSize(`CLUB: ${clubName.trim().toUpperCase()}`, dataMaxW);
-  const catDataLines = doc.splitTextToSize(`CATEGORÍA: ${categoriaDetalle.toUpperCase()}`, dataMaxW);
-
-  const textBlockH =
-    clubDataLines.length * lineData11 + gapClubCat + catDataLines.length * lineData11;
-  const identityRowH = Math.max(sealMm, textBlockH);
-
-  const alturaHastaInicioTabla =
-    bandH +
-    gapAfterTitlesBand +
-    gapAfterSeparator +
-    identityRowH +
-    gapIdentityToTable;
-
-  return {
-    pageW,
-    margin,
-    sideW,
-    centerX,
-    centerMaxW,
-    bandH,
-    lines1,
-    lines2,
-    lineH14,
-    lineH12,
-    gapTitulos,
-    gapBeforeT3,
-    gapAfterLiga,
-    lineT3,
-    blockH,
-    gapAfterTitlesBand,
-    gapAfterSeparator,
-    gapIdentityToTable,
-    clubDataLines,
-    catDataLines,
-    lineData11,
-    gapClubCat,
-    identityRowH,
-    alturaHastaInicioTabla,
-  };
+): CabeceraInstitucionalMetrics {
+  return calcCabeceraInstitucionalMetrics(doc, {
+    identityLines: [
+      `CLUB: ${clubName.trim().toUpperCase()}`,
+      `CATEGORÍA: ${categoriaDetalle.toUpperCase()}`,
+    ],
+  });
 }
 
-function drawLineaSeparadoraEditorial(doc: jsPDF, y: number, pageW: number, margin: number) {
-  doc.setDrawColor(210, 210, 212);
-  doc.setLineWidth(0.12);
-  doc.line(margin, y, pageW - margin, y);
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.2);
-}
-
-const IDENTITY_SEAL_MM = 18;
-
-/**
- * Fed | T1+T2+T3 | Liga → línea → CLUB / CATEGORÍA (izq.) + sello club (der.).
- */
 function drawCabeceraPrimerPagina(
   doc: jsPDF,
   input: FichaCategoriaPdfInput,
   headerTop: number,
-  m: CabeceraCompactaMetrics
+  m: CabeceraInstitucionalMetrics
 ) {
-  const y0 = headerTop;
-
-  drawLogoFit(doc, input.federacionLogoPngDataUrl, m.margin, y0, m.sideW, m.bandH);
-  drawLogoFit(doc, input.ligaLogoPngDataUrl, m.pageW - m.margin - m.sideW, y0, m.sideW, m.bandH);
-
-  let yy = y0 + (m.bandH - m.blockH) / 2 + m.lineH14 * 0.85;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(m.lines1, m.centerX, yy, { align: "center" });
-  yy += m.lines1.length * m.lineH14 + m.gapTitulos;
-  doc.setFontSize(12);
-  doc.text(m.lines2, m.centerX, yy, { align: "center" });
-  yy += m.lines2.length * m.lineH12 + m.gapAfterLiga;
-  yy += m.gapBeforeT3;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(T3, m.centerX, yy, { align: "center" });
-
-  const yLine = y0 + m.bandH + m.gapAfterTitlesBand;
-  drawLineaSeparadoraEditorial(doc, yLine, m.pageW, m.margin);
-
-  const yRowTop = yLine + m.gapAfterSeparator;
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  let bl = yRowTop + m.lineData11;
-  doc.text(m.clubDataLines, m.margin, bl);
-  bl += m.clubDataLines.length * m.lineData11 + m.gapClubCat;
-  doc.text(m.catDataLines, m.margin, bl);
-
-  const sealY = yRowTop + (m.identityRowH - IDENTITY_SEAL_MM) / 2;
-  drawLogoFit(
+  drawCabeceraInstitucional(
     doc,
-    input.clubLogoPngDataUrl,
-    m.pageW - m.margin - IDENTITY_SEAL_MM,
-    sealY,
-    IDENTITY_SEAL_MM,
-    IDENTITY_SEAL_MM
+    {
+      federacionLogoPngDataUrl: input.federacionLogoPngDataUrl,
+      ligaLogoPngDataUrl: input.ligaLogoPngDataUrl,
+      identityLines: [
+        `CLUB: ${input.clubName.trim().toUpperCase()}`,
+        `CATEGORÍA: ${input.categoriaDetalle.toUpperCase()}`,
+      ],
+      rightLogoPngDataUrl: input.clubLogoPngDataUrl,
+    },
+    headerTop,
+    m
   );
 }
 

@@ -9,6 +9,8 @@ export function IntranetChrome({
   clubId,
   leagues,
   clubs,
+  activeLeagueId,
+  activeLeagueName,
   children,
 }: {
   role: IntranetRole;
@@ -20,6 +22,8 @@ export function IntranetChrome({
   leagues?: IntranetNavLeague[];
   clubs?: IntranetNavClub[];
   leagueClubs?: IntranetNavClub[];
+  activeLeagueId?: string | null;
+  activeLeagueName?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -31,6 +35,8 @@ export function IntranetChrome({
         clubId={clubId ?? null}
         leagues={leagues}
         clubs={clubs}
+        activeLeagueId={activeLeagueId}
+        activeLeagueName={activeLeagueName}
       />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
     </div>

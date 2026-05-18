@@ -69,6 +69,8 @@ type ProfilesAssignmentsTableProps = {
   clubOptions?: DelegateClubPickerOption[];
   actorRole?: Role;
   actorLeagueId?: string | null;
+  defaultLeagueId?: string | null;
+  leagueName?: string | null;
 };
 
 export function ProfilesAssignmentsTable({
@@ -78,6 +80,8 @@ export function ProfilesAssignmentsTable({
   clubOptions = [],
   actorRole,
   actorLeagueId,
+  defaultLeagueId,
+  leagueName,
 }: ProfilesAssignmentsTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -230,6 +234,9 @@ export function ProfilesAssignmentsTable({
           mode="edit"
           editInitial={editInitial}
           clubOptions={clubOptions}
+          defaultLeagueId={defaultLeagueId ?? editInitial.leagueId}
+          leagueName={leagueName}
+          actorRole={actorRole}
           onRequestClose={() => setEditInitial(null)}
         />
       ) : null}

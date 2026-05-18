@@ -27,6 +27,9 @@ export type ManageProfileFormPanelProps = {
   onRequestClose: () => void;
   mode?: "create" | "edit";
   editInitial?: EditProfileInitial;
+  defaultLeagueId?: string | null;
+  leagueName?: string | null;
+  actorRole?: string;
 };
 
 type ProfileAssignmentActionState =
@@ -54,11 +57,23 @@ function toastPayloadForServerError(state: ProfileAssignmentActionState): string
   return false;
 }
 
+function defaultRoleForCreate(
+  actorRole: string | undefined,
+  defaultLeagueId: string | null | undefined,
+): AssignableStaffRole {
+  if (actorRole === "SUPER_ADMIN" && defaultLeagueId) return "LEAGUE_ADMIN";
+  if (actorRole === "LEAGUE_ADMIN") return "LEAGUE_ADMIN";
+  return "SUPER_ADMIN";
+}
+
 export function ManageProfileFormPanel({
   clubOptions,
   onRequestClose,
   mode = "create",
   editInitial,
+  defaultLeagueId,
+  leagueName,
+  actorRole,
 }: ManageProfileFormPanelProps) {
   const router = useRouter();
   const isEdit = mode === "edit" && Boolean(editInitial);
@@ -84,13 +99,13 @@ export function ManageProfileFormPanel({
   const fieldErrors = "errors" in state ? state.errors : undefined;
 
   const [role, setRole] = useState<AssignableStaffRole>(
-    editInitial?.role ?? "SUPER_ADMIN",
+    editInitial?.role ?? defaultRoleForCreate(actorRole, defaultLeagueId),
   );
 
   const closeModal = useCallback(() => {
     onRequestClose();
-    setRole(editInitial?.role ?? "SUPER_ADMIN");
-  }, [onRequestClose, editInitial?.role]);
+    setRole(editInitial?.role ?? defaultRoleForCreate(actorRole, defaultLeagueId));
+  }, [onRequestClose, editInitial?.role, actorRole, defaultLeagueId]);
 
   useEffect(() => {
     if (editInitial?.role) {
@@ -254,6 +269,18 @@ export function ManageProfileFormPanel({
                   <p className="text-[11px] font-bold text-red-600">{fieldErrors.role[0]}</p>
                 ) : null}
               </div>
+
+              {role === "LEAGUE_ADMIN" && defaultLeagueId ? (
+                <div className="space-y-1.5 rounded-xl border border-[#BFDBFE] bg-blue-50/60 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Liga asignada
+                  </p>
+                  <p className="text-sm font-semibold text-[#0f2040]">
+                    {leagueName ?? "Liga activa"}
+                  </p>
+                  <input type="hidden" name="leagueId" value={defaultLeagueId} />
+                </div>
+              ) : null}
 
               {role === "CLUB_DELEGATE" ? (
                 <div className="space-y-1.5">

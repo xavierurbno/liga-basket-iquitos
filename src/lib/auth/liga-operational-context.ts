@@ -1,0 +1,61 @@
+import { cache } from "react";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { redirect } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
+import { leagueRepository } from "@/repositories/league.repository";
+import {
+  resolveOperationalLeagueId,
+  needsOperationalLeagueSelection,
+} from "@/lib/auth/resolve-league-id";
+import type { Role } from "@/lib/auth/withAuth";
+
+export type LigaOperationalContext = {
+  user: User;
+  role: Role | undefined;
+  leagueId: string | null;
+  leagueName: string | null;
+  needsLeagueSelection: boolean;
+  leagues: { id: string; name: string; slug: string }[];
+};
+
+export const getLigaOperationalContext = cache(async (): Promise<LigaOperationalContext> => {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll() {},
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const role = user.app_metadata?.role as Role | undefined;
+  const leagueId = resolveOperationalLeagueId(user, cookieStore);
+  const needsLeagueSelection = needsOperationalLeagueSelection(role, leagueId);
+
+  const leagues =
+    role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
+
+  let leagueName: string | null = null;
+  if (leagueId) {
+    const league = await leagueRepository.findById(leagueId);
+    leagueName = league?.name ?? null;
+  }
+
+  return {
+    user,
+    role,
+    leagueId,
+    leagueName,
+    needsLeagueSelection,
+    leagues,
+  };
+});

@@ -41,6 +41,9 @@ function poolMaxFor(connectionString: string): number {
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 20) return parsed;
   /** Con `max: 1`, varias peticiones RSC concurrentes encolan consultas y pueden superar `statement_timeout`. */
+  if (process.env.NODE_ENV === "production" && connectionString.includes("supabase.co")) {
+    return 2;
+  }
   return connectionString.includes("supabase.co") ? 6 : 3;
 }
 
@@ -51,9 +54,12 @@ function postgresOptions(connectionString: string): Parameters<typeof postgres>[
     prepare: false,
     max: poolMaxFor(connectionString),
     connect_timeout: 25,
-    onnotice: () => {}, // Silenciar notices de Postgres en consola
+    /** Libera conexiones ociosas para no bloquear el pool en dev (varias pestañas / RSC). */
+    idle_timeout: 20,
+    max_lifetime: 60 * 10,
+    onnotice: () => {},
     connection: {
-      statement_timeout: 10000, // 10 segundos
+      statement_timeout: 10000,
     },
     ...(esSupabaseHost ? { ssl: "require" as const } : {}),
   };

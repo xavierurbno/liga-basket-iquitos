@@ -5,6 +5,7 @@ import { hasIntranetAccess, type IntranetRole } from "@/lib/auth/intranet-roles"
 import { IntranetChrome } from "@/components/intranet/IntranetChrome";
 import { clubRepository } from "@/repositories/clubRepository";
 import { leagueRepository } from "@/repositories/league.repository";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 
 export const dynamic = "force-dynamic";
 
@@ -64,13 +65,24 @@ export default async function DashboardLayout({
     leagueClubs = inLeague.map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
   }
 
+  let activeLeagueId: string | null = null;
+  let activeLeagueName: string | null = null;
+
   if (role === "SUPER_ADMIN") {
+    activeLeagueId = resolveOperationalLeagueId(user, cookieStore);
     const [lRows, cRows] = await Promise.all([
       leagueRepository.findAll(),
       clubRepository.findAllScoped({ bypassClubFilter: true, actingRole: "SUPER_ADMIN" }),
     ]);
     leagues = lRows.map((l) => ({ id: l.id, name: l.name, slug: l.slug }));
-    clubs = cRows.map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
+    const scopedClubs = activeLeagueId
+      ? cRows.filter((c) => c.leagueId === activeLeagueId)
+      : [];
+    clubs = scopedClubs.map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
+    if (activeLeagueId) {
+      const active = lRows.find((l) => l.id === activeLeagueId);
+      activeLeagueName = active?.name ?? null;
+    }
   }
 
   return (
@@ -84,6 +96,8 @@ export default async function DashboardLayout({
       leagues={leagues}
       clubs={clubs}
       leagueClubs={leagueClubs}
+      activeLeagueId={activeLeagueId}
+      activeLeagueName={activeLeagueName}
     >
       {children}
     </IntranetChrome>

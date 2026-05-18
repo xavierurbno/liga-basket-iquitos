@@ -14,6 +14,10 @@ function supabaseStorageHostname(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Evita que Next use el package-lock del monorepo padre en builds (Vercel/local).
+  turbopack: {
+    root: import.meta.dirname,
+  },
   // sharp es un módulo nativo — debe ejecutarse externamente, no bundleado
   serverExternalPackages: ["sharp"],
   images: {

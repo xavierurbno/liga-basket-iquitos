@@ -89,9 +89,13 @@ function CreateLeagueModalPanel({ onRequestClose }: CreateLeagueModalPanelProps)
       "message" in state && state.message ? state.message : "Liga creada correctamente";
     toast.success(message);
 
-    router.refresh();
-
     closeModal();
+
+    if ("leagueId" in state && state.leagueId) {
+      router.push("/liga/");
+    } else {
+      router.refresh();
+    }
   }, [closeModal, state, isPending, router]);
 
   const slugify = (text: string) => {
@@ -240,7 +244,16 @@ function CreateLeagueModalPanel({ onRequestClose }: CreateLeagueModalPanelProps)
  * Contenedor: controla apertura y fuerza remontaje del panel (nuevo `useActionState`)
  * cuando el modal pasa de cerrado → abierto.
  */
-export function CreateLeagueModal() {
+const defaultTriggerClassName =
+  "group relative flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 font-bold text-white shadow-xl shadow-blue-200/50 transition-all hover:bg-blue-700 active:scale-95";
+
+export function CreateLeagueModal({
+  triggerLabel = "Nueva Liga",
+  triggerClassName,
+}: {
+  triggerLabel?: string;
+  triggerClassName?: string;
+} = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [panelKey, setPanelKey] = useState(0);
   const wasOpenRef = useRef(false);
@@ -252,30 +265,36 @@ export function CreateLeagueModal() {
     wasOpenRef.current = isOpen;
   }, [isOpen]);
 
+  const btnClass = triggerClassName ?? defaultTriggerClassName;
+  const isDefaultTrigger = !triggerClassName;
+
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="group relative flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold transition-all hover:bg-blue-700 active:scale-95 shadow-xl shadow-blue-200/50"
+        className={btnClass}
       >
-        <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-blue-600 group-hover:rotate-90 transition-transform">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </div>
-        <span>Nueva Liga</span>
+        {isDefaultTrigger ? (
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-blue-600 transition-transform group-hover:rotate-90">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </div>
+        ) : null}
+        <span>{triggerLabel}</span>
       </button>
 
       {isOpen && (

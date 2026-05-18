@@ -49,9 +49,9 @@ export async function createClubAction(formData: FormData) {
       presidentName,
       adminEmail: user.email || "",
       ownerId: user.id,
-    }).returning({ slug: clubs.slug });
+    }).returning({ slug: clubs.slug, id: clubs.id });
 
-    return { success: true, slug: result[0].slug };
+    return { success: true, slug: result[0].slug, clubId: result[0].id };
   } catch (error: unknown) {
     console.error("Error al crear club:", error);
     if (error instanceof Error) {

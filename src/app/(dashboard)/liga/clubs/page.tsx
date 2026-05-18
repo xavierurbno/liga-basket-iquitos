@@ -9,8 +9,9 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { clubRepository } from "@/repositories/clubRepository";
-
-export const dynamic = "force-dynamic";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
+import { leagueRepository } from "@/repositories/league.repository";
 
 function isIntranetClubsRouteRole(r: string | undefined): r is IntranetRole {
   return Boolean(r && (INTRANET_ROLES as readonly string[]).includes(r));
@@ -19,15 +20,6 @@ function isIntranetClubsRouteRole(r: string | undefined): r is IntranetRole {
 /** `club_id` / `clubId` en JWT: null, vacío, "null" → sin tenant. */
 function resolvedClubIdFromMetadata(meta: Record<string, unknown>): string | null {
   const raw = meta.club_id ?? meta.clubId;
-  if (raw === null || raw === undefined) return null;
-  if (typeof raw !== "string") return null;
-  const s = raw.trim();
-  if (!s || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") return null;
-  return s;
-}
-
-function resolvedLeagueIdFromMetadata(meta: Record<string, unknown>): string | null {
-  const raw = meta.league_id ?? meta.leagueId;
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== "string") return null;
   const s = raw.trim();
@@ -67,29 +59,43 @@ export default async function ClubsPage() {
 
   const clubIdMeta = resolvedClubIdFromMetadata(meta);
   const clubSlugMeta = resolvedClubSlugFromMetadata(meta);
-  const leagueIdMeta = resolvedLeagueIdFromMetadata(meta);
-
   // Delegado: esta ruta no lista clubes; va a la intranet del club o al panel hasta que staff asigne club.
   if (appRole === "CLUB_DELEGATE") {
     if (clubIdMeta) {
-      const slug =
-        clubSlugMeta || (await clubRepository.findById(clubIdMeta))?.slug || "";
-      if (slug) redirect(`/${slug}/`);
+      redirect(`/liga/clubs/${clubIdMeta}/`);
     }
     redirect("/liga/");
   }
 
-  // SUPER_ADMIN / LEAGUE_ADMIN: listado y creación
+  const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
+
+  if (
+    (appRole === "SUPER_ADMIN" || appRole === "LEAGUE_ADMIN") &&
+    !operationalLeagueId
+  ) {
+    const leagues =
+      appRole === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
+    return (
+      <SelectActiveLeaguePrompt
+        role={appRole}
+        leagues={leagues}
+        title="Selecciona una liga para ver clubes"
+        description={
+          appRole === "SUPER_ADMIN"
+            ? "Elige la liga cuyos clubes quieres administrar. Puedes cambiar de liga desde la barra superior."
+            : undefined
+        }
+      />
+    );
+  }
+
+  // SUPER_ADMIN / LEAGUE_ADMIN: listado filtrado por liga operativa
   let rawClubs: (typeof clubs.$inferSelect)[] = [];
-  if (appRole === "SUPER_ADMIN") {
+  if (appRole === "SUPER_ADMIN" || appRole === "LEAGUE_ADMIN") {
     rawClubs = await getCachedClubs({
-      bypassClubFilter: true,
-      actingRole: "SUPER_ADMIN",
+      leagueId: operationalLeagueId!,
+      actingRole: appRole,
     });
-  } else if (appRole === "LEAGUE_ADMIN") {
-    rawClubs = leagueIdMeta
-      ? await getCachedClubs({ leagueId: leagueIdMeta, actingRole: "LEAGUE_ADMIN" })
-      : [];
   }
 
   const listaClubs = rawClubs.map((c) => ({
@@ -103,6 +109,11 @@ export default async function ClubsPage() {
 
   const canUseGlobalClubToolbar = appRole === "SUPER_ADMIN" || appRole === "LEAGUE_ADMIN";
 
+  const leagueName =
+    operationalLeagueId != null
+      ? (await leagueRepository.findById(operationalLeagueId))?.name ?? null
+      : null;
+
   if (listaClubs.length === 0) {
     return (
       <div className="space-y-4">
@@ -114,9 +125,7 @@ export default async function ClubsPage() {
         <div className="flex min-h-[40vh] flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">Sin clubes en este contexto</h2>
           <p className="max-w-md text-sm text-slate-500">
-            {appRole === "LEAGUE_ADMIN" && !leagueIdMeta
-              ? "Tu cuenta de administrador de liga no tiene una liga asignada (league_id). Contacta a un super administrador."
-              : "Aún no hay clubes registrados. Puedes crear el primero con el botón superior."}
+            Aún no hay clubes en esta liga. Puedes crear el primero con el botón superior.
           </p>
         </div>
       </div>
@@ -126,14 +135,23 @@ export default async function ClubsPage() {
   return (
     <div className="space-y-4">
       {canUseGlobalClubToolbar && (
-        <div className="flex items-center justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {leagueName ? (
+            <p className="text-sm text-slate-600">
+              Liga activa: <strong className="text-[#0f2040]">{leagueName}</strong>
+            </p>
+          ) : (
+            <span />
+          )}
           <CrearClubModal />
         </div>
       )}
       <section className="space-y-3 rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-[0_20px_50px_-35px_rgba(59,130,246,0.6)]">
-        <h2 className="text-lg font-bold text-slate-900">Sección CLUBS</h2>
+        <h2 className="text-lg font-bold text-slate-900">Clubes de la liga</h2>
         <p className="text-sm text-slate-500">
-          Administra tus clubes y crea la estructura base para categorías y players.
+          {leagueName
+            ? `Clubes registrados en ${leagueName}. Categorías y jugadores se gestionan por club.`
+            : "Administra clubes, categorías y jugadores."}
         </p>
         <div className="space-y-2">
           {listaClubs.map((club) => (

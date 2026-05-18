@@ -6,13 +6,22 @@ import type { DelegateClubPickerOption } from "./PerfilesHubHeader";
 
 type ManageProfileModalProps = {
   clubOptions: DelegateClubPickerOption[];
+  defaultLeagueId?: string | null;
+  leagueName?: string | null;
+  actorRole?: string;
   renderTrigger: (open: () => void) => ReactNode;
 };
 
 /**
  * Patrón split: `panelKey` fuerza remontaje de `ManageProfileFormPanel` al pasar de cerrado → abierto.
  */
-export function ManageProfileModal({ clubOptions, renderTrigger }: ManageProfileModalProps) {
+export function ManageProfileModal({
+  clubOptions,
+  defaultLeagueId,
+  leagueName,
+  actorRole,
+  renderTrigger,
+}: ManageProfileModalProps) {
   const [open, setOpen] = useState(false);
   const [panelKey, setPanelKey] = useState(0);
   const wasOpenRef = useRef(false);
@@ -31,6 +40,9 @@ export function ManageProfileModal({ clubOptions, renderTrigger }: ManageProfile
         <ManageProfileFormPanel
           key={panelKey}
           clubOptions={clubOptions}
+          defaultLeagueId={defaultLeagueId}
+          leagueName={leagueName}
+          actorRole={actorRole}
           onRequestClose={() => setOpen(false)}
         />
       ) : null}

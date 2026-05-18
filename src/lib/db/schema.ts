@@ -561,11 +561,282 @@ export const authUsersRelations = relations(authUsers, ({ many }) => ({
   assignments: many(userAssignments),
 }));
 
+// ─── Torneos (Fase A: linear / home_and_away) ───────────────────────────────
+
+export const tournamentFormatEnum = pgEnum("tournament_format", [
+  "linear",
+  "home_and_away",
+  "groups",
+  "groups_playoffs",
+]);
+
+export const tournamentStatusEnum = pgEnum("tournament_status", [
+  "draft",
+  "active",
+  "finished",
+  "cancelled",
+]);
+
+export const tournamentMatchStatusEnum = pgEnum("tournament_match_status", [
+  "scheduled",
+  "finished",
+  "postponed",
+  "wo_home",
+  "wo_away",
+  "cancelled",
+]);
+
+export const tournamentMatchPhaseEnum = pgEnum("tournament_match_phase", [
+  "group",
+  "playoff",
+]);
+
+export interface TournamentSettings {
+  pointsWin?: number;
+  pointsLoss?: number;
+  pointsWalkover?: number;
+  woScore?: number;
+  numberOfGroups?: number;
+  shuffleGroups?: boolean;
+  teamsPerGroupToAdvance?: number;
+  thirdPlaceMatch?: boolean;
+  playoffsGenerated?: boolean;
+  useQuarters?: boolean;
+  rulesNote?: string;
+}
+
+export const tournaments = pgTable(
+  "tournaments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 200 }).notNull(),
+    slug: varchar("slug", { length: 80 }).notNull(),
+    description: text("description"),
+    format: tournamentFormatEnum("format").notNull(),
+    status: tournamentStatusEnum("status").notNull().default("draft"),
+    settings: jsonb("settings").$type<TournamentSettings>(),
+    isPublicFixture: boolean("is_public_fixture").notNull().default(false),
+    startDate: timestamp("start_date"),
+    endDate: timestamp("end_date"),
+    createdBy: uuid("created_by").references(() => authUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    leagueSlugIdx: uniqueIndex("tournaments_league_slug_idx").on(table.leagueId, table.slug),
+    leagueIdIdx: index("tournaments_league_id_idx").on(table.leagueId),
+    statusIdx: index("tournaments_status_idx").on(table.status),
+  })
+);
+
+export const tournamentGroups = pgTable(
+  "tournament_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tournamentId: uuid("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tournamentIdIdx: index("tournament_groups_tournament_id_idx").on(table.tournamentId),
+  })
+);
+
+export const tournamentParticipants = pgTable(
+  "tournament_participants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tournamentId: uuid("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => tournamentGroups.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    seedPosition: integer("seed_position"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    groupCategoryUnique: uniqueIndex("tournament_participants_group_category_idx").on(
+      table.groupId,
+      table.categoryId
+    ),
+    tournamentCategoryUnique: uniqueIndex("tournament_participants_tournament_category_idx").on(
+      table.tournamentId,
+      table.categoryId
+    ),
+    groupIdIdx: index("tournament_participants_group_id_idx").on(table.groupId),
+    categoryIdIdx: index("tournament_participants_category_id_idx").on(table.categoryId),
+  })
+);
+
+export const tournamentMatches = pgTable(
+  "tournament_matches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tournamentId: uuid("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => tournamentGroups.id, { onDelete: "cascade" }),
+    round: integer("round").notNull(),
+    matchNumber: integer("match_number").notNull(),
+    phase: tournamentMatchPhaseEnum("phase").notNull().default("group"),
+    homeCategoryId: uuid("home_category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    awayCategoryId: uuid("away_category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    status: tournamentMatchStatusEnum("status").notNull().default("scheduled"),
+    scheduledAt: timestamp("scheduled_at"),
+    venue: varchar("venue", { length: 200 }),
+    homeScore: integer("home_score"),
+    awayScore: integer("away_score"),
+    homeQ1: integer("home_q1"),
+    awayQ1: integer("away_q1"),
+    homeQ2: integer("home_q2"),
+    awayQ2: integer("away_q2"),
+    homeQ3: integer("home_q3"),
+    awayQ3: integer("away_q3"),
+    homeQ4: integer("home_q4"),
+    awayQ4: integer("away_q4"),
+    homeOt: integer("home_ot"),
+    awayOt: integer("away_ot"),
+    playoffLabel: varchar("playoff_label", { length: 100 }),
+    advancesToMatchId: uuid("advances_to_match_id"),
+    advancesAs: varchar("advances_as", { length: 10 }),
+    loserAdvancesToMatchId: uuid("loser_advances_to_match_id"),
+    loserAdvancesAs: varchar("loser_advances_as", { length: 10 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tournamentIdIdx: index("tournament_matches_tournament_id_idx").on(table.tournamentId),
+    groupIdIdx: index("tournament_matches_group_id_idx").on(table.groupId),
+    roundIdx: index("tournament_matches_round_idx").on(table.round),
+    phaseIdx: index("tournament_matches_phase_idx").on(table.tournamentId, table.phase),
+  })
+);
+
+export const tournamentStandings = pgTable(
+  "tournament_standings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tournamentId: uuid("tournament_id")
+      .notNull()
+      .references(() => tournaments.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => tournamentGroups.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    played: integer("played").notNull().default(0),
+    won: integer("won").notNull().default(0),
+    lost: integer("lost").notNull().default(0),
+    woWon: integer("wo_won").notNull().default(0),
+    woLost: integer("wo_lost").notNull().default(0),
+    points: integer("points").notNull().default(0),
+    pointsFor: integer("points_for").notNull().default(0),
+    pointsAgainst: integer("points_against").notNull().default(0),
+    pointDiff: integer("point_diff").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    groupCategoryUnique: uniqueIndex("tournament_standings_group_category_idx").on(
+      table.groupId,
+      table.categoryId
+    ),
+    tournamentIdIdx: index("tournament_standings_tournament_id_idx").on(table.tournamentId),
+  })
+);
+
+export const tournamentsRelations = relations(tournaments, ({ one, many }) => ({
+  league: one(leagues, {
+    fields: [tournaments.leagueId],
+    references: [leagues.id],
+  }),
+  groups: many(tournamentGroups),
+  matches: many(tournamentMatches),
+  standings: many(tournamentStandings),
+}));
+
+export const tournamentGroupsRelations = relations(tournamentGroups, ({ one, many }) => ({
+  tournament: one(tournaments, {
+    fields: [tournamentGroups.tournamentId],
+    references: [tournaments.id],
+  }),
+  participants: many(tournamentParticipants),
+  matches: many(tournamentMatches),
+  standings: many(tournamentStandings),
+}));
+
+export const tournamentParticipantsRelations = relations(tournamentParticipants, ({ one }) => ({
+  group: one(tournamentGroups, {
+    fields: [tournamentParticipants.groupId],
+    references: [tournamentGroups.id],
+  }),
+  category: one(categories, {
+    fields: [tournamentParticipants.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+export const tournamentMatchesRelations = relations(tournamentMatches, ({ one }) => ({
+  tournament: one(tournaments, {
+    fields: [tournamentMatches.tournamentId],
+    references: [tournaments.id],
+  }),
+  group: one(tournamentGroups, {
+    fields: [tournamentMatches.groupId],
+    references: [tournamentGroups.id],
+  }),
+  homeCategory: one(categories, {
+    fields: [tournamentMatches.homeCategoryId],
+    references: [categories.id],
+    relationName: "homeCategory",
+  }),
+  awayCategory: one(categories, {
+    fields: [tournamentMatches.awayCategoryId],
+    references: [categories.id],
+    relationName: "awayCategory",
+  }),
+}));
+
+export const tournamentStandingsRelations = relations(tournamentStandings, ({ one }) => ({
+  tournament: one(tournaments, {
+    fields: [tournamentStandings.tournamentId],
+    references: [tournaments.id],
+  }),
+  group: one(tournamentGroups, {
+    fields: [tournamentStandings.groupId],
+    references: [tournamentGroups.id],
+  }),
+  category: one(categories, {
+    fields: [tournamentStandings.categoryId],
+    references: [categories.id],
+  }),
+}));
+
 export const leaguesRelations = relations(leagues, ({ many, one }) => ({
   assignments: many(userAssignments),
   clubs: many(clubs),
   sponsors: many(sponsors),
   settings: one(leagueSettings),
+  tournaments: many(tournaments),
 }));
 
 export const sponsorsRelations = relations(sponsors, ({ one }) => ({
@@ -615,3 +886,12 @@ export type PlayerCategory = typeof categoryEnum.enumValues[number];
 export type NormativaCategoria = typeof normativaDocumentCategoryEnum.enumValues[number];
 export type Normativa = typeof normativas.$inferSelect;
 export type NewNormativa = typeof normativas.$inferInsert;
+export type Tournament = typeof tournaments.$inferSelect;
+export type NewTournament = typeof tournaments.$inferInsert;
+export type TournamentGroup = typeof tournamentGroups.$inferSelect;
+export type TournamentParticipant = typeof tournamentParticipants.$inferSelect;
+export type TournamentMatch = typeof tournamentMatches.$inferSelect;
+export type TournamentStanding = typeof tournamentStandings.$inferSelect;
+export type TournamentFormat = (typeof tournamentFormatEnum.enumValues)[number];
+export type TournamentStatus = (typeof tournamentStatusEnum.enumValues)[number];
+export type TournamentMatchStatus = (typeof tournamentMatchStatusEnum.enumValues)[number];

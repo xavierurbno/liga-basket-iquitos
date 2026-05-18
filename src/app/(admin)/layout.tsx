@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Role } from "@/lib/auth/withAuth";
 import { AdminNavbar } from "@/components/admin/AdminNavbar";
 
+export const dynamic = "force-dynamic";
+
 /**
  * AdminLayout
  * Protege las rutas administrativas asegurando que solo el SUPER_ADMIN pueda acceder.

@@ -21,14 +21,12 @@ function nombreStaff(s: FichaStaff): string {
   return [s.name, s.lastname].filter(Boolean).join(" ").trim() || "No registrado";
 }
 
-/**
- * Enmascara el número de documento para privacidad (ej: 45****01)
- */
-function maskDocumentNumber(doc: string | null): string {
-  if (!doc) return "—";
-  const d = doc.trim();
-  if (d.length <= 4) return d;
-  return `${d.slice(0, 2)}${"*".repeat(Math.max(d.length - 4, 2))}${d.slice(-2)}`;
+/** Documento completo en ficha oficial (registro administrativo de la liga). */
+function formatDocumentoFicha(documentType: string | null, documentNumber: string | null): string {
+  const num = documentNumber?.trim();
+  if (!num) return "—";
+  const type = (documentType || "DNI").trim();
+  return `${type} ${num}`;
 }
 
 /** Mismos criterios que `generarFichaCategoriaPdf`. */
@@ -152,7 +150,7 @@ export function FichaVistaPrevia({
                       {nombreCompleto}
                     </td>
                     <td className="border border-slate-200/70 px-1 py-1.5 text-center align-middle text-slate-800">
-                      {maskDocumentNumber(j.documentNumber)}
+                      {formatDocumentoFicha(j.documentType, j.documentNumber)}
                     </td>
                     <td className="border border-slate-200/70 px-1 py-1.5 text-center align-middle text-slate-800">
                       {fmtFechaPeru(j.fechaNacimientoIso)}
@@ -212,7 +210,11 @@ function StaffBloque({ etiqueta, staff }: { etiqueta: string; staff: FichaStaff 
         </div>
         <div className="min-w-0 pt-1">
           <p className="font-normal text-slate-900">{nombreStaff(staff)}</p>
-          {staff.documentNumber ? <p className="mt-1 text-xs text-slate-600">{staff.documentType || "DOC"}: {maskDocumentNumber(staff.documentNumber)}</p> : null}
+          {staff.documentNumber ? (
+            <p className="mt-1 text-xs text-slate-600">
+              {formatDocumentoFicha(staff.documentType, staff.documentNumber)}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

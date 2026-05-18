@@ -7,7 +7,7 @@ import { useCountdown } from "@/hooks/useCountdown";
 // ─── Types ───────────────────────────────────────────────────
 import { LeagueSettings } from "@/lib/types/league";
 
-interface MasterClockCounterProps {
+export interface MasterClockCounterProps {
   variant?: "flip" | "minimal";
   /** Alineación del bloque (portal público: `start` con el eje del carrusel). */
   layoutAlign?: "center" | "start";
@@ -205,10 +205,12 @@ export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }:
 
   useEffect(() => {
     setMounted(true);
-    getLeagueSettingsAction().then((s) => {
-      setSettings(s);
-      setLoading(false);
-    });
+    getLeagueSettingsAction()
+      .then((s) => {
+        setSettings(s);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const now = new Date();

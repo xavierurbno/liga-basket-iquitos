@@ -139,10 +139,9 @@ export function CrearJugadorCategoriaForm({
         </div>
         <div>
           <label className={labelClass}>Género</label>
-          <select name="genero" className={inputClass}>
+          <select name="gender" className={inputClass} defaultValue="FEMENINO">
             <option value="MASCULINO">Masculino</option>
             <option value="FEMENINO">Femenino</option>
-            <option value="MIXTO">Mixto</option>
           </select>
         </div>
         <div className="md:col-span-2">
@@ -152,27 +151,48 @@ export function CrearJugadorCategoriaForm({
 
         {isMinor && (
           <div className="md:col-span-2 mt-2 space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-            <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider">Datos del Tutor (Requerido)</h3>
+            <h3 className="text-sm font-bold text-amber-800">
+              Padre, madre o tutor legal (obligatorio — menor de 18 años)
+            </h3>
+            <p className="text-xs text-amber-800/90">
+              Datos del apoderado para protección del menor y contacto de emergencia.
+            </p>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className={labelClass}>Nombre del Tutor</label>
-                <input name="tutorName" placeholder="Nombre completo del padre/tutor" className={inputClass} />
+                <label className={labelClass}>Nombre completo *</label>
+                <input
+                  name="tutorName"
+                  required
+                  placeholder="Nombre del padre, madre o tutor"
+                  className={inputClass}
+                />
               </div>
               <div>
-                <label className={labelClass}>Tipo Doc. Tutor</label>
-                <select name="tutorDocumentType" className={inputClass}>
+                <label className={labelClass}>Tipo de documento *</label>
+                <select name="tutorDocumentType" required className={inputClass} defaultValue="DNI">
                   <option value="DNI">DNI</option>
                   <option value="CE">CE</option>
                   <option value="PASAPORTE">PASAPORTE</option>
                 </select>
               </div>
               <div>
-                <label className={labelClass}>N° Doc. Tutor</label>
-                <input name="tutorDocumentNumber" placeholder="N° Documento" className={inputClass} />
+                <label className={labelClass}>N° de documento *</label>
+                <input
+                  name="tutorDocumentNumber"
+                  required
+                  placeholder="Documento del apoderado"
+                  className={inputClass}
+                />
               </div>
               <div className="md:col-span-2">
-                <label className={labelClass}>Teléfono del Tutor</label>
-                <input name="tutorPhone" placeholder="Teléfono de contacto" className={inputClass} />
+                <label className={labelClass}>Teléfono de contacto *</label>
+                <input
+                  name="tutorPhone"
+                  required
+                  placeholder="Celular del padre, madre o tutor"
+                  inputMode="tel"
+                  className={inputClass}
+                />
               </div>
             </div>
           </div>

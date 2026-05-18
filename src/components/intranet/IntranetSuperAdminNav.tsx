@@ -50,14 +50,14 @@ export function IntranetSuperAdminNav({
           defaultValue=""
           className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
           onChange={(e) => {
-            const slug = e.target.value;
-            if (!slug) return;
-            router.push(`/${slug}`);
+            const id = e.target.value;
+            if (!id) return;
+            router.push(`/liga/clubs/${id}/`);
           }}
         >
           <option value="">Seleccionar club…</option>
           {clubs.map((c) => (
-            <option key={c.id} value={c.slug}>
+            <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}

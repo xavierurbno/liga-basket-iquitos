@@ -7,7 +7,6 @@ import { UserAccountMenu } from "@/components/nav/UserAccountMenu";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
 import type { IntranetNavClub, IntranetNavLeague } from "@/components/intranet/IntranetSuperAdminNav";
 import type { IntranetRole } from "@/lib/auth/intranet-roles";
-
 const navBtn =
   "inline-flex items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 text-xs font-bold tracking-wide text-slate-600 transition hover:border-[#005CEE] hover:text-[#005CEE]";
 const navBtnActive =
@@ -33,6 +32,8 @@ export function IntranetTopNav({
   clubId,
   leagues,
   clubs,
+  activeLeagueId,
+  activeLeagueName,
 }: {
   role: IntranetRole;
   userEmail: string | null;
@@ -40,6 +41,8 @@ export function IntranetTopNav({
   clubId: string | null;
   leagues?: IntranetNavLeague[];
   clubs?: IntranetNavClub[];
+  activeLeagueId?: string | null;
+  activeLeagueName?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -90,10 +93,10 @@ export function IntranetTopNav({
               <FileText className="mr-1.5 inline h-3.5 w-3.5" aria-hidden />
               Normativas
             </Link>
-            {clubSlug ? (
-              <Link href={`/${clubSlug}`} className={navBtn}>
+            {clubId ? (
+              <Link href={`/liga/clubs/${clubId}/`} className={navBtn}>
                 <LayoutDashboard className="mr-1.5 inline h-3.5 w-3.5" aria-hidden />
-                Portal club
+                Mi club
               </Link>
             ) : null}
             <UserAccountMenu email={userEmail} profileHref="/liga/" />
@@ -102,15 +105,21 @@ export function IntranetTopNav({
 
         {showSuperRow ? (
           <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <span className="font-semibold uppercase tracking-wide text-slate-500">Ecosistema</span>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+              <span className="font-semibold uppercase tracking-wide text-slate-500">Super admin</span>
               <Link href="/liga/" className="font-medium text-[#005CEE] hover:underline">
                 Panel operativo
               </Link>
+              <Link
+                href="/super-admin/leagues"
+                className="font-medium text-slate-600 hover:text-[#005CEE] hover:underline"
+              >
+                Gestionar ligas
+              </Link>
               <span className="text-slate-300">·</span>
-              <span className="hidden sm:inline">Ligas (portal público)</span>
+              <span className="hidden sm:inline">Portal público</span>
               <select
-                aria-label="Ir a liga"
+                aria-label="Ir a liga pública"
                 className="max-w-[200px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900"
                 defaultValue=""
                 onChange={(e) => {
@@ -119,7 +128,7 @@ export function IntranetTopNav({
                   router.push(`/?l=${encodeURIComponent(slug)}`);
                 }}
               >
-                <option value="">Liga…</option>
+                <option value="">Ver en web…</option>
                 {leagues!.map((l) => (
                   <option key={l.id} value={l.slug}>
                     {l.name}
@@ -136,14 +145,14 @@ export function IntranetTopNav({
                 className="max-w-[220px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900"
                 defaultValue=""
                 onChange={(e) => {
-                  const slug = e.target.value;
-                  if (!slug) return;
-                  router.push(`/${slug}`);
+                  const id = e.target.value;
+                  if (!id) return;
+                  router.push(`/liga/clubs/${id}/`);
                 }}
               >
                 <option value="">Ir al club…</option>
                 {clubs!.map((c) => (
-                  <option key={c.id} value={c.slug}>
+                  <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}

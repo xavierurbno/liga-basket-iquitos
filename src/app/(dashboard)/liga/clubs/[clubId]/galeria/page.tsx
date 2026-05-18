@@ -13,8 +13,6 @@ import { photoRepository } from "@/repositories/photoRepository";
 import { Pagination } from "@/components/gallery/Pagination";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
 
-export const dynamic = "force-dynamic";
-
 interface PageProps {
   params: Promise<{ clubId: string }>;
   searchParams: Promise<{ page?: string }>;

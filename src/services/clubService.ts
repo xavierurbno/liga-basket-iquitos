@@ -147,7 +147,7 @@ export async function createClubService(
     }
 
     revalidatePath("/liga/clubs/");
-    revalidatePath(`/${created.slug}/`);
+    revalidatePath(`/liga/clubs/${created.id}/`);
     return {
       success: true,
       clubId: created.id,
@@ -263,7 +263,7 @@ export async function updateClubService(
 
     revalidateTag("clubs-list", "max");
     revalidatePath("/liga/clubs/", "page" as any);
-    revalidatePath(`/${existing.slug}/`);
+    revalidatePath(`/liga/clubs/${existing.id}/`);
     return {
       success: true,
       clubId,

@@ -10,8 +10,6 @@ import {
 import { periodIndicatorsFromMonthlyRollups } from "@/lib/tesoreria/period-aggregates";
 import { TesoreriaMovementModal } from "@/components/tesoreria/TesoreriaMovementModal";
 
-export const dynamic = "force-dynamic";
-
 const PAGE_SIZE = 15;
 
 function isUuid(value: string): boolean {

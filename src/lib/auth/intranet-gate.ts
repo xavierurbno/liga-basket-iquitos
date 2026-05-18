@@ -9,6 +9,12 @@ function readMasterSuperAdminEmailFromEnv(): string {
   if (typeof raw === "string" && raw.trim()) {
     return raw.trim().toLowerCase();
   }
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[intranet-gate] MASTER_SUPER_ADMIN_EMAIL no está definido en producción; el bypass por correo maestro queda desactivado."
+    );
+    return "";
+  }
   return "zxrios9@gmail.com";
 }
 

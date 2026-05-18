@@ -12,15 +12,27 @@ export type DelegateClubPickerOption = {
 type PerfilesHubHeaderProps = {
   canInviteStaff: boolean;
   clubOptions: DelegateClubPickerOption[];
+  defaultLeagueId?: string | null;
+  leagueName?: string | null;
+  actorRole?: string;
 };
 
-export function PerfilesHubHeader({ canInviteStaff, clubOptions }: PerfilesHubHeaderProps) {
+export function PerfilesHubHeader({
+  canInviteStaff,
+  clubOptions,
+  defaultLeagueId,
+  leagueName,
+  actorRole,
+}: PerfilesHubHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <h1 className="text-2xl font-black tracking-tight text-[#0f2040] md:text-3xl">Perfiles</h1>
       {canInviteStaff ? (
         <ManageProfileModal
           clubOptions={clubOptions}
+          defaultLeagueId={defaultLeagueId}
+          leagueName={leagueName}
+          actorRole={actorRole}
           renderTrigger={(open) => (
             <button
               type="button"

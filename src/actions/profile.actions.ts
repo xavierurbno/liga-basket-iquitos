@@ -5,12 +5,14 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
+import { assertActorMayAssignRole } from "@/lib/auth/assignable-roles";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db/client";
 import { authUsers, clubMembers, userAssignments } from "@/lib/db/schema";
 import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
 import { clubRepository } from "@/repositories/clubRepository";
+import { leagueRepository } from "@/repositories/league.repository";
 
 const ASSIGNABLE_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
 
@@ -68,6 +70,21 @@ function stripTenantKeys(meta: AppMeta): AppMeta {
 /**
  * `app_metadata` en Supabase Auth: `club_id` / `club_slug` / `league_id` alineados con `withAuth` y `proxy.ts`.
  */
+function resolveTargetLeagueIdForAssignment(
+  role: (typeof ASSIGNABLE_ROLES)[number],
+  formData: FormData,
+  context: AuthContext,
+): string | null {
+  if (role !== "LEAGUE_ADMIN") return null;
+  const fromForm = formData.get("leagueId");
+  const formLeague =
+    typeof fromForm === "string" && fromForm.trim() ? fromForm.trim() : null;
+  const actorLeague = context.leagueId?.trim() || null;
+  if (context.role === "LEAGUE_ADMIN") return actorLeague;
+  if (context.role === "SUPER_ADMIN") return formLeague ?? actorLeague;
+  return null;
+}
+
 function buildAppMetadataForAssignment(
   role: (typeof ASSIGNABLE_ROLES)[number],
   opts: {
@@ -125,8 +142,30 @@ export const createProfileAssignmentAction = withAuth(
     }
 
     const { fullName, email, role } = parsed.data;
+    const roleGuard = assertActorMayAssignRole(context.role, role);
+    if (roleGuard) {
+      return { success: false, message: roleGuard };
+    }
     const emailNorm = email.trim().toLowerCase();
     const admin = getSupabaseAdmin();
+
+    let targetLeagueId: string | null = null;
+    if (role === "LEAGUE_ADMIN") {
+      targetLeagueId = resolveTargetLeagueIdForAssignment(role, formData, context);
+      if (!targetLeagueId) {
+        return {
+          success: false,
+          message:
+            context.role === "SUPER_ADMIN"
+              ? "Selecciona una liga activa antes de crear un administrador de liga."
+              : "Tu cuenta no tiene liga asignada.",
+        };
+      }
+      const leagueRow = await leagueRepository.findById(targetLeagueId);
+      if (!leagueRow) {
+        return { success: false, message: "La liga indicada no existe." };
+      }
+    }
 
     let clubRow: { id: string; slug: string; leagueId: string | null } | null = null;
     if (role === "CLUB_DELEGATE") {
@@ -163,7 +202,7 @@ export const createProfileAssignmentAction = withAuth(
         clubId: clubRow?.id,
         clubSlug: clubRow?.slug,
         clubLeagueId: clubRow?.leagueId ?? null,
-        actorLeagueId: context.leagueId ?? null,
+        actorLeagueId: targetLeagueId ?? context.leagueId ?? null,
       });
 
       if (existingRows[0]?.id) {
@@ -223,7 +262,7 @@ export const createProfileAssignmentAction = withAuth(
 
           await db.insert(userAssignments).values({
             userId: targetUserId,
-            leagueId: null,
+            leagueId: role === "LEAGUE_ADMIN" ? targetLeagueId : null,
             clubId: null,
             role,
           });
@@ -298,7 +337,7 @@ export const createProfileAssignmentAction = withAuth(
         } else {
           await db.insert(userAssignments).values({
             userId: targetUserId,
-            leagueId: null,
+            leagueId: role === "LEAGUE_ADMIN" ? targetLeagueId : null,
             clubId: null,
             role,
           });
@@ -388,6 +427,10 @@ export const updateProfileAssignmentAction = withAuth(
     }
 
     const { userId, oldLeagueId, oldClubId, fullName, role: newRole } = parsed.data;
+    const roleGuard = assertActorMayAssignRole(context.role, newRole);
+    if (roleGuard) {
+      return { success: false, message: roleGuard };
+    }
     const admin = getSupabaseAdmin();
 
     const whereOld = and(

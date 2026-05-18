@@ -21,9 +21,12 @@ export function OnboardingForm() {
 
     if (result.error) {
       setError(result.error);
+    } else if (result.success && result.clubId) {
+      router.refresh();
+      router.push(`/liga/clubs/${result.clubId}/`);
     } else if (result.success) {
       router.refresh();
-      router.push(`/${result.slug}`);
+      router.push("/liga/");
     }
   }
 

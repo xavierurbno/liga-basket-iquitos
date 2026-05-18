@@ -16,9 +16,28 @@ interface WebhookPayload {
   record: PlayerRecord;
 }
 
+function verifyWebhookSecret(req: Request): boolean {
+  const expected = Deno.env.get('PROCESS_PLAYER_IMAGE_WEBHOOK_SECRET')?.trim()
+  if (!expected) {
+    return Deno.env.get('ALLOW_OPEN_PLAYER_IMAGE_WEBHOOK') === 'true'
+  }
+  const raw =
+    req.headers.get('x-webhook-secret') ??
+    req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
+    ''
+  return raw === expected
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  if (!verifyWebhookSecret(req)) {
+    return new Response(JSON.stringify({ error: 'No autorizado' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {

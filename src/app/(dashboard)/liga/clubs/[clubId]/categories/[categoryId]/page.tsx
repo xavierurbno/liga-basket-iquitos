@@ -8,8 +8,6 @@ import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
 
-export const dynamic = "force-dynamic";
-
 function calcularEdad(transactionDate: Date | string | null): string {
   if (!transactionDate) return "N/D";
   const nacimiento = new Date(transactionDate);
@@ -253,7 +251,11 @@ export default async function CategoriaDetallePage({
             </div>
           </div>
           <div className="mt-3">
-            <RegistroMasivoDeportistasModal clubId={clubId} categoryId={categoryId} />
+            <RegistroMasivoDeportistasModal
+              clubId={clubId}
+              categoryId={categoryId}
+              categoryName={category.name}
+            />
           </div>
         </article>
       </section>
@@ -316,6 +318,7 @@ export default async function CategoriaDetallePage({
                         <RegistroMasivoDeportistasModal
                           clubId={clubId}
                           categoryId={categoryId}
+                          categoryName={category.name}
                           mode="edit"
                           triggerLabel="Editar"
                           triggerClassName="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700"

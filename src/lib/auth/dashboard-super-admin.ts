@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { readUserRole } from "@/lib/auth/read-user-role";
 
 function emailsFromCommaEnv(key: string): Set<string> {
   const raw = process.env[key];
@@ -7,21 +8,17 @@ function emailsFromCommaEnv(key: string): Set<string> {
     raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
+      .filter(Boolean),
   );
 }
 
 /**
- * Indica si el usuario ve el panel como “super” de liga (tabs sensibles, listados globales).
- * Usa `app_metadata.role` y correos en `DASHBOARD_ADMIN_EMAILS` (solo servidor, separados por comas).
- * `NEXT_PUBLIC_ADMIN_EMAIL` se mantiene solo como compatibilidad hasta migrar variables en despliegue.
+ * Panel con tabs sensibles / listados globales de liga.
+ * Usa `app_metadata.role` (vía readUserRole) y `DASHBOARD_ADMIN_EMAILS` (solo servidor).
  */
 export function isDashboardSuperAdmin(user: User | null | undefined): boolean {
   if (!user) return false;
-  const role = user.app_metadata?.role;
-  if (role === "SUPER_ADMIN") return true;
+  if (readUserRole(user) === "SUPER_ADMIN") return true;
   const email = user.email?.trim().toLowerCase();
-  if (email && emailsFromCommaEnv("DASHBOARD_ADMIN_EMAILS").has(email)) return true;
-  const legacy = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase();
-  return Boolean(legacy && email && email === legacy);
+  return Boolean(email && emailsFromCommaEnv("DASHBOARD_ADMIN_EMAILS").has(email));
 }

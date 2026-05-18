@@ -6,6 +6,7 @@ import {
   Landmark,
   Search,
   Trophy,
+  Globe,
   Images,
   FileText,
   Files,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 
 const cardClass =
-  "relative z-0 flex min-h-[8.5rem] cursor-pointer flex-col rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-[0_20px_50px_-35px_rgba(59,130,246,0.55)] transition hover:border-[#005CEE] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE]";
+  "relative z-0 flex min-h-[8.5rem] cursor-pointer flex-col rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-[0_20px_50px_-35px_rgba(59,130,246,0.55)] transition hover:border-[#005CEE] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE]";
 
 export type LigaHubCardItem = {
   href: string;
@@ -70,7 +71,14 @@ const adminHubItems: readonly LigaHubCardItem[] = [
     icon: Trophy,
     iconClass: "text-violet-600",
     title: "Torneos",
-    body: "Calendario y fixture (en evolución).",
+    body: "Fixture, resultados, tabla y operación diaria del campeonato.",
+  },
+  {
+    href: "/liga/portal-publico/",
+    icon: Globe,
+    iconClass: "text-[#1B3A6B]",
+    title: "Portal y campeonatos",
+    body: "Publica torneos en la portada y comparte el enlace del fixture público.",
   },
   {
     href: "/liga/galeria-general/",
@@ -118,7 +126,10 @@ type LigaHubCardGridProps = {
   showProfilesCard?: boolean;
 };
 
-export function LigaHubCardGrid({ viewerSegment, showProfilesCard = false }: LigaHubCardGridProps) {
+export function LigaHubCardGrid({
+  viewerSegment,
+  showProfilesCard = false,
+}: LigaHubCardGridProps) {
   const items: LigaHubCardItem[] =
     viewerSegment === "delegate"
       ? [...delegateHubItems]
@@ -127,9 +138,9 @@ export function LigaHubCardGrid({ viewerSegment, showProfilesCard = false }: Lig
         : [...adminHubItems];
 
   return (
-    <div className="relative z-1 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="relative z-1 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {items.map(({ href, icon: Icon, iconClass, title, body }) => (
-        <Link key={`${href}-${title}`} href={href} className={cardClass}>
+        <Link key={`${href}-${title}`} href={href} className={`${cardClass} h-full`}>
           <Icon className={`h-8 w-8 shrink-0 ${iconClass}`} aria-hidden />
           <h2 className="mt-3 text-lg font-bold text-slate-900">{title}</h2>
           <p className="mt-1 text-sm text-slate-600">{body}</p>

@@ -5,6 +5,7 @@ import { LigaOperationalNav } from "@/components/nav/LigaOperationalNav";
 import { MasterClockCounter } from "@/components/system/MasterClockCounter";
 import { SponsorFooter } from "@/components/layout/SponsorFooter";
 import { hasIntranetAccess, intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
+import type { Role } from "@/lib/auth/withAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function SystemLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const appRole = user.app_metadata?.role as string | undefined;
+  const appRole = user.app_metadata?.role as Role | undefined;
   const intranetNavLabel = hasIntranetAccess(appRole) ? intranetPortalNavLabel(appRole) : null;
 
   return (
@@ -49,7 +50,10 @@ export default async function SystemLayout({
           <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-slate-500">
             <MasterClockCounter />
           </div>
-          <LigaOperationalNav userEmail={user.email ?? null} intranetNavLabel={intranetNavLabel} />
+          <LigaOperationalNav
+            userEmail={user.email ?? null}
+            intranetNavLabel={intranetNavLabel}
+          />
         </div>
       </header>
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>

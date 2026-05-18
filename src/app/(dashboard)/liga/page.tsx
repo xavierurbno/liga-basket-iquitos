@@ -1,29 +1,14 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
+import { LeagueContextCard } from "@/components/liga/LeagueContextCard";
 import { LigaHubCardGrid } from "@/components/nav/LigaHubCardGrid";
-import type { Role } from "@/lib/auth/withAuth";
-
-export const dynamic = "force-dynamic";
 
 export default async function LigaOperationalHubPage() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll() {},
-      },
-    },
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const role = user?.app_metadata?.role as Role | undefined;
+  const ctx = await getLigaOperationalContext();
+  const role = ctx.role;
   const viewerSegment = role === "CLUB_DELEGATE" ? "delegate" : "staff";
   const showProfilesCard = role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN";
+  const showLeagueContext =
+    viewerSegment === "staff" && (role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN");
 
   return (
     <div className="space-y-8">
@@ -36,6 +21,15 @@ export default async function LigaOperationalHubPage() {
             : "Accede a clubes, categorías, tesorería y herramientas administrativas. Usa las tarjetas de abajo para abrir cada módulo."}
         </p>
       </div>
+
+      {showLeagueContext ? (
+        <LeagueContextCard
+          variant={role === "SUPER_ADMIN" ? "super_admin" : "league_admin"}
+          leagues={ctx.leagues.map((l) => ({ id: l.id, name: l.name }))}
+          activeLeagueId={ctx.leagueId}
+          activeLeagueName={ctx.leagueName}
+        />
+      ) : null}
 
       <LigaHubCardGrid viewerSegment={viewerSegment} showProfilesCard={showProfilesCard} />
     </div>

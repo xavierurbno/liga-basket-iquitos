@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { LayoutDashboard, Search, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Search, ShieldCheck, Trophy } from "lucide-react";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
+import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
 
@@ -15,7 +16,7 @@ const panelGestiónBtnClass =
 
 export type PortalSiteHeaderVariant = "portal" | "busqueda365" | "normativas";
 
-const DEFAULT_PANEL_HREF = "/login/?next=%2Fliga%2F";
+export const DEFAULT_PORTAL_PANEL_HREF = "/login/?next=%2Fliga%2F";
 
 /**
  * Destino del botón Intranet / panel: solo `/liga/` si el JWT tiene rol de liga o es el correo maestro.
@@ -26,7 +27,7 @@ export async function resolvePortalPanelHref(): Promise<string> {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url?.trim() || !anon?.trim()) {
-      return DEFAULT_PANEL_HREF;
+      return DEFAULT_PORTAL_PANEL_HREF;
     }
     const cookieStore = await cookies();
     const supabase = createServerClient(url, anon, {
@@ -37,13 +38,13 @@ export async function resolvePortalPanelHref(): Promise<string> {
     });
     const {
       data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return DEFAULT_PANEL_HREF;
+    } = await withQueryTimeout(supabase.auth.getUser(), 3_000, "portalAuthGetUser");
+    if (!user) return DEFAULT_PORTAL_PANEL_HREF;
     const role = typeof user.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
-    return canAccessIntranet(user, role) ? "/liga/" : DEFAULT_PANEL_HREF;
+    return canAccessIntranet(user, role) ? "/liga/" : DEFAULT_PORTAL_PANEL_HREF;
   } catch (e) {
     console.error("[portal-header] resolvePortalPanelHref:", e);
-    return DEFAULT_PANEL_HREF;
+    return DEFAULT_PORTAL_PANEL_HREF;
   }
 }
 
@@ -79,6 +80,10 @@ export function PortalSiteHeaderBar({
             </Link>
           ) : variant === "portal" ? (
             <>
+              <Link href="/#campeonatos" className={navBtnClass}>
+                <Trophy className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
+                Campeonatos
+              </Link>
               <Link href="/busqueda-365/" className={navBtnClass}>
                 <Search className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
                 Búsqueda 365

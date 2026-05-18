@@ -3,6 +3,7 @@
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
 import { ilike } from "drizzle-orm";
+import { requireAuth } from "@/lib/auth/require-auth";
 
 export type ClubDocumental = {
   id: string;
@@ -18,9 +19,14 @@ export type BusquedaClubResult =
   | { ok: true; clubs: ClubDocumental[] }
   | { ok: false; error: string };
 
+const DOCUMENT_SEARCH_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
+
 export async function buscarClubParaDocumento(
   query: string
 ): Promise<BusquedaClubResult> {
+  const auth = await requireAuth([...DOCUMENT_SEARCH_ROLES]);
+  if (auth.denied) return { ok: false, error: auth.error };
+
   const q = query.trim();
   if (q.length < 2)
     return { ok: false, error: "Ingresa al menos 2 caracteres para buscar." };

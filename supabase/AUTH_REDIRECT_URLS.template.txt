@@ -1,0 +1,15 @@
+# Pegar en Supabase → Authentication → URL Configuration
+# Sustituir <DOMINIO> por tu URL de Vercel o dominio custom (sin barra al final en sustitución).
+
+Site URL:
+https://<DOMINIO>/
+
+Redirect URLs (una por línea en el panel):
+https://<DOMINIO>/auth/callback
+https://<DOMINIO>/auth/callback/
+https://<DOMINIO>/
+https://<DOMINIO>/login/
+
+# Preview (opcional, por deploy):
+https://<PROYECTO>-<HASH>.vercel.app/auth/callback/
+https://<PROYECTO>-<HASH>.vercel.app/auth/callback

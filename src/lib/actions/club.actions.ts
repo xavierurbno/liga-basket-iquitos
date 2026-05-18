@@ -32,10 +32,18 @@ export const updateClubAction = withAuth(
       return { success: false, error: "Club no encontrado." };
     }
 
+    const actorLeague = context.leagueId?.trim();
     if (context.role === "LEAGUE_ADMIN") {
-      const actorLeague = context.leagueId?.trim();
       if (!actorLeague || existing.leagueId !== actorLeague) {
         return { success: false, error: "No puedes editar clubes fuera de tu liga." };
+      }
+    }
+    if (context.role === "SUPER_ADMIN") {
+      if (!actorLeague || existing.leagueId !== actorLeague) {
+        return {
+          success: false,
+          error: "Este club no pertenece a la liga activa. Cambia de liga en la barra superior.",
+        };
       }
     }
 

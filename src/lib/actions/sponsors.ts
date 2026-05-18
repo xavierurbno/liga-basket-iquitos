@@ -7,6 +7,7 @@ import { z } from "zod";
 import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
+import { isValidUuid } from "@/lib/db/public-read-guards";
 import { ActionResult } from "@/lib/types/league";
 
 const sponsorSchema = z.object({
@@ -22,9 +23,12 @@ const sponsorSchema = z.object({
   displayOrder: z.coerce.number().default(0),
 });
 
+/** Lectura pública del portal: valida UUID de liga, sin sesión. */
 export const getSponsorsByLeagueAction = async (leagueId: string) => {
+  const id = leagueId?.trim() ?? "";
+  if (!isValidUuid(id)) return [];
   try {
-    return await sponsorRepository.findByLeague(leagueId);
+    return await sponsorRepository.findByLeague(id);
   } catch (error) {
     console.error("Error fetching sponsors:", error);
     return [];

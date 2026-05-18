@@ -2,6 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { photoRepository } from "@/repositories/photoRepository";
 import { Camera } from "lucide-react";
+import { withQueryTimeout } from "@/lib/db/query-timeout";
+
+const GALLERY_MS = 12_000;
 
 /**
  * DynamicClubGalleries — Server Component
@@ -24,9 +27,13 @@ function logGalleryFetchFailure(label: string, reason: unknown) {
 export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) {
   try {
     const [clubsR, generalR, countR] = await Promise.allSettled([
-      photoRepository.getClubsWithPhotos(1, leagueId),
-      photoRepository.getGeneral(1, 30, leagueId),
-      photoRepository.countGeneral(leagueId),
+      withQueryTimeout(
+        photoRepository.getClubsWithPhotos(1, leagueId),
+        GALLERY_MS,
+        "galleryClubs"
+      ),
+      withQueryTimeout(photoRepository.getGeneral(1, 30, leagueId), GALLERY_MS, "galleryGeneral"),
+      withQueryTimeout(photoRepository.countGeneral(leagueId), GALLERY_MS, "galleryCount"),
     ]);
 
     const clubsWithPhotos = clubsR.status === "fulfilled" ? clubsR.value : [];

@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { User } from "@supabase/supabase-js";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { readUserRole } from "@/lib/auth/read-user-role";
 
 /**
  * Roles permitidos en el sistema LDDBI.
@@ -50,9 +52,16 @@ export function withAuth<T, P extends any[]>(
         return { success: false, error: "No autenticado. Por favor, inicia sesión." };
       }
 
-      const role = user.app_metadata?.role as Role;
+      const role = readUserRole(user) as Role | undefined;
+      if (!role) {
+        return {
+          success: false,
+          error: "Acceso denegado: el usuario no tiene rol en app_metadata.",
+        };
+      }
       const clubIdFromMeta = user.app_metadata?.club_id as string | undefined;
       const leagueIdFromMeta = user.app_metadata?.league_id as string | undefined;
+      const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
 
       const rolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
 
@@ -75,7 +84,7 @@ export function withAuth<T, P extends any[]>(
         userId: user.id,
         role,
         clubId: clubIdFromMeta,
-        leagueId: leagueIdFromMeta,
+        leagueId: operationalLeagueId ?? leagueIdFromMeta,
       };
 
       // 3. Ejecutar acción pasando los argumentos originales + user + context

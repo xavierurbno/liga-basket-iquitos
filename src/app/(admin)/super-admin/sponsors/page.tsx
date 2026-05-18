@@ -3,8 +3,6 @@ import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { SponsorManagerClient } from "@/components/admin/SponsorManagerClient";
 import { Building2 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default async function SponsorsAdminPage() {
   const leagues = await leagueRepository.findAll();
 

@@ -115,6 +115,7 @@ export async function crearClubComoPropietarioAction(formData: FormData) {
 
   let slug = baseSlug.slice(0, 50);
   let sufijo = 0;
+  let createdClubId = "";
 
   try {
     while (sufijo < 200) {
@@ -139,6 +140,7 @@ export async function crearClubComoPropietarioAction(formData: FormData) {
       }, tx);
 
       if (!club) throw new Error("No se pudo crear el club.");
+      createdClubId = club.id;
 
       await clubRepository.addMember({
         userId: user.id,
@@ -159,7 +161,7 @@ export async function crearClubComoPropietarioAction(formData: FormData) {
   }
 
   revalidatePath("/");
-  redirect(`/${slug}`);
+  redirect(`/liga/clubs/${createdClubId}/`);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -277,7 +279,7 @@ export async function uploadClubPhotosAction(
 
     revalidatePath("/liga/");
     revalidatePath("/", "page");
-    revalidatePath(`/${club.slug}/`);
+    revalidatePath(`/liga/clubs/${club.id}/`);
 
     return { success: true };
   } catch (err: unknown) {

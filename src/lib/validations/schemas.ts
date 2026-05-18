@@ -5,11 +5,74 @@
 import { z } from "zod";
 import { calcularEdadAnios } from "@/lib/utils/category";
 
-/** Celular/fijo PE: 9 dígitos, empieza en 9 o 0; vacío permitido. */
-const telefonoOpcional = z.union([
-  z.literal(""),
-  z.string().regex(/^[09]\d{8}$/, "Ingresa un número válido (9 dígitos)"),
-]);
+function normalizePeruPhone(raw: string): string {
+  return raw.replace(/\D/g, "");
+}
+
+/** Celular/fijo PE: 9 dígitos; vacío permitido. Default "" para campos no enviados en FormData. */
+const telefonoOpcional = z
+  .string()
+  .default("")
+  .superRefine((val, ctx) => {
+    const digits = normalizePeruPhone(val);
+    if (digits !== "" && !/^[09]\d{8}$/.test(digits)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Ingresa un celular válido de 9 dígitos (ej. 987654321)",
+      });
+    }
+  });
+
+const birthdateField = z
+  .string()
+  .min(1, "La fecha de nacimiento es obligatoria")
+  .refine((s) => {
+    const d = new Date(s.length === 10 ? `${s}T12:00:00` : s);
+    return !Number.isNaN(d.getTime());
+  }, "La fecha de nacimiento no es válida")
+  .transform((s) => new Date(s.length === 10 ? `${s}T12:00:00` : s))
+  .refine((d) => d >= new Date("1940-01-01"), "La fecha de nacimiento es demasiado antigua")
+  .refine((d) => d <= new Date(), "La fecha de nacimiento no puede ser futura");
+
+const REGISTRO_JUGADOR_FIELD_LABELS: Record<string, string> = {
+  name: "Nombres",
+  lastname: "Apellidos",
+  documentNumber: "N° de documento",
+  documentType: "Tipo de documento",
+  birthdate: "Fecha de nacimiento",
+  gender: "Género",
+  phone: "Contacto del deportista",
+  tutorName: "Nombre del apoderado",
+  tutorDocumentNumber: "Documento del apoderado",
+  tutorPhone: "Teléfono del apoderado",
+  tutorDocumentType: "Tipo de documento del apoderado",
+  jerseyNumber: "N° de polo",
+  email: "Correo",
+  foto: "Foto",
+  emergencyContact: "Contacto de emergencia",
+};
+
+/** Mensajes legibles en español (evita «Invalid input» genérico de Zod 4). */
+export function formatRegistroJugadorZodError(error: z.ZodError): string {
+  const parts = error.issues.map((issue) => {
+    const key = String(issue.path[0] ?? "");
+    const label = REGISTRO_JUGADOR_FIELD_LABELS[key] ?? (key || "Formulario");
+    let msg = issue.message;
+
+    if (msg === "Invalid input" || msg === "Invalid date" || issue.code === "invalid_type") {
+      if (key === "birthdate") return "Fecha de nacimiento: valor no válido.";
+      return `${label}: valor no válido o incompleto.`;
+    }
+    if (msg.includes("name debe")) msg = msg.replace(/name/gi, "nombre");
+    if (msg.includes("lastname")) msg = msg.replace(/lastname/gi, "apellidos");
+    if (key && !msg.toLowerCase().includes(label.toLowerCase())) {
+      return `${label}: ${msg}`;
+    }
+    return msg;
+  });
+  const unique = [...new Set(parts.filter(Boolean))];
+  return unique.length > 0 ? unique.join(" · ") : "Revisa los campos del formulario.";
+}
 
 const baseIdentitySchema = [
   z.object({
@@ -65,30 +128,25 @@ export const registroJugadorSchema = z
     name: z
       .string()
       .trim()
-      .min(2, "El name debe tener al menos 2 caracteres")
+      .min(2, "Los nombres deben tener al menos 2 caracteres")
       .max(80, "Máximo 80 caracteres")
-      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "Solo se permiten letras"),
+      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "Solo se permiten letras en los nombres"),
 
     lastname: z
       .string()
       .trim()
-      .min(2, "Los lastname deben tener al menos 2 caracteres")
+      .min(2, "Los apellidos deben tener al menos 2 caracteres")
       .max(80, "Máximo 80 caracteres")
-      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "Solo se permiten letras"),
+      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "Solo se permiten letras en los apellidos"),
 
     documentType: z.enum(["DNI", "CE", "PASAPORTE"]).default("DNI"),
     documentNumber: z.string(),
 
-    birthdate: z.coerce
-      .date()
-      .min(new Date("1940-01-01"), "Fecha inválida")
-      .max(new Date(), "La transactionDate no puede ser futura"),
+    birthdate: birthdateField,
 
-    gender: z
-      .string()
-      .refine((val): val is "MASCULINO" | "FEMENINO" => val === "MASCULINO" || val === "FEMENINO", {
-        message: "Selecciona un género",
-      }),
+    gender: z.enum(["MASCULINO", "FEMENINO", "MIXTO"], {
+      error: "Selecciona un género",
+    }),
 
     phone: telefonoOpcional,
     email: z.union([z.literal(""), z.string().email("Email inválido")]),
@@ -117,22 +175,20 @@ export const registroJugadorSchema = z
     allergies: z.string().max(500).optional(),
     emergencyContact: telefonoOpcional,
 
-    tutorName: z.string().trim().max(100).optional(),
-    tutorDocumentType: z.enum(["DNI", "CE", "PASAPORTE"]).default("DNI").optional(),
-    tutorDocumentNumber: z.string().trim().toUpperCase().optional(),
+    tutorName: z
+      .string()
+      .trim()
+      .max(100)
+      .optional()
+      .transform((v) => v ?? ""),
+    tutorDocumentType: z.enum(["DNI", "CE", "PASAPORTE"]).default("DNI"),
+    tutorDocumentNumber: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .optional()
+      .transform((v) => v ?? ""),
     tutorPhone: telefonoOpcional,
-
-    foto: z.preprocess(
-      (v) => (v instanceof File && v.size > 0 ? v : undefined),
-      z
-        .instanceof(File)
-        .refine((file) => file.size <= 5 * 1024 * 1024, "La foto no puede superar 5MB")
-        .refine(
-          (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
-          "Solo se aceptan imágenes JPG, PNG o WEBP"
-        )
-        .optional()
-    ),
   })
   .superRefine((data, ctx) => {
     // Validar Identidad del Jugador mediante la unión discriminada
@@ -155,7 +211,8 @@ export const registroJugadorSchema = z
       if (!data.tutorName || data.tutorName.trim().length < 2) {
         ctx.addIssue({
           code: "custom",
-          message: "El name del tutor es obligatorio para menores de edad",
+          message:
+            "El nombre del padre, madre o tutor legal es obligatorio para menores de edad",
           path: ["tutorName"],
         });
       }
@@ -163,7 +220,8 @@ export const registroJugadorSchema = z
       if (!data.tutorDocumentNumber) {
         ctx.addIssue({
           code: "custom",
-          message: "El documento del tutor es obligatorio para menores de edad",
+          message:
+            "El documento del padre, madre o tutor legal es obligatorio para menores de edad",
           path: ["tutorDocumentNumber"],
         });
       } else {
@@ -186,7 +244,8 @@ export const registroJugadorSchema = z
       if (!data.tutorPhone || data.tutorPhone === "") {
         ctx.addIssue({
           code: "custom",
-          message: "El teléfono del tutor es obligatorio para menores de edad",
+          message:
+            "El teléfono del padre, madre o tutor legal es obligatorio para menores de edad",
           path: ["tutorPhone"],
         });
       }
@@ -223,6 +282,19 @@ export const movimientoCajaSchema = z
   });
 
 /** Valores del formulario (entrada) — compatible con react-hook-form + preprocess. */
+/** Validación de foto (solo formularios multipart en cliente). */
+export const registroJugadorFotoSchema = z
+  .instanceof(File)
+  .refine((file) => file.size <= 5 * 1024 * 1024, "La foto no puede superar 5MB")
+  .refine(
+    (file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type),
+    "Solo se aceptan imágenes JPG, PNG o WEBP",
+  )
+  .optional();
+
+/** Server action: sin campo `foto` (evita fallo Zod cuando no viene en FormData). */
+export const registroJugadorServerSchema = registroJugadorSchema;
+
 export type RegistroJugadorFormInput = z.input<typeof registroJugadorSchema>;
 /** Datos ya validados/normalizados (salida Zod). */
 export type RegistroJugadorForm = z.infer<typeof registroJugadorSchema>;

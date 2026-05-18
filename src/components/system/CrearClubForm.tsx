@@ -247,8 +247,8 @@ export function CrearClubForm({ onSuccess, initialData }: CrearClubFormProps) {
             setOk(isEdit ? "Cambios guardados correctamente." : "Club creado correctamente.");
             onSuccess?.();
             router.refresh();
-            if (!isEdit && res.clubSlug) {
-              router.push(`/${res.clubSlug}/`);
+            if (!isEdit && res.clubId) {
+              router.push(`/liga/clubs/${res.clubId}/`);
             }
           } catch (err) {
             setError(err instanceof Error ? err.message : "Error inesperado al guardar.");

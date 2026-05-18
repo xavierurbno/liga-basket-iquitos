@@ -4,8 +4,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
 
-export const dynamic = "force-dynamic";
-
 export const metadata = {
   title: "Gestión Documental | Liga Basket Iquitos",
   description:

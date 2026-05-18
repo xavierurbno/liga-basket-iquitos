@@ -10,10 +10,11 @@ import {
   type ProfileAssignmentRow,
 } from "@/components/perfiles/ProfilesAssignmentsTable";
 import type { Role } from "@/lib/auth/withAuth";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
+import { leagueRepository } from "@/repositories/league.repository";
 import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
-
-export const dynamic = "force-dynamic";
 
 async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
   const raw = await userAssignmentRepository.findAllWithEmail();
@@ -56,7 +57,7 @@ async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
       }),
     );
   } catch {
-    /* Sin SERVICE_ROLE u otros errores: fallback al prefijo del correo */
+    /* Sin SERVICE_ROLE: fallback al prefijo del correo */
   }
 
   return raw.map((r) => {
@@ -76,6 +77,20 @@ async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
       role: r.role,
       displayName,
     };
+  });
+}
+
+function filterRowsForOperationalLeague(
+  rows: ProfileAssignmentRow[],
+  operationalLeagueId: string,
+): ProfileAssignmentRow[] {
+  return rows.filter((r) => {
+    if (r.role === "SUPER_ADMIN") return true;
+    if (r.role === "LEAGUE_ADMIN") return r.leagueId === operationalLeagueId;
+    if (r.role === "CLUB_DELEGATE") {
+      return r.delegateClubLeagueId === operationalLeagueId;
+    }
+    return false;
   });
 }
 
@@ -104,7 +119,35 @@ export default async function LigaPerfilesPage() {
     redirect("/liga/");
   }
 
-  const tableRows = await buildAssignmentRows();
+  const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
+
+  if (role === "LEAGUE_ADMIN" && !operationalLeagueId) {
+    return (
+      <SelectActiveLeaguePrompt role={role} leagues={[]} title="Liga no asignada" />
+    );
+  }
+
+  if (role === "SUPER_ADMIN" && !operationalLeagueId) {
+    const leagues = await leagueRepository.findAll();
+    return (
+      <SelectActiveLeaguePrompt
+        role={role}
+        leagues={leagues}
+        title="Selecciona una liga para gestionar perfiles"
+        description="Los administradores de liga y delegados se asignan en el contexto de una liga activa."
+      />
+    );
+  }
+
+  const leagueName = operationalLeagueId
+    ? (await leagueRepository.findById(operationalLeagueId))?.name ?? null
+    : null;
+
+  const allRows = await buildAssignmentRows();
+  const tableRows =
+    role === "SUPER_ADMIN" && operationalLeagueId
+      ? filterRowsForOperationalLeague(allRows, operationalLeagueId)
+      : allRows;
 
   const canManageDestructive = role === "SUPER_ADMIN";
   const canInviteStaff = role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN";
@@ -119,17 +162,33 @@ export default async function LigaPerfilesPage() {
     .from(clubs)
     .orderBy(asc(clubs.name));
 
-  const leagueIdFromMeta =
-    typeof user.app_metadata?.league_id === "string" ? user.app_metadata.league_id.trim() : "";
-
-  const clubOptionsForPicker: DelegateClubPickerOption[] =
-    role === "LEAGUE_ADMIN" && leagueIdFromMeta
-      ? clubRows.filter((c) => c.leagueId === leagueIdFromMeta).map(({ id, name, slug }) => ({ id, name, slug }))
-      : clubRows.map(({ id, name, slug }) => ({ id, name, slug }));
+  const clubOptionsForPicker: DelegateClubPickerOption[] = operationalLeagueId
+    ? clubRows
+        .filter((c) => c.leagueId === operationalLeagueId)
+        .map(({ id, name, slug }) => ({ id, name, slug }))
+    : [];
 
   return (
     <div className="space-y-8 pb-12">
-      <PerfilesHubHeader canInviteStaff={canInviteStaff} clubOptions={clubOptionsForPicker} />
+      {leagueName ? (
+        <p className="text-sm text-slate-600">
+          Liga activa: <strong className="text-[#0f2040]">{leagueName}</strong>
+          {role === "SUPER_ADMIN" ? (
+            <span className="text-slate-500">
+              {" "}
+              · al crear un administrador de liga se usará esta liga por defecto
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+
+      <PerfilesHubHeader
+        canInviteStaff={canInviteStaff}
+        clubOptions={clubOptionsForPicker}
+        defaultLeagueId={operationalLeagueId}
+        leagueName={leagueName}
+        actorRole={role}
+      />
 
       <ProfilesAssignmentsTable
         rows={tableRows}
@@ -137,9 +196,9 @@ export default async function LigaPerfilesPage() {
         canEdit={canInviteStaff}
         clubOptions={clubOptionsForPicker}
         actorRole={role}
-        actorLeagueId={
-          typeof user.app_metadata?.league_id === "string" ? user.app_metadata.league_id : null
-        }
+        actorLeagueId={operationalLeagueId}
+        defaultLeagueId={operationalLeagueId}
+        leagueName={leagueName}
       />
     </div>
   );

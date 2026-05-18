@@ -45,7 +45,43 @@ export function getCategoriaInfo(category: Categoria): CategoriaInfo {
   return infoMap[category];
 }
 
-export function generarNumeroFicha(category: Categoria, numero: number, anio: number = new Date().getFullYear()): string {
-  const prefixMap: Record<Categoria, string> = { SUB_13: "U13", SUB_15: "U15", SUB_17: "U17", MAYORES: "MAY", VETERANOS: "VET" };
-  return `IQ-${anio}-${prefixMap[category]}-${numero.toString().padStart(4, "0")}`;
+const FICHA_PREFIX_BY_CATEGORIA: Record<Categoria, string> = {
+  SUB_13: "U13",
+  SUB_15: "U15",
+  SUB_17: "U17",
+  MAYORES: "MAY",
+  VETERANOS: "VET",
+};
+
+export function generarNumeroFicha(
+  category: Categoria,
+  numero: number,
+  anio: number = new Date().getFullYear(),
+): string {
+  const prefix = FICHA_PREFIX_BY_CATEGORIA[category];
+  return `IQ-${anio}-${prefix}-${numero.toString().padStart(4, "0")}`;
+}
+
+/**
+ * Prefijo de ficha a partir del nombre de categoría del club (ej. «U 11 MIXTO» → U11)
+ * o, si no hay patrón Uxx, por edad según reglas FIBA.
+ */
+export function prefijoFichaDesdeCategoriaClub(
+  categoryName: string,
+  birthdate: Date,
+): string {
+  const uMatch = categoryName.match(/U\s*(\d{1,2})/i);
+  if (uMatch) return `U${uMatch[1]}`;
+  return FICHA_PREFIX_BY_CATEGORIA[calcularCategoria(birthdate)];
+}
+
+/** Número de carnet usando nombre de categoría del club + edad del deportista. */
+export function generarNumeroFichaDesdeCategoriaClub(
+  categoryName: string,
+  birthdate: Date,
+  numero: number,
+  anio: number = new Date().getFullYear(),
+): string {
+  const prefix = prefijoFichaDesdeCategoriaClub(categoryName, birthdate);
+  return `IQ-${anio}-${prefix}-${numero.toString().padStart(4, "0")}`;
 }

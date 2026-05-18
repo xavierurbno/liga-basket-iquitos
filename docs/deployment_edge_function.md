@@ -20,7 +20,15 @@ La función requiere permisos de "Service Role" para manipular el Storage y actu
 
 ```bash
 supabase secrets set BUCKET_PLAYERS=jugador-fotos
+# Secreto compartido con el webhook de la BD (cabecera x-webhook-secret o Authorization: Bearer)
+supabase secrets set PROCESS_PLAYER_IMAGE_WEBHOOK_SECRET=<genera-un-token-largo>
 ```
+
+En el webhook de Supabase (Database → Webhooks), envía la misma clave en **HTTP Headers**:
+
+`x-webhook-secret: <mismo-token>`
+
+Solo para desarrollo local sin secret: `ALLOW_OPEN_PLAYER_IMAGE_WEBHOOK=true` (no usar en producción).
 
 > [!NOTE]
 > Las variables `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` se inyectan automáticamente en el entorno de Supabase Edge Functions, por lo que no es necesario configurarlas manualmente a menos que desees usar valores externos.
@@ -31,7 +39,7 @@ Puedes verificar que la función responde correctamente simulando un evento de b
 
 ```bash
 curl -X POST 'https://<TU_PROJECT_ID>.functions.supabase.co/process-player-image' \
--H 'Authorization: Bearer <TU_ANON_KEY>' \
+-H 'x-webhook-secret: <PROCESS_PLAYER_IMAGE_WEBHOOK_SECRET>' \
 -H 'Content-Type: application/json' \
 -d '{
   "record": {
