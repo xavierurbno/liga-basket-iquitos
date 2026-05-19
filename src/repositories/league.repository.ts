@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { leagues, leagueSettings } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ilike, or } from "drizzle-orm";
 
 export class LeagueRepository {
   /**
@@ -74,6 +74,36 @@ export class LeagueRepository {
       .limit(1);
 
     return results[0] || null;
+  }
+
+  /**
+   * Liga por defecto del portal público (una fila, sin listar todas las ligas).
+   */
+  async findDefaultForPortal() {
+    const [bySlug] = await db
+      .select({
+        id: leagues.id,
+        name: leagues.name,
+        slug: leagues.slug,
+      })
+      .from(leagues)
+      .where(or(eq(leagues.slug, "iquitos"), ilike(leagues.slug, "%iquitos%")))
+      .orderBy(desc(leagues.createdAt))
+      .limit(1);
+
+    if (bySlug) return bySlug;
+
+    const [latest] = await db
+      .select({
+        id: leagues.id,
+        name: leagues.name,
+        slug: leagues.slug,
+      })
+      .from(leagues)
+      .orderBy(desc(leagues.createdAt))
+      .limit(1);
+
+    return latest ?? null;
   }
 
   async delete(id: string) {

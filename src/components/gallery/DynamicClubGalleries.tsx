@@ -158,12 +158,14 @@ function FebCard({
             className="flex h-full w-full items-center justify-center"
             style={{ backgroundColor: `${accentColor}12` }}
           >
-            <div className="relative h-20 w-20 opacity-60">
+            <div className="relative flex h-20 w-20 items-center justify-center opacity-60">
               <Image
                 src={fallbackLogoUrl}
                 alt={title}
-                fill
-                className="object-contain"
+                width={80}
+                height={80}
+                className="max-h-full max-w-full object-contain"
+                style={{ width: "auto", height: "auto" }}
                 sizes="80px"
               />
             </div>

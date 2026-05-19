@@ -1,38 +1,62 @@
+import { cache } from "react";
+import { QueryTimeoutError } from "@/lib/db/query-timeout";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
-import { leagueRepository } from "@/repositories/league.repository";
+import {
+  fetchPortalLeagueBySlug,
+  readPortalLeagueIdFromEnv,
+  resolveDefaultPortalLeagueId,
+} from "@/lib/portal/portal-league-cache";
 
-const LEAGUE_MS = 8_000;
+/** En dev hay más secciones RSC en paralelo; el pool puede encolar consultas. */
+const LEAGUE_MS =
+  process.env.NODE_ENV === "development" ? 15_000 : 8_000;
 
-/** Resuelve la liga del portal con una sola pasada a BD y timeout (evita RSC colgado). */
-export async function resolvePortalLeagueId(opts: {
-  querySlug?: string;
-  cookieSlug?: string;
-}): Promise<string | undefined> {
-  try {
-    if (opts.querySlug?.trim()) {
-      const byQuery = await withQueryTimeout(
-        leagueRepository.findBySlug(opts.querySlug.trim()),
+/**
+ * Resuelve la liga del portal (deduplicada por request + cache entre peticiones).
+ * Orden: ?l= → cookie → liga Iquitos/default → `NEXT_PUBLIC_DEFAULT_LEAGUE_ID`.
+ */
+export const resolvePortalLeagueId = cache(
+  async (opts: {
+    querySlug?: string;
+    cookieSlug?: string;
+  }): Promise<string | undefined> => {
+    try {
+      if (opts.querySlug?.trim()) {
+        const byQuery = await withQueryTimeout(
+          fetchPortalLeagueBySlug(opts.querySlug.trim()),
+          LEAGUE_MS,
+          "portalLeagueByQuery",
+        );
+        if (byQuery) return byQuery.id;
+      }
+
+      if (opts.cookieSlug?.trim()) {
+        const byCookie = await withQueryTimeout(
+          fetchPortalLeagueBySlug(opts.cookieSlug.trim()),
+          LEAGUE_MS,
+          "portalLeagueByCookie",
+        );
+        if (byCookie) return byCookie.id;
+      }
+
+      const defaultId = await withQueryTimeout(
+        resolveDefaultPortalLeagueId(),
         LEAGUE_MS,
-        "portalLeagueByQuery"
+        "portalLeagueDefault",
       );
-      if (byQuery) return byQuery.id;
-    }
+      if (defaultId) return defaultId;
 
-    if (opts.cookieSlug?.trim()) {
-      const byCookie = await withQueryTimeout(
-        leagueRepository.findBySlug(opts.cookieSlug.trim()),
-        LEAGUE_MS,
-        "portalLeagueByCookie"
-      );
-      if (byCookie) return byCookie.id;
+      return readPortalLeagueIdFromEnv();
+    } catch (err) {
+      const fallback = readPortalLeagueIdFromEnv();
+      if (err instanceof QueryTimeoutError) {
+        console.warn(
+          `[portal] resolvePortalLeagueId timeout (${err.label});${fallback ? " usando NEXT_PUBLIC_DEFAULT_LEAGUE_ID." : " sin fallback."}`,
+        );
+      } else {
+        console.error("[portal] resolvePortalLeagueId:", err);
+      }
+      return fallback;
     }
-
-    const all = await withQueryTimeout(leagueRepository.findAll(), LEAGUE_MS, "portalLeagueAll");
-    const match =
-      all.find((l) => l.slug === "iquitos" || l.slug.includes("iquitos")) ?? all[0];
-    return match?.id;
-  } catch (err) {
-    console.error("[portal] resolvePortalLeagueId:", err);
-    return undefined;
-  }
-}
+  },
+);

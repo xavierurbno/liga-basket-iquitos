@@ -6,6 +6,7 @@ import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
+import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 
 const navBtnClass =
   "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition hover:border-[#1e3a5f] hover:text-[#1e3a5f]";
@@ -33,12 +34,27 @@ export async function resolvePortalPanelHref(): Promise<string> {
     const supabase = createServerClient(url, anon, {
       cookies: {
         getAll: () => cookieStore.getAll(),
-        setAll() {},
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            /* ignorar en RSC */
+          }
+        },
       },
     });
-    const {
-      data: { user },
-    } = await withQueryTimeout(supabase.auth.getUser(), 3_000, "portalAuthGetUser");
+    const { data, error } = await withQueryTimeout(
+      supabase.auth.getUser(),
+      3_000,
+      "portalAuthGetUser",
+    );
+    if (error && isInvalidRefreshTokenError(error)) {
+      await supabase.auth.signOut();
+      return DEFAULT_PORTAL_PANEL_HREF;
+    }
+    const user = data.user;
     if (!user) return DEFAULT_PORTAL_PANEL_HREF;
     const role = typeof user.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
     return canAccessIntranet(user, role) ? "/liga/" : DEFAULT_PORTAL_PANEL_HREF;

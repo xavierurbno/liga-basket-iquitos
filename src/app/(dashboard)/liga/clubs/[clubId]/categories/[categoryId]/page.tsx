@@ -7,6 +7,8 @@ import { categories, clubs, players } from "@/lib/db/schema";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
+import { GenerateCarnetPDF } from "@/components/carnet/GenerateCarnetPDF";
+import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 
 function calcularEdad(transactionDate: Date | string | null): string {
   if (!transactionDate) return "N/D";
@@ -77,10 +79,17 @@ export default async function CategoriaDetallePage({
       phone: players.phone,
       jerseyNumber: players.jerseyNumber,
       photoUrl: players.photoUrl,
+      carnetNumber: players.carnetNumber,
+      gender: players.gender,
     })
     .from(players)
     .where(and(eq(players.clubId, clubId), eq(players.categoryId, categoryId)))
     .orderBy(asc(players.lastname), asc(players.name));
+
+  const categoriaDetalle = lineaCategoriaInstitucional(
+    category.name,
+    listaJugadores.map((j) => j.gender),
+  );
 
   const listaJugadoresOrdenados = [...listaJugadores].sort((a, b) => {
     const lastname = a.lastname.localeCompare(b.lastname, "es", {
@@ -314,7 +323,30 @@ export default async function CategoriaDetallePage({
                       )}
                     </td>
                     <td className="px-2 py-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <GenerateCarnetPDF
+                          playerId={j.id}
+                          fileName={`carnet-${j.documentNumber}`}
+                          name={j.name}
+                          lastname={j.lastname}
+                          documentType={j.documentType}
+                          documentNumber={j.documentNumber}
+                          fechaNacimientoIso={
+                            j.birthdate ? new Date(j.birthdate).toISOString() : ""
+                          }
+                          clubName={club.name}
+                          categoriaDetalle={categoriaDetalle}
+                          carnetNumber={j.carnetNumber}
+                          photoUrl={resolvePublicImageUrl(j.photoUrl)}
+                          clubLogoUrl={club.logoUrl}
+                          label="Carnet"
+                        />
+                        <Link
+                          href={`/liga/clubs/${clubId}/categories/${categoryId}/players/${j.id}/carnet`}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          Ver
+                        </Link>
                         <RegistroMasivoDeportistasModal
                           clubId={clubId}
                           categoryId={categoryId}

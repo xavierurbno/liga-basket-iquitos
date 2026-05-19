@@ -10,6 +10,7 @@ function isSuperAdminPath(pathnameCanon: string, pathname: string): boolean {
   return pathnameCanon === "/super-admin" || pathname.startsWith("/super-admin/");
 }
 import { createSupabaseCookieHandlers } from "@/lib/supabase/auth-cookies";
+import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 
 /** Alineado con `trailingSlash: true` en next.config: comparar rutas sin barra final redundante. */
 function pathnameWithoutTrailingSlash(path: string): string {
@@ -100,10 +101,20 @@ export async function proxy(request: NextRequest) {
 
   let user: User | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch {
-    /* getUser falló; se trata como sin sesión */
+    const { data, error } = await supabase.auth.getUser();
+    if (error && isInvalidRefreshTokenError(error)) {
+      await supabase.auth.signOut();
+    } else {
+      user = data.user;
+    }
+  } catch (err) {
+    if (isInvalidRefreshTokenError(err)) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* ignorar */
+      }
+    }
   }
 
   const supabaseResponse = cookieHandlers.response;

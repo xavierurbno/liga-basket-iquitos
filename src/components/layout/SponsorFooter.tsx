@@ -1,20 +1,23 @@
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
-import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { Sponsor } from "@/lib/db/schema";
+import {
+  readPortalLeagueIdFromEnv,
+  resolveDefaultPortalLeagueId,
+} from "@/lib/portal/portal-league-cache";
 
-const FOOTER_MS = 8_000;
+const FOOTER_MS = process.env.NODE_ENV === "development" ? 15_000 : 8_000;
 
 export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: string }) {
   try {
-    let leagueId = propLeagueId;
+    let leagueId = propLeagueId ?? readPortalLeagueIdFromEnv();
+
     if (!leagueId) {
-      const settings = await withQueryTimeout(
-        getCachedLeagueSettings(),
+      leagueId = await withQueryTimeout(
+        resolveDefaultPortalLeagueId(),
         FOOTER_MS,
-        "footerSettings"
+        "footerLeagueDefault",
       );
-      leagueId = settings?.leagueId ?? undefined;
     }
 
     if (!leagueId) return null;

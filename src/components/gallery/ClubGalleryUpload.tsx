@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, Loader2, CheckCircle2, Upload } from "lucide-react";
 import { uploadClubPhotosAction } from "@/lib/actions/clubs";
+import {
+  GALLERY_MAX_RECOMMENDED,
+  GALLERY_UPLOAD_BATCH_SIZE,
+  uploadGalleryFilesInBatches,
+} from "@/lib/gallery/client-upload";
 import { useRouter } from "next/navigation";
 
 interface ClubGalleryUploadProps {
@@ -18,52 +23,48 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
   const [success, setSuccess] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
 
-  /** Compresión client-side antes del envío */
-  const compressImage = (file: File): Promise<File> =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (e) => {
-        const img = new Image();
-        img.src = e.target?.result as string;
-        img.onload = () => {
-          const MAX = 1200;
-          let { width, height } = img;
-          if (width > height) {
-            if (width > MAX) { height = Math.round((height * MAX) / width); width = MAX; }
-          } else {
-            if (height > MAX) { width = Math.round((width * MAX) / height); height = MAX; }
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          canvas.getContext("2d")?.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(
-            (blob) => resolve(blob ? new File([blob], file.name, { type: "image/jpeg", lastModified: Date.now() }) : file),
-            "image/jpeg",
-            0.82
-          );
-        };
-      };
-    });
+  useEffect(() => {
+    return () => {
+      previews.forEach((url) => {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      });
+    };
+  }, [previews]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
+
+    const nextCount = selectedFiles.length + files.length;
+    if (nextCount > GALLERY_MAX_RECOMMENDED) {
+      setError(`Máximo ${GALLERY_MAX_RECOMMENDED} fotos por envío. Tienes ${nextCount} seleccionadas.`);
+      e.target.value = "";
+      return;
+    }
+
+    setError(null);
     setSelectedFiles((prev) => [...prev, ...files]);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreviews((prev) => [...prev, reader.result as string]);
-      reader.readAsDataURL(file);
-    });
-    // Reset input so same file can be re-selected
+    setPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
     e.target.value = "";
   };
 
   const removeFile = (idx: number) => {
+    const url = previews[idx];
+    if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
     setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
     setPreviews((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const clearSelection = () => {
+    previews.forEach((url) => {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+    setPreviews([]);
+    setSelectedFiles([]);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -80,37 +81,59 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
     const caption = rawFormData.get("caption") as string;
 
     startTransition(async () => {
-      const formData = new FormData();
+      setUploadProgress({ done: 0, total });
 
-      // Comprimir en paralelo
-      const optimized = await Promise.all(selectedFiles.map(compressImage));
-      optimized.forEach((f) => formData.append("files", f));
-      formData.append("caption", caption ?? "");
-      formData.append("clubId", clubId); // ← siempre vinculado al club
+      const result = await uploadGalleryFilesInBatches(
+        selectedFiles,
+        (batch) => {
+          const formData = new FormData();
+          batch.forEach((f) => formData.append("files", f));
+          formData.append("caption", caption ?? "");
+          formData.append("clubId", clubId);
+          return formData;
+        },
+        uploadClubPhotosAction,
+        (done, t) => setUploadProgress({ done, total: t }),
+      );
 
-      const result = await uploadClubPhotosAction(formData);
-
-      if (result.success) {
-        setSuccess(true);
-        setPreviews([]);
-        setSelectedFiles([]);
-        // Refrescar la lista de fotos del server component
-        router.refresh();
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
+      if (!result.success) {
+        setUploadProgress(null);
         setError(result.error ?? "Error al subir las fotos.");
+        if (result.uploaded > 0) router.refresh();
+        return;
       }
+
+      setUploadProgress(null);
+      setSuccess(true);
+      clearSelection();
+      router.refresh();
+      setTimeout(() => setSuccess(false), 4000);
     });
   };
 
+  const progressPct =
+    uploadProgress && uploadProgress.total > 0
+      ? Math.round((uploadProgress.done / uploadProgress.total) * 100)
+      : 0;
+
+  const batchCount =
+    selectedFiles.length > 0
+      ? Math.ceil(selectedFiles.length / GALLERY_UPLOAD_BATCH_SIZE)
+      : 0;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Grid de previsualizaciones + botón de agregar */}
+      <motion.div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-xs text-slate-600">
+        Las fotos de <span className="font-semibold">{clubName}</span> se comprimen y suben en lotes de{" "}
+        {GALLERY_UPLOAD_BATCH_SIZE}. Puedes seleccionar muchas a la vez; no cierres la pestaña hasta
+        ver el mensaje de éxito.
+      </motion.div>
+
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <AnimatePresence>
           {previews.map((src, idx) => (
             <motion.div
-              key={idx}
+              key={src}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
@@ -123,6 +146,7 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
                 onClick={() => removeFile(idx)}
                 className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 shadow transition-opacity group-hover:opacity-100"
                 aria-label="Quitar imagen"
+                disabled={isPending}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -130,7 +154,6 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
           ))}
         </AnimatePresence>
 
-        {/* Botón de agregar fotos */}
         <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 transition-all hover:border-[#005CEE] hover:bg-blue-50/50">
           <Camera className="h-5 w-5 text-slate-400" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Agregar</span>
@@ -145,7 +168,13 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
         </label>
       </div>
 
-      {/* Campo de descripción */}
+      {selectedFiles.length > 0 && (
+        <p className="text-xs font-medium text-slate-500">
+          {selectedFiles.length} foto{selectedFiles.length !== 1 ? "s" : ""} seleccionada
+          {selectedFiles.length !== 1 ? "s" : ""} · {batchCount} lote{batchCount !== 1 ? "s" : ""}
+        </p>
+      )}
+
       <div>
         <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">
           Descripción / Caption
@@ -162,7 +191,31 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
         </p>
       </div>
 
-      {/* Mensajes de estado */}
+      <AnimatePresence>
+        {uploadProgress && (
+          <motion.div
+            key="progress"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-2 rounded-xl bg-slate-50 px-4 py-3"
+          >
+            <div className="flex justify-between text-xs font-bold text-slate-600">
+              <span>Subiendo fotos…</span>
+              <span>
+                {uploadProgress.done} / {uploadProgress.total} ({progressPct}%)
+              </span>
+            </div>
+            <motion.div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-[#005CEE] transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {error && (
           <motion.p
@@ -189,7 +242,6 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
         )}
       </AnimatePresence>
 
-      {/* Botón de envío */}
       <button
         type="submit"
         disabled={isPending || selectedFiles.length === 0}
@@ -198,7 +250,13 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
         {isPending ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>SUBIENDO {selectedFiles.length} FOTO{selectedFiles.length !== 1 ? "S" : ""}...</span>
+            <span>
+              SUBIENDO{" "}
+              {uploadProgress
+                ? `${uploadProgress.done}/${uploadProgress.total}`
+                : selectedFiles.length}{" "}
+              FOTOS…
+            </span>
           </>
         ) : (
           <>

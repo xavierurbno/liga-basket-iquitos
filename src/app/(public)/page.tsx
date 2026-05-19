@@ -10,6 +10,7 @@ import { PublicPortalCarouselSection } from "@/components/portal/PublicPortalCar
 import { PublicPortalTournamentsAsync } from "@/components/portal/PublicPortalTournamentsAsync";
 import { PublicTournamentsSkeleton } from "@/components/portal/PublicTournamentsSkeleton";
 import { PublicPortalMasterClock } from "@/components/portal/PublicPortalMasterClock";
+import { PortalLeagueUnavailable } from "@/components/portal/PortalLeagueUnavailable";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function PublicPortalPage({ searchParams }: Props) {
             <PublicPortalCarouselSection leagueId={leagueId} />
           </Suspense>
         ) : (
-          <CarouselSkeleton />
+          <PortalLeagueUnavailable />
         )}
 
         {leagueId ? (

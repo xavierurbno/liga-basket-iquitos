@@ -1,3 +1,7 @@
+import {
+  CARNET_FOTO_ALTO_MM,
+  CARNET_FOTO_ANCHO_MM,
+} from "@/lib/pdf/carnetLayout";
 import { FOTO_CELDA_ALTO_MM, FOTO_CELDA_ANCHO_MM } from "@/lib/pdf/fichaLayout";
 
 const DPI_IMPRESION = 300;
@@ -14,9 +18,13 @@ export function mmAPixeles300Dpi(mm: number, dpi = DPI_IMPRESION): number {
 /** Supermuestreo respecto a 300 DPI para que el PNG incrustado sea muy denso; jsPDF escala a mm en la celda. */
 const FOTO_POLO_SRC_SCALE = 2;
 
-export function escalarFotoPoloParaImpresion300Dpi(dataUrl: string): Promise<string> {
-  const tw = mmAPixeles300Dpi(FOTO_CELDA_ANCHO_MM) * FOTO_POLO_SRC_SCALE;
-  const th = mmAPixeles300Dpi(FOTO_CELDA_ALTO_MM) * FOTO_POLO_SRC_SCALE;
+function escalarFotoCoverParaImpresion300Dpi(
+  dataUrl: string,
+  anchoMm: number,
+  altoMm: number,
+): Promise<string> {
+  const tw = mmAPixeles300Dpi(anchoMm) * FOTO_POLO_SRC_SCALE;
+  const th = mmAPixeles300Dpi(altoMm) * FOTO_POLO_SRC_SCALE;
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -51,6 +59,15 @@ export function escalarFotoPoloParaImpresion300Dpi(dataUrl: string): Promise<str
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
+}
+
+export function escalarFotoPoloParaImpresion300Dpi(dataUrl: string): Promise<string> {
+  return escalarFotoCoverParaImpresion300Dpi(dataUrl, FOTO_CELDA_ANCHO_MM, FOTO_CELDA_ALTO_MM);
+}
+
+/** Foto del carnet deportista (slot CR80 en `carnetLayout.ts`). */
+export function escalarFotoCarnetParaImpresion300Dpi(dataUrl: string): Promise<string> {
+  return escalarFotoCoverParaImpresion300Dpi(dataUrl, CARNET_FOTO_ANCHO_MM, CARNET_FOTO_ALTO_MM);
 }
 
 /** Logos / staff: mantiene nitidez sin inflar demasiado el PDF (mínimo equivalente ~300 DPI en el tamaño dibujado). */

@@ -8,6 +8,8 @@ import { MasterClockCounter } from "@/components/system/MasterClockCounter";
 import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import type { LeagueSettings } from "@/lib/db/schema";
+import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
+import { StaleSessionCleanup } from "@/components/auth/StaleSessionCleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,15 @@ export default async function LoginPage({ searchParams }: Props) {
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
-        setAll() {},
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            /* Server Component: el proxy refresca sesión en rutas protegidas */
+          }
+        },
       },
     }
   );
@@ -58,9 +68,11 @@ export default async function LoginPage({ searchParams }: Props) {
       ? nextParam
       : null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError && isInvalidRefreshTokenError(userError)) {
+    await supabase.auth.signOut();
+  }
+  const user = userError && isInvalidRefreshTokenError(userError) ? null : userData.user;
   const role = typeof user?.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
   if (user && canAccessIntranet(user, role)) {
     redirect(postLoginRedirect ?? "/liga/");
@@ -72,6 +84,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-[#F5F5F5]">
+      <StaleSessionCleanup />
       <SiteTopNav />
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="flex w-full max-w-[1000px] flex-col items-center space-y-8">

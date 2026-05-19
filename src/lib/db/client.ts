@@ -39,12 +39,17 @@ function safeConnectionLog(connectionString: string, source: string) {
 function poolMaxFor(connectionString: string): number {
   const raw = process.env.DATABASE_POOL_MAX?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
-  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 20) return parsed;
-  /** Con `max: 1`, varias peticiones RSC concurrentes encolan consultas y pueden superar `statement_timeout`. */
+  const fromEnv =
+    Number.isFinite(parsed) && parsed >= 1 && parsed <= 20 ? parsed : null;
+
   if (process.env.NODE_ENV === "production" && connectionString.includes("supabase.co")) {
-    return 2;
+    return fromEnv ?? 2;
   }
-  return connectionString.includes("supabase.co") ? 6 : 3;
+  /** Dev: varias secciones RSC en paralelo; no aplicar `DATABASE_POOL_MAX=2` de producción. */
+  if (process.env.NODE_ENV !== "production" && connectionString.includes("supabase.co")) {
+    return Math.max(fromEnv ?? 10, 10);
+  }
+  return fromEnv ?? (connectionString.includes("supabase.co") ? 6 : 3);
 }
 
 function postgresOptions(connectionString: string): Parameters<typeof postgres>[1] {

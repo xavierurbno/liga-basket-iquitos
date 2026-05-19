@@ -18,17 +18,32 @@ export function withPgbouncerParam(connectionString: string): string {
     : `${connectionString}?pgbouncer=true`;
 }
 
+function isSupabaseDirectDbHost(connectionString: string): boolean {
+  return /db\.[a-z0-9-]+\.supabase\.co/i.test(connectionString) && !connectionString.includes("pooler");
+}
+
+/** En Vercel/serverless el host `db.*.supabase.co` suele fallar o saturar; priorizar pooler si existe. */
+function shouldPreferPoolerOverExplicit(explicit: string, pooled: string | undefined): boolean {
+  if (!pooled?.trim()) return false;
+  if (!isSupabaseDirectDbHost(explicit)) return false;
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+}
+
 export function resolvePostgresConnectionString(): {
   url: string;
   label: DbConnectionLabel;
 } {
   const explicit = process.env.DATABASE_URL?.trim();
+  const pooled = process.env.DATABASE_URL_POOLED?.trim();
+  const direct = process.env.DATABASE_URL_DIRECT?.trim();
+
+  if (explicit && shouldPreferPoolerOverExplicit(explicit, pooled)) {
+    return { url: withPgbouncerParam(pooled!), label: "POOLED" };
+  }
+
   if (explicit) {
     return { url: withPgbouncerParam(explicit), label: "DATABASE_URL" };
   }
-
-  const pooled = process.env.DATABASE_URL_POOLED?.trim();
-  const direct = process.env.DATABASE_URL_DIRECT?.trim();
   const preferDirect =
     process.env.DATABASE_USE_DIRECT_FIRST === "true" ||
     process.env.DATABASE_USE_DIRECT_FIRST === "1";

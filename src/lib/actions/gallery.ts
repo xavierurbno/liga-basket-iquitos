@@ -8,6 +8,7 @@ import { db, galleryPhotos } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
 import { ActionResult } from "@/lib/types/league";
 import { applyWatermark } from "@/lib/watermark";
+import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
 import crypto from "crypto";
 
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
@@ -54,45 +55,42 @@ export const uploadPhotosAction = withAuth(
       const adminSupabase = getAdminClient();
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
-      // 1. Procesamiento y subida paralela
-      const uploadResults = await Promise.all(
-        files.map(async (file) => {
-          if (file.size === 0) return null;
-          if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-            throw new Error(`Tipo no permitido: ${file.type}`);
-          }
+      const uploadResults = await mapInChunks(files, GALLERY_SERVER_PROCESS_CHUNK, async (file) => {
+        if (file.size === 0) return null;
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+          throw new Error(`Tipo no permitido: ${file.type}`);
+        }
 
-          const arrayBuffer = await file.arrayBuffer();
-          const inputBuffer = Buffer.from(arrayBuffer);
-          const processedBuffer = await applyWatermark(inputBuffer);
+        const arrayBuffer = await file.arrayBuffer();
+        const inputBuffer = Buffer.from(arrayBuffer);
+        const processedBuffer = await applyWatermark(inputBuffer);
 
-          const fileId = crypto.randomUUID();
-          const filePath = `gallery/${fileId}.jpg`;
+        const fileId = crypto.randomUUID();
+        const filePath = `gallery/${fileId}.jpg`;
 
-          const { error: uploadError } = await adminSupabase.storage
-            .from(bucket)
-            .upload(filePath, processedBuffer, {
-              contentType: "image/jpeg",
-              upsert: true,
-              cacheControl: "3600",
-            });
+        const { error: uploadError } = await adminSupabase.storage
+          .from(bucket)
+          .upload(filePath, processedBuffer, {
+            contentType: "image/jpeg",
+            upsert: true,
+            cacheControl: "3600",
+          });
 
-          if (uploadError) {
-            throw new Error(`Error Supabase: ${uploadError.message}`);
-          }
+        if (uploadError) {
+          throw new Error(`Error Supabase: ${uploadError.message}`);
+        }
 
-          const { data: { publicUrl } } = adminSupabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath);
+        const {
+          data: { publicUrl },
+        } = adminSupabase.storage.from(bucket).getPublicUrl(filePath);
 
-          return {
-            url: publicUrl,
-            caption,
-            clubId,
-            registeredBy: user.id,
-          };
-        })
-      );
+        return {
+          url: publicUrl,
+          caption,
+          clubId,
+          registeredBy: user.id,
+        };
+      });
 
       const validRows = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
 

@@ -33,8 +33,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Evita errores 413 al enviar formularios con imágenes.
-      bodySizeLimit: "8mb",
+      // Galería: subida por lotes (~8 fotos comprimidas por petición).
+      bodySizeLimit: "20mb",
     },
   },
   reactStrictMode: false,

@@ -73,6 +73,17 @@ npm run env:phase3:verify
 
 Carga `.env.local`, lista faltantes y imprime Redirect URLs sugeridas **sin** mostrar secretos.
 
+### Portal público (`/`) — timeouts locales
+
+Si aparece «No pudimos cargar el contenido de la liga» con `QueryTimeoutError` pero `DATABASE_URL` ya apunta al **pooler (6543)**:
+
+1. **Reinicia** `npm run dev` para recrear el pool de Postgres.
+2. Opcional en `.env.local`: `NEXT_PUBLIC_DEFAULT_LEAGUE_ID=<uuid>` (ID de tu liga en Supabase SQL o tabla `leagues`) para que portal y footer tengan fallback si la consulta llega tarde.
+
+En desarrollo el código usa **al menos 10 conexiones** contra Supabase aunque `DATABASE_POOL_MAX=2`; en Production se respeta tu valor (típicamente `2`).
+
+Los avisos `refresh_token_not_found` en consola son **cookies de sesión viejas**: cierra sesión o borra cookies del sitio; no afectan al portal público.
+
 ## 4. Tras configurar Vercel
 
 1. **Redeploy** Production (o “Redeploy” último deployment) para cargar nuevas variables.

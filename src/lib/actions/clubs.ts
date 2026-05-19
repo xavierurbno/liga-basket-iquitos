@@ -11,6 +11,7 @@ import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
 import { clubRepository } from "@/repositories/clubRepository";
 import type { ActionResult } from "@/lib/types/league";
 import { applyWatermark } from "@/lib/watermark";
+import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
 
 function textoIncluyeTenantNoEncontrado(e: unknown): boolean {
@@ -233,38 +234,34 @@ export async function uploadClubPhotosAction(
 
     const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
-    // Subida paralela a Supabase Storage
-    const uploadResults = await Promise.all(
-      files.map(async (file) => {
-        if (file.size === 0) return null;
+    const uploadResults = await mapInChunks(files, GALLERY_SERVER_PROCESS_CHUNK, async (file) => {
+      if (file.size === 0) return null;
 
-        // Aplicar marca de agua con sharp
-        const rawBuffer = Buffer.from(await file.arrayBuffer());
-        const watermarkedBuffer = await applyWatermark(rawBuffer);
+      const rawBuffer = Buffer.from(await file.arrayBuffer());
+      const watermarkedBuffer = await applyWatermark(rawBuffer);
 
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const filePath = `gallery/${clubId}/${fileName}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const filePath = `gallery/${clubId}/${fileName}`;
 
-        const { error: uploadError } = await adminClient.storage
-          .from(bucket)
-          .upload(filePath, watermarkedBuffer, { contentType: "image/jpeg", upsert: true });
+      const { error: uploadError } = await adminClient.storage
+        .from(bucket)
+        .upload(filePath, watermarkedBuffer, { contentType: "image/jpeg", upsert: true });
 
-        if (uploadError) {
-          throw new Error(`Error en ${file.name}: ${uploadError.message}`);
-        }
+      if (uploadError) {
+        throw new Error(`Error en ${file.name}: ${uploadError.message}`);
+      }
 
-        const {
-          data: { publicUrl },
-        } = adminClient.storage.from(bucket).getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = adminClient.storage.from(bucket).getPublicUrl(filePath);
 
-        return {
-          url: publicUrl,
-          caption,
-          clubId,
-          registeredBy: user.id,
-        };
-      })
-    );
+      return {
+        url: publicUrl,
+        caption,
+        clubId,
+        registeredBy: user.id,
+      };
+    });
 
     const validRows = uploadResults.filter(
       (r): r is NonNullable<typeof r> => r !== null

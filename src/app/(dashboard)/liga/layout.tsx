@@ -3,7 +3,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { LigaOperationalNav } from "@/components/nav/LigaOperationalNav";
 import { MasterClockCounter } from "@/components/system/MasterClockCounter";
-import { SponsorFooter } from "@/components/layout/SponsorFooter";
 import { hasIntranetAccess, intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
 import type { Role } from "@/lib/auth/withAuth";
 
@@ -56,8 +55,7 @@ export default async function SystemLayout({
           />
         </div>
       </header>
-      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
-      <SponsorFooter />
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-10">{children}</main>
     </div>
   );
 }
