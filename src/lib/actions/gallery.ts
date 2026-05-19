@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { ActionResult } from "@/lib/types/league";
 import { applyWatermark } from "@/lib/watermark";
 import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
+import { resolveLeagueIdForGalleryUpload } from "@/lib/gallery/resolve-gallery-league-id";
 import crypto from "crypto";
 
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
@@ -52,6 +53,11 @@ export const uploadPhotosAction = withAuth(
         return { success: false, error: "No hay archivos seleccionados." };
       }
 
+      const leagueId = await resolveLeagueIdForGalleryUpload({
+        clubId,
+        operationalLeagueId: context.leagueId,
+      });
+
       const adminSupabase = getAdminClient();
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
@@ -88,6 +94,7 @@ export const uploadPhotosAction = withAuth(
           url: publicUrl,
           caption,
           clubId,
+          leagueId,
           registeredBy: user.id,
         };
       });
@@ -99,6 +106,7 @@ export const uploadPhotosAction = withAuth(
       }
 
       revalidatePath("/liga/");
+      revalidatePath("/liga/galeria-general");
       revalidatePath("/", "page");
       return { success: true };
     } catch (err: any) {
@@ -157,6 +165,7 @@ export const deletePhotoAction = withAuth(
       await db.delete(galleryPhotos).where(eq(galleryPhotos.id, photoId));
 
       revalidatePath("/liga/");
+      revalidatePath("/liga/galeria-general");
       revalidatePath("/", "page");
       return { success: true };
     } catch (err: any) {

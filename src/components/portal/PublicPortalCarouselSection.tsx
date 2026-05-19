@@ -13,7 +13,7 @@ export async function PublicPortalCarouselSection({ leagueId }: { leagueId: stri
   let photos: Awaited<ReturnType<typeof getRandomCarouselPhotos>> = [];
   try {
     photos = await withQueryTimeout(
-      getRandomCarouselPhotos(5, leagueId),
+      getRandomCarouselPhotos(8, leagueId),
       CAROUSEL_MS,
       "portalCarousel"
     );

@@ -65,7 +65,7 @@ export function MultimediaGallery({
     );
   }
 
-  const carouselPhotos = images.slice(0, 5).map((img) => ({
+  const carouselPhotos = images.slice(0, 8).map((img) => ({
     id: img.id ?? img.url,
     url: img.url,
     caption: img.caption,

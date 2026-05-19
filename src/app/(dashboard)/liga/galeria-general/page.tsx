@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { GeneralGalleryUpload } from "@/components/gallery/GeneralGalleryUpload";
@@ -6,6 +7,8 @@ import { PhotoGalleryGrid } from "@/components/gallery/PhotoGalleryGrid";
 import { photoRepository } from "@/repositories/photoRepository";
 import { Pagination } from "@/components/gallery/Pagination";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
+import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
+import { resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 
 interface PageProps {
   searchParams: Promise<{ page?: string }>;
@@ -16,10 +19,29 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
   const currentPage = Math.max(1, parseInt(pageStr || "1"));
   const ITEMS_PER_PAGE = 30;
 
-  // Obtener fotos paginadas y conteo total
+  const { leagueId: operationalLeagueId, leagueName } = await getLigaOperationalContext();
+  const leagueId =
+    operationalLeagueId ?? (await resolveDefaultPortalLeagueId()) ?? undefined;
+
+  if (!leagueId) {
+    return (
+      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
+        <p className="text-sm font-bold text-amber-900">
+          Selecciona una liga activa para ver y subir fotos institucionales.
+        </p>
+        <Link
+          href="/liga/"
+          className="mt-4 inline-block text-sm font-black text-[#005CEE] hover:underline"
+        >
+          Ir al panel de gestión →
+        </Link>
+      </div>
+    );
+  }
+
   const [photos, totalCount] = await Promise.all([
-    photoRepository.getGeneral(currentPage, ITEMS_PER_PAGE),
-    photoRepository.countGeneral(),
+    photoRepository.getGeneral(currentPage, ITEMS_PER_PAGE, leagueId),
+    photoRepository.countGeneral(leagueId),
   ]);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -53,7 +75,9 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
               Registro Masivo · Galería Institucional
             </h2>
             <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
-              Las fotos quedarán disponibles en el carrusel principal del dashboard
+              {leagueName
+                ? `${leagueName} · visibles en el portal y carrusel público`
+                : "Visibles en el portal y carrusel público de la liga activa"}
             </p>
           </div>
         </div>

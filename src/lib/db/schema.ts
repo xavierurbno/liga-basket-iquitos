@@ -509,6 +509,7 @@ export const galleryPhotos = pgTable(
   },
   (table) => ({
     clubIdx: index("gallery_club_idx").on(table.clubId),
+    leagueIdx: index("gallery_photos_league_id_idx").on(table.leagueId),
   })
 );
 

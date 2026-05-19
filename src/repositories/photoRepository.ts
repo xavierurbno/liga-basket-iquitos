@@ -126,10 +126,9 @@ export const photoRepository = {
   },
 
   /**
-   * Retorna N fotos para el carrusel principal de forma eficiente.
-   * Evita ORDER BY RANDOM() que es lento en tablas medianas/grandes.
+   * Fotos para el carrusel del portal: mezcla aleatoria de toda la liga (institucional + clubes).
    */
-  async getRandomForCarousel(countLimit = 5, leagueId?: string): Promise<RepoPhoto[]> {
+  async getRandomForCarousel(countLimit = 8, leagueId?: string): Promise<RepoPhoto[]> {
     const filters = leagueId ? eq(galleryPhotos.leagueId, leagueId) : undefined;
     return db
       .select()

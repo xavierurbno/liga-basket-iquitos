@@ -218,6 +218,10 @@ export async function uploadClubPhotosAction(
       };
     }
 
+    if (!club.leagueId) {
+      return { success: false, error: "El club no tiene una liga asignada." };
+    }
+
     const files = formData.getAll("files") as File[];
     const caption = (formData.get("caption") as string | null)?.trim() || null;
 
@@ -259,6 +263,7 @@ export async function uploadClubPhotosAction(
         url: publicUrl,
         caption,
         clubId,
+        leagueId: club.leagueId,
         registeredBy: user.id,
       };
     });
@@ -275,8 +280,10 @@ export async function uploadClubPhotosAction(
     await db.insert(galleryPhotos).values(validRows);
 
     revalidatePath("/liga/");
+    revalidatePath("/liga/galeria-general");
     revalidatePath("/", "page");
     revalidatePath(`/liga/clubs/${club.id}/`);
+    revalidatePath(`/liga/clubs/${club.id}/galeria`);
 
     return { success: true };
   } catch (err: unknown) {
