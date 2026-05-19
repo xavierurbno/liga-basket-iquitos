@@ -81,7 +81,7 @@ export function ClubGalleryUpload({ clubId, clubName }: ClubGalleryUploadProps) 
     const caption = rawFormData.get("caption") as string;
 
     startTransition(async () => {
-      setUploadProgress({ done: 0, total });
+      setUploadProgress({ done: 0, total: selectedFiles.length });
 
       const result = await uploadGalleryFilesInBatches(
         selectedFiles,
