@@ -1,21 +1,12 @@
 import sharp from "sharp";
-import path from "path";
-import fs from "fs/promises";
+import { resolveWatermarkLogoPath } from "@/lib/logos/resolve-watermark-logo";
 
 /**
  * applyWatermark - Procesa la imagen para añadir la firma institucional (LDDBI).
  * Implementación de Opción 2: Firma a color en la esquina sureste con 50% opacidad.
  */
 export async function applyWatermark(inputBuffer: Buffer): Promise<Buffer> {
-  // 1. Referencia Absoluta del Logo (Checklist Punto 2)
-  const logoPath = path.join(process.cwd(), "public", "logos", "logo-lddbi.png");
-  
-  // 2. Validación de Existencia (Sin catch silencioso - Checklist Punto 5)
-  try {
-    await fs.access(logoPath);
-  } catch (err) {
-    throw new Error(`Error Crítico: El logo institucional no existe en ${logoPath}. El pipeline de marca de agua se ha detenido.`);
-  }
+  const logoPath = await resolveWatermarkLogoPath();
 
   const image = sharp(inputBuffer);
   const metadata = await image.metadata();
