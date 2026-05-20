@@ -76,7 +76,7 @@ export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {/* Tarjeta LDDBI */}
           <FebCard
-            href="/liga/galeria-general"
+            href="/galeria-institucional"
             coverUrl={generalPhotos[0]?.url ?? null}
             fallbackLogoUrl="/logo-liga.png"
             title="GALERÍA LDDBI"
@@ -89,7 +89,7 @@ export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) 
           {clubsWithPhotos.map((club) => (
             <FebCard
               key={club.clubId}
-              href={`/liga/clubs/${club.clubId}/galeria`}
+              href={`/galeria/club/${club.clubId}`}
               coverUrl={club.photos[0]?.url ?? null}
               fallbackLogoUrl={club.logoUrl}
               title={club.clubName}

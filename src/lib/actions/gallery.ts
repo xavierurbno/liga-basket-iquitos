@@ -107,6 +107,7 @@ export const uploadPhotosAction = withAuth(
 
       revalidatePath("/liga/");
       revalidatePath("/liga/galeria-general");
+      revalidatePath("/galeria-institucional");
       revalidatePath("/", "page");
       return { success: true };
     } catch (err: any) {
@@ -166,6 +167,7 @@ export const deletePhotoAction = withAuth(
 
       revalidatePath("/liga/");
       revalidatePath("/liga/galeria-general");
+      revalidatePath("/galeria-institucional");
       revalidatePath("/", "page");
       return { success: true };
     } catch (err: any) {

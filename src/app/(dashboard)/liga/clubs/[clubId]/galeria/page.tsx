@@ -12,6 +12,9 @@ import { PhotoGalleryGrid } from "@/components/gallery/PhotoGalleryGrid";
 import { photoRepository } from "@/repositories/photoRepository";
 import { Pagination } from "@/components/gallery/Pagination";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
+import { canUploadClubGallery } from "@/lib/gallery/gallery-permissions";
+import { readUserRole } from "@/lib/auth/read-user-role";
+import { ExternalLink } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ clubId: string }>;
@@ -59,11 +62,14 @@ export default async function ClubGaleriaPage({
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const role = readUserRole(user);
   const isSuperAdmin = isDashboardSuperAdmin(user);
   const userClubId = user?.app_metadata?.club_id as string | undefined;
 
-  // Un usuario puede borrar si es SuperAdmin o si es el delegado de este club específico
   const canDelete = isSuperAdmin || (Boolean(userClubId) && userClubId === clubId);
+  const canUpload =
+    canUploadClubGallery(role) &&
+    (role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN" || userClubId === clubId);
 
   // Adaptar al formato que espera PhotoGalleryGrid
   const gridPhotos = photos.map((p) => ({
@@ -91,30 +97,45 @@ export default async function ClubGaleriaPage({
             {totalCount} foto{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
-        <Link
-          href={`/liga/clubs/${clubId}`}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-md active:scale-95"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al Club
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/galeria/club/${clubId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#005CEE]/30 bg-[#005CEE]/5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#005CEE] transition-all hover:bg-[#005CEE]/10"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Ver galería pública
+          </Link>
+          <Link
+            href={`/liga/clubs/${clubId}`}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-md active:scale-95"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al Club
+          </Link>
+        </div>
       </div>
 
-      {/* ── Sección de Carga ── */}
-      <section className="rounded-3xl border border-[#BFDBFE] bg-white p-6 shadow-[0_8px_32px_-8px_rgba(30,64,175,0.15)]">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#005CEE]/10">
-            <Images className="h-5 w-5 text-[#005CEE]" />
+      {canUpload ? (
+        <section className="rounded-3xl border border-[#BFDBFE] bg-white p-6 shadow-[0_8px_32px_-8px_rgba(30,64,175,0.15)]">
+          <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#005CEE]/10">
+              <Images className="h-5 w-5 text-[#005CEE]" />
+            </div>
+            <div>
+              <h2 className="text-base font-black tracking-tight text-[#1e3a5f]">Subir nuevas fotos</h2>
+              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
+                Gestión interna · visible en{" "}
+                <Link href={`/galeria/club/${clubId}`} className="text-[#005CEE] hover:underline">
+                  galería pública
+                </Link>
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-black tracking-tight text-[#1e3a5f]">Subir Nuevas Fotos</h2>
-            <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
-              Las fotos quedarán vinculadas a {club.name}
-            </p>
-          </div>
-        </div>
-        <ClubGalleryUpload clubId={clubId} clubName={club.name} />
-      </section>
+          <ClubGalleryUpload clubId={clubId} clubName={club.name} />
+        </section>
+      ) : null}
 
       {/* ── Grid con Lightbox ── */}
       <section className="space-y-4">

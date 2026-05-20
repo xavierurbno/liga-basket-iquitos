@@ -281,9 +281,11 @@ export async function uploadClubPhotosAction(
 
     revalidatePath("/liga/");
     revalidatePath("/liga/galeria-general");
+    revalidatePath("/galeria-institucional");
     revalidatePath("/", "page");
     revalidatePath(`/liga/clubs/${club.id}/`);
     revalidatePath(`/liga/clubs/${club.id}/galeria`);
+    revalidatePath(`/galeria/club/${club.id}`);
 
     return { success: true };
   } catch (err: unknown) {

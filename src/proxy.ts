@@ -37,6 +37,8 @@ const PROXY_RESERVED_SEGMENTS = new Set([
   "busqueda-365",
   "torneos",
   "forgot-password",
+  "galeria",
+  "galeria-institucional",
 ]);
 
 /** Rutas públicas sin slug de club: no hace falta `getUser` (evita timeout a Supabase en cada GET /). */
@@ -142,6 +144,19 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (pathnameCanon === "/liga/galeria-general" && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/galeria-institucional/";
+    return NextResponse.redirect(url);
+  }
+
+  const clubGaleriaMatch = pathname.match(/^\/liga\/clubs\/([^/]+)\/galeria\/?$/);
+  if (clubGaleriaMatch && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/galeria/club/${clubGaleriaMatch[1]}/`;
+    return NextResponse.redirect(url);
+  }
+
   if (isLigaPath) {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -163,6 +178,8 @@ export async function proxy(request: NextRequest) {
     "/normativas",
     "/busqueda-365",
     "/torneos",
+    "/galeria",
+    "/galeria-institucional",
   ];
   const isPublicRoute =
     publicRoutes.some((route) => pathname.startsWith(route)) ||
@@ -240,6 +257,8 @@ export async function proxy(request: NextRequest) {
       pathnameCanon === "/busqueda-365" ||
       pathnameCanon.startsWith("/busqueda-365/") ||
       pathname.startsWith("/validar") ||
+      pathname.startsWith("/galeria") ||
+      pathname.startsWith("/galeria-institucional") ||
       pathname.includes(".rsc");
 
     if (!stayOnPublic) {
