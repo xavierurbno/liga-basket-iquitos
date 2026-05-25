@@ -1,0 +1,17 @@
+Logos estáticos (liga principal / LDDBI — Iquitos)
+==================================================
+
+Coloca UNO de estos archivos (el sistema usa el primero que exista):
+
+  ../logo-liga.png          (recomendado: raíz de public/)
+  logo-lddbi.png          (esta carpeta)
+  liga.png                (esta carpeta)
+
+Se usan en: login, cabecera del portal, PDF y marca de agua si no hay logo en BD.
+
+Otras ligas (Yurimaguas, etc.): NO usan archivos de esta carpeta.
+  Sin logo en intranet → login y portal muestran solo el nombre (inicial).
+  Sube el logo en intranet
+  Liga → Marca e identidad (/liga/configuracion/)
+  o Super Admin → ficha de la liga.
+Eso guarda la imagen en Supabase (login_logo_url), no en public/.

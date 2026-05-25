@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+  transpilePackages: ["framer-motion"],
   // sharp es un módulo nativo — debe ejecutarse externamente, no bundleado
   serverExternalPackages: ["sharp"],
   images: {

@@ -1,12 +1,14 @@
 import sharp from "sharp";
-import { resolveWatermarkLogoPath } from "@/lib/logos/resolve-watermark-logo";
+import { resolveLeagueLogoBuffer } from "@/lib/logos/resolve-league-logo-buffer";
 
 /**
- * applyWatermark - Procesa la imagen para añadir la firma institucional (LDDBI).
- * Implementación de Opción 2: Firma a color en la esquina sureste con 50% opacidad.
+ * Marca de agua en galería: logo de la liga (`login_logo_url`) o fallback global.
  */
-export async function applyWatermark(inputBuffer: Buffer): Promise<Buffer> {
-  const logoPath = await resolveWatermarkLogoPath();
+export async function applyWatermark(
+  inputBuffer: Buffer,
+  opts?: { leagueId?: string | null },
+): Promise<Buffer> {
+  const logoBuffer = await resolveLeagueLogoBuffer(opts?.leagueId);
 
   const image = sharp(inputBuffer);
   const metadata = await image.metadata();
@@ -22,10 +24,15 @@ export async function applyWatermark(inputBuffer: Buffer): Promise<Buffer> {
     return inputBuffer;
   }
 
+  // Sin logo (liga sin login_logo_url y sin fallback): devolver original sin marca de agua.
+  if (!logoBuffer) {
+    return inputBuffer;
+  }
+
   // 4. Pre-procesamiento de Firma con Opacidad 50%
   // Usamos .linear() para multiplicar el canal alpha por 0.5 conservando los colores (RGB) intactos.
   // Esto evita el efecto de "sombra" u oscurecimiento.
-  const translucentLogo = await sharp(logoPath)
+  const translucentLogo = await sharp(logoBuffer)
     .resize({ width: watermarkWidth })
     .ensureAlpha()
     .linear([1, 1, 1, 0.5], [0, 0, 0, 0])

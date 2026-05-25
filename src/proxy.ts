@@ -11,6 +11,10 @@ function isSuperAdminPath(pathnameCanon: string, pathname: string): boolean {
 }
 import { createSupabaseCookieHandlers } from "@/lib/supabase/auth-cookies";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
+import {
+  ACTIVE_LEAGUE_SLUG_COOKIE,
+  activeLeagueSlugCookieOptions,
+} from "@/lib/portal/active-league-cookie";
 
 /** Alineado con `trailingSlash: true` en next.config: comparar rutas sin barra final redundante. */
 function pathnameWithoutTrailingSlash(path: string): string {
@@ -27,6 +31,7 @@ const PROXY_RESERVED_SEGMENTS = new Set([
   "onboarding",
   "dashboard",
   "liga",
+  "l",
   "api",
   "_next",
   "auth",
@@ -39,6 +44,7 @@ const PROXY_RESERVED_SEGMENTS = new Set([
   "forgot-password",
   "galeria",
   "galeria-institucional",
+  "ligas",
 ]);
 
 /** Rutas públicas sin slug de club: no hace falta `getUser` (evita timeout a Supabase en cada GET /). */
@@ -56,6 +62,23 @@ function isPublicFastPath(pathnameCanon: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
+
+  if (pathnameCanon === "/" && request.nextUrl.searchParams.has("l")) {
+    const slug = request.nextUrl.searchParams.get("l")?.trim();
+    if (slug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/l/${slug}/`;
+      url.search = "";
+      return NextResponse.redirect(url, 301);
+    }
+  }
+
+  const leaguePortalSlug = pathname.match(/^\/l\/([^/]+)/)?.[1]?.trim();
+  if (leaguePortalSlug) {
+    const response = NextResponse.next({ request: { headers: request.headers } });
+    response.cookies.set(ACTIVE_LEAGUE_SLUG_COOKIE, leaguePortalSlug, activeLeagueSlugCookieOptions);
+    return response;
+  }
 
   const isIntranetPath =
     pathnameCanon === "/dashboard" || pathnameCanon.startsWith("/dashboard/");
@@ -180,6 +203,8 @@ export async function proxy(request: NextRequest) {
     "/torneos",
     "/galeria",
     "/galeria-institucional",
+    "/l/",
+    "/ligas",
   ];
   const isPublicRoute =
     publicRoutes.some((route) => pathname.startsWith(route)) ||
@@ -208,6 +233,10 @@ export async function proxy(request: NextRequest) {
       "normativas",
       "busqueda-365",
       "torneos",
+      "l",
+      "galeria",
+      "galeria-institucional",
+      "ligas",
     ];
     const isClubRoute = pathParts.length > 0 && !reservedPaths.includes(pathParts[0]);
 
@@ -259,6 +288,7 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith("/validar") ||
       pathname.startsWith("/galeria") ||
       pathname.startsWith("/galeria-institucional") ||
+      pathname.startsWith("/l/") ||
       pathname.includes(".rsc");
 
     if (!stayOnPublic) {

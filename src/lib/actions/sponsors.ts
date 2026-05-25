@@ -64,15 +64,6 @@ export const upsertSponsorAction = withAuth(
       const displayOrder = formData.get("displayOrder") as string;
       const logoFile = formData.get("logo") as File | null;
 
-      console.log("[upsertSponsorAction] Received Data:", {
-        id,
-        name,
-        category,
-        logoSize: logoFile?.size,
-        logoName: logoFile?.name,
-        hasCurrentLogo: !!formData.get("currentLogoUrl")
-      });
-
       const validated = sponsorSchema.safeParse({
         name,
         category,

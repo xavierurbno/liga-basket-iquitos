@@ -28,6 +28,8 @@ import {
   calcularCategoria,
   generarNumeroFichaDesdeCategoriaClub,
 } from "@/lib/utils/category";
+import { resolveLeagueCarnetPrefix } from "@/lib/leagues/league-carnet-prefix";
+import { leagueRepository } from "@/repositories/league.repository";
 
 // --- Helpers ---
 
@@ -482,6 +484,12 @@ export const registrarJugadorAction = withAuth(
         photoUrl = publicUrl;
       }
 
+      const leagueRow = await leagueRepository.findById(leagueId);
+      const cityPrefix = resolveLeagueCarnetPrefix({
+        slug: leagueRow?.slug,
+        name: leagueRow?.name,
+      });
+
       // 2. Transacción de Base de Datos
       await db.transaction(async (tx) => {
         const catRow = await categoryRepository.findById(categoryId, tx);
@@ -497,6 +505,8 @@ export const registrarJugadorAction = withAuth(
           catRow.name,
           data.birthdate,
           nextVal,
+          new Date().getFullYear(),
+          cityPrefix,
         );
 
         await playerRepository.create({
