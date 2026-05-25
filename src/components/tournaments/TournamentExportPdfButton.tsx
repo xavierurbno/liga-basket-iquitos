@@ -21,7 +21,7 @@ export function TournamentExportPdfButton({ tournamentId }: { tournamentId: stri
     }
 
     try {
-      const logosRes = await getInstitutionalLogosAction();
+      const logosRes = await getInstitutionalLogosAction(res.leagueId);
       const [fedUrl, ligaUrl] = await Promise.all([
         logosRes.success && logosRes.federacionBase64
           ? escalarLogoParaPdf(logosRes.federacionBase64)

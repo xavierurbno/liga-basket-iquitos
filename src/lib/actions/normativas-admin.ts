@@ -8,6 +8,10 @@ import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import type { ActionResult } from "@/lib/types/league";
 import { db } from "@/lib/db/client";
 import { normativas, type NormativaCategoria } from "@/lib/db/schema";
+import { resolveNormativaUploadLeagueId } from "@/lib/normativas/resolve-upload-league-id";
+import { leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
+import { leagueRepository } from "@/repositories/league.repository";
+import { revalidateLeaguePortalByLeagueId } from "@/lib/portal/revalidate-league-portal";
 
 const ALLOWED_CATEGORY = new Set<string>(["REGLAMENTO", "BASES", "COMUNICADO"]);
 
@@ -16,12 +20,33 @@ function asText(v: unknown): string {
 }
 
 export const createNormativaDocumentAction = withAuth(
-  async (formData: FormData, _user: User, _context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
     const title = asText(formData.get("title"));
     const description = asText(formData.get("description"));
     const categoryRaw = asText(formData.get("category"));
     const isPublic = formData.get("isPublic") === "true" || formData.get("isPublic") === "on";
     const file = formData.get("file");
+    const formLeagueId = asText(formData.get("leagueId")) || null;
+
+    const leagueId = resolveNormativaUploadLeagueId(context, formLeagueId);
+    if (!leagueId) {
+      return {
+        success: false,
+        error:
+          context.role === "SUPER_ADMIN"
+            ? "Selecciona la liga activa en el panel antes de subir normativas."
+            : "Tu cuenta no tiene liga asignada.",
+      };
+    }
+
+    const leagueRow = await leagueRepository.findById(leagueId);
+    if (!leagueRow) {
+      return { success: false, error: "La liga indicada no existe." };
+    }
+
+    if (context.role === "LEAGUE_ADMIN" && context.leagueId && context.leagueId !== leagueId) {
+      return { success: false, error: "Solo puedes subir normativas de tu liga." };
+    }
 
     if (!title) return { success: false, error: "El título es obligatorio." };
     if (!ALLOWED_CATEGORY.has(categoryRaw)) {
@@ -45,12 +70,12 @@ export const createNormativaDocumentAction = withAuth(
           getAll: () => cookieStore.getAll(),
           setAll() {},
         },
-      }
+      },
     );
 
     const extRaw = file.name.includes(".") ? file.name.split(".").pop() ?? "pdf" : "pdf";
     const ext = extRaw.toLowerCase().replace(/[^a-z0-9]/g, "") || "pdf";
-    const key = `normativas/${crypto.randomUUID()}.${ext}`;
+    const key = `normativas/${leagueRow.slug}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage.from(bucket).upload(key, file, {
       upsert: false,
@@ -65,6 +90,7 @@ export const createNormativaDocumentAction = withAuth(
     } = supabase.storage.from(bucket).getPublicUrl(key);
 
     await db.insert(normativas).values({
+      leagueId,
       titulo: title,
       descripcion: description || null,
       urlArchivo: publicUrl,
@@ -72,10 +98,11 @@ export const createNormativaDocumentAction = withAuth(
       esPublico: isPublic,
     });
 
-    revalidatePath("/normativas");
     revalidatePath("/normativas/");
+    revalidatePath(leaguePortalNormativas(leagueRow.slug));
+    await revalidateLeaguePortalByLeagueId(leagueId);
     revalidatePath("/", "page");
     return { success: true };
   },
-  ["SUPER_ADMIN", "LEAGUE_ADMIN"]
+  ["SUPER_ADMIN", "LEAGUE_ADMIN"],
 );

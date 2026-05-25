@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 
 export type IntranetNavLeague = { id: string; name: string; slug: string };
 export type IntranetNavClub = { id: string; name: string; slug: string };
@@ -30,7 +31,7 @@ export function IntranetSuperAdminNav({
           {leagues.map((l) => (
             <li key={l.id}>
               <Link
-                href={`/?l=${encodeURIComponent(l.slug)}`}
+                href={leaguePortalHome(l.slug)}
                 className="block truncate text-[#005CEE] hover:underline"
               >
                 {l.name}

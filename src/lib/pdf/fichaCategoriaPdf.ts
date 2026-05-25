@@ -2,7 +2,10 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { calcularEdad } from "@/lib/utils/age";
 import { FOTO_CELDA_ALTO_MM, FOTO_CELDA_ANCHO_MM } from "@/lib/pdf/fichaLayout";
-import { FICHA_COLUMNAS_TABLA } from "@/lib/pdf/fichaInstitucionalTextos";
+import {
+  FICHA_COLUMNAS_TABLA,
+  resolveFichaLeagueTitle,
+} from "@/lib/pdf/fichaInstitucionalTextos";
 import {
   PAGE_X_MARGIN_MM,
   calcCabeceraInstitucionalMetrics,
@@ -31,6 +34,8 @@ export type FichaPdfStaffInput = {
 };
 
 export type FichaCategoriaPdfInput = {
+  /** Nombre oficial de la liga (cabecera T2 y pie de página). */
+  leagueDisplayName: string;
   /** Nombre del club (línea "CLUB: …" en cabecera) */
   clubName: string;
   /** Ej. "U9 - MIXTO" (se imprime como CATEGORÍA: …) */
@@ -60,9 +65,11 @@ const FOOTER_TEXT_COLOR: [number, number, number] = [75, 85, 99];
 function calcCabeceraCompactaMetrics(
   doc: jsPDF,
   categoriaDetalle: string,
-  clubName: string
+  clubName: string,
+  leagueDisplayName: string
 ): CabeceraInstitucionalMetrics {
   return calcCabeceraInstitucionalMetrics(doc, {
+    leagueTitleLine: leagueDisplayName,
     identityLines: [
       `CLUB: ${clubName.trim().toUpperCase()}`,
       `CATEGORÍA: ${categoriaDetalle.toUpperCase()}`,
@@ -81,6 +88,7 @@ function drawCabeceraPrimerPagina(
     {
       federacionLogoPngDataUrl: input.federacionLogoPngDataUrl,
       ligaLogoPngDataUrl: input.ligaLogoPngDataUrl,
+      leagueTitleLine: input.leagueDisplayName,
       identityLines: [
         `CLUB: ${input.clubName.trim().toUpperCase()}`,
         `CATEGORÍA: ${input.categoriaDetalle.toUpperCase()}`,
@@ -163,14 +171,19 @@ function formatFechaHoraTrazabilidad(iso: string): string {
   return `${dd}/${mm}/${yyyy} a las ${hh}:${mi}`;
 }
 
-function drawFooterTrazabilidad(doc: jsPDF, generatedAtIso: string) {
+function drawFooterTrazabilidad(
+  doc: jsPDF,
+  generatedAtIso: string,
+  leagueDisplayName: string,
+) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
+  const leagueLabel = resolveFichaLeagueTitle(leagueDisplayName);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(FOOTER_FONT_SIZE);
   doc.setTextColor(...FOOTER_TEXT_COLOR);
   doc.text(
-    `Liga Deportiva de Basket de Iquitos | Generado el: ${formatFechaHoraTrazabilidad(generatedAtIso)}`,
+    `${leagueLabel} | Generado el: ${formatFechaHoraTrazabilidad(generatedAtIso)}`,
     pageW / 2,
     pageH - 5,
     { align: "center", baseline: "middle" }
@@ -241,7 +254,12 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
   const pageW = doc.internal.pageSize.getWidth();
   const innerW = pageW - 2 * PAGE_X_MARGIN_MM;
   const columnStylesTabla = buildColumnStylesFullWidth(innerW);
-  const cabeceraMetrics = calcCabeceraCompactaMetrics(doc, input.categoriaDetalle, input.clubName);
+  const cabeceraMetrics = calcCabeceraCompactaMetrics(
+    doc,
+    input.categoriaDetalle,
+    input.clubName,
+    input.leagueDisplayName,
+  );
   const generatedAtIso = input.generatedAtIso ?? new Date().toISOString();
   /** Posición Y donde debe empezar la tabla (sin conflicto con otros `startY` legacy). */
   const tablaStartY = headerTop + cabeceraMetrics.alturaHastaInicioTabla;
@@ -315,7 +333,7 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
       }
     },
     didDrawPage: (data) => {
-      drawFooterTrazabilidad(data.doc as jsPDF, generatedAtIso);
+      drawFooterTrazabilidad(data.doc as jsPDF, generatedAtIso, input.leagueDisplayName);
     },
     willDrawCell: (data) => {
       if (data.section === "body" && (data.column.index === 0 || data.column.index === 1)) {
@@ -370,7 +388,7 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
   if (finalY + pieAltoEstimado > doc.internal.pageSize.getHeight() - 16) {
     doc.addPage();
     drawMarcaAguaCentrada(doc, input.ligaLogoPngDataUrl);
-    drawFooterTrazabilidad(doc, generatedAtIso);
+    drawFooterTrazabilidad(doc, generatedAtIso, input.leagueDisplayName);
     finalY = 20;
   }
 

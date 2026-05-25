@@ -1,7 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
+import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
+import {
+  CARNET_THEME_PRESETS,
+  CARNET_THEME_PRESET_LABELS,
+  parseCarnetThemePreset,
+} from "@/lib/carnet/carnetTheme";
 import { LeagueSettings } from "@/lib/db/schema";
 
 interface Props {
@@ -21,6 +27,30 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   });
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialSettings?.loginLogoUrl || null);
+  const [fedPreviewUrl, setFedPreviewUrl] = useState<string | null>(
+    initialSettings?.carnetFederationLogoUrl || null,
+  );
+  const [presidentSigPreview, setPresidentSigPreview] = useState<string | null>(
+    initialSettings?.presidentSignatureUrl || null,
+  );
+  const [secretarySigPreview, setSecretarySigPreview] = useState<string | null>(
+    initialSettings?.secretarySignatureUrl || null,
+  );
+  const [sportGraphicPreview, setSportGraphicPreview] = useState<string | null>(
+    initialSettings?.carnetSportGraphicUrl || null,
+  );
+  const primaryColorRef = useRef<HTMLInputElement>(null);
+  const accentColorRef = useRef<HTMLInputElement>(null);
+
+  function previewFromFile(
+    file: File | undefined,
+    setter: (url: string | null) => void,
+  ) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  }
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -145,6 +175,67 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             <span>Marca Blanca (White Label)</span>
             <div className="flex-1 h-px bg-slate-100"></div>
           </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Color primario del portal</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  defaultValue={initialSettings?.portalPrimaryColor || "#1e3a5f"}
+                  className="h-12 w-14 cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                  onChange={(e) => {
+                    if (primaryColorRef.current) primaryColorRef.current.value = e.target.value;
+                  }}
+                />
+                <input
+                  ref={primaryColorRef}
+                  type="text"
+                  name="portalPrimaryColor"
+                  defaultValue={initialSettings?.portalPrimaryColor || "#1e3a5f"}
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 font-mono text-sm uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                  aria-label="Código hex color primario"
+                />
+              </div>
+              {(state as SettingsActionState).errors?.portalPrimaryColor && (
+                <p className="text-[11px] text-red-500 font-bold ml-1">
+                  {(state as SettingsActionState).errors!.portalPrimaryColor![0]}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Color de acento (enlaces, botones)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  defaultValue={initialSettings?.portalAccentColor || "#005CEE"}
+                  className="h-12 w-14 cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                  onChange={(e) => {
+                    if (accentColorRef.current) accentColorRef.current.value = e.target.value;
+                  }}
+                />
+                <input
+                  ref={accentColorRef}
+                  type="text"
+                  name="portalAccentColor"
+                  defaultValue={initialSettings?.portalAccentColor || "#005CEE"}
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 font-mono text-sm uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                  aria-label="Código hex color acento"
+                />
+              </div>
+              {(state as SettingsActionState).errors?.portalAccentColor && (
+                <p className="text-[11px] text-red-500 font-bold ml-1">
+                  {(state as SettingsActionState).errors!.portalAccentColor![0]}
+                </p>
+              )}
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Se aplican en <code className="text-slate-500">/l/[slug]/</code>, login con{" "}
+            <code className="text-slate-500">?l=</code> y tarjetas de campeonatos.
+          </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700 ml-1">Logo de Login Personalizado</label>
@@ -180,7 +271,7 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
 
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-400 ml-1">Previsualización de Marca</label>
-              <div className="aspect-square w-48 mx-auto md:mx-0 bg-white rounded-[2rem] border border-slate-100 shadow-inner flex items-center justify-center p-6 overflow-hidden relative">
+              <div className="aspect-square w-48 mx-auto md:mx-0 bg-white rounded-4xl border border-slate-100 shadow-inner flex items-center justify-center p-6 overflow-hidden relative">
                 {previewUrl ? (
                   <img 
                     src={previewUrl} 
@@ -199,16 +290,218 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
           </div>
         </div>
 
-        {/* Sección 4: Comunicación */}
+        {/* Sección 4: Carnet deportista */}
+        <div id="carnet-settings" className="scroll-mt-24 space-y-4 pt-2">
+          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <span>Carnet de identificación (CR80)</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </h4>
+          <p className="text-[10px] text-slate-500 ml-1">
+            El logo de liga del carnet es el mismo que &quot;Logo de Login&quot; arriba. Las ligas existentes
+            siguen con plantilla <strong>institucional sobria</strong> hasta que elijas otra aquí.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Plantilla del carnet (CR80)</label>
+              <select
+                name="carnetThemePreset"
+                defaultValue={parseCarnetThemePreset(initialSettings?.carnetThemePreset)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium bg-white"
+              >
+                {CARNET_THEME_PRESETS.map((id) => (
+                  <option key={id} value={id}>
+                    {CARNET_THEME_PRESET_LABELS[id]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400 ml-1">
+                Solo una plantilla activa por liga: <strong>lddbi_bold</strong> (diseño en código) o{" "}
+                <strong>lddbi_template</strong> (PNG en <code>public/carnet/lddbi-template/</code>).
+                No se combinan en el mismo carnet.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-700 ml-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="carnetShowFederation"
+                  defaultChecked={initialSettings?.carnetShowFederation !== false}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Mostrar federación en el carnet
+              </label>
+              <input
+                type="text"
+                name="carnetFederationDisplayName"
+                defaultValue={initialSettings?.carnetFederationDisplayName || ""}
+                placeholder="Ej: FEDERACIÓN DEPORTIVA PERUANA DE BASKETBALL"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-sm"
+              />
+              <p className="text-[10px] text-slate-400 ml-1">
+                Desmarca para torneos particulares sin federación. Deja vacío para texto FDPB por defecto.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Etiqueta deporte (opcional)</label>
+              <input
+                type="text"
+                name="carnetSportLabel"
+                defaultValue={initialSettings?.carnetSportLabel || ""}
+                placeholder="Ej: BÁSQUET"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
+              />
+              <label className="text-sm font-bold text-slate-700 ml-1">Gráfico deportivo / marca de agua</label>
+              <input
+                type="file"
+                name="carnetSportGraphic"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => previewFromFile(e.target.files?.[0], setSportGraphicPreview)}
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+              />
+              <input
+                type="hidden"
+                name="currentCarnetSportGraphicUrl"
+                value={initialSettings?.carnetSportGraphicUrl || ""}
+              />
+              {sportGraphicPreview && (
+                <img
+                  src={sportGraphicPreview}
+                  alt="Gráfico deporte"
+                  className="h-16 object-contain rounded-lg border border-slate-100 bg-white p-1"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Vigencia del carnet</label>
+              <input
+                type="text"
+                name="carnetValidityLabel"
+                defaultValue={initialSettings?.carnetValidityLabel || ""}
+                placeholder="Ej: 03/2026 - 03/2027"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium"
+              />
+              <p className="text-[10px] text-slate-400 ml-1">
+                Si queda vacío, se usa el nombre de temporada.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Logo federación (opcional)</label>
+              <input
+                type="file"
+                name="carnetFederationLogo"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => previewFromFile(e.target.files?.[0], setFedPreviewUrl)}
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+              />
+              <input
+                type="hidden"
+                name="currentCarnetFederationLogoUrl"
+                value={initialSettings?.carnetFederationLogoUrl || ""}
+              />
+              {fedPreviewUrl && (
+                <img
+                  src={fedPreviewUrl}
+                  alt="Federación"
+                  className="h-14 object-contain rounded-lg border border-slate-100 bg-white p-1"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Nombre del presidente</label>
+              <input
+                type="text"
+                name="presidentDisplayName"
+                defaultValue={initialSettings?.presidentDisplayName || ""}
+                placeholder='Ej: KEMA VALERA VÁSQUEZ'
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
+              />
+              <label className="text-sm font-bold text-slate-700 ml-1">Firma presidente (PNG)</label>
+              <input
+                type="file"
+                name="presidentSignature"
+                accept="image/png,image/webp"
+                onChange={(e) => previewFromFile(e.target.files?.[0], setPresidentSigPreview)}
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+              />
+              <input
+                type="hidden"
+                name="currentPresidentSignatureUrl"
+                value={initialSettings?.presidentSignatureUrl || ""}
+              />
+              {presidentSigPreview && (
+                <img
+                  src={presidentSigPreview}
+                  alt="Firma presidente"
+                  className="h-16 object-contain"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Nombre del secretario</label>
+              <input
+                type="text"
+                name="secretaryDisplayName"
+                defaultValue={initialSettings?.secretaryDisplayName || ""}
+                placeholder="Ej: ERWIN REÁTEGUI MASLUCAN"
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
+              />
+              <label className="text-sm font-bold text-slate-700 ml-1">Firma secretario (PNG)</label>
+              <input
+                type="file"
+                name="secretarySignature"
+                accept="image/png,image/webp"
+                onChange={(e) => previewFromFile(e.target.files?.[0], setSecretarySigPreview)}
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+              />
+              <input
+                type="hidden"
+                name="currentSecretarySignatureUrl"
+                value={initialSettings?.secretarySignatureUrl || ""}
+              />
+              {secretarySigPreview && (
+                <img
+                  src={secretarySigPreview}
+                  alt="Firma secretario"
+                  className="h-16 object-contain"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-slate-700 ml-1">Texto de autorización (reverso)</label>
+            <textarea
+              name="carnetAuthorizationTemplate"
+              defaultValue={initialSettings?.carnetAuthorizationTemplate || ""}
+              placeholder={DEFAULT_CARNET_AUTHORIZATION_TEMPLATE}
+              className="w-full px-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all h-24 resize-none font-medium text-sm"
+            />
+            <p className="text-[10px] text-slate-400 ml-1">
+              Usa <code className="text-slate-500">{`{ligaNombre}`}</code> para insertar el nombre oficial de la liga.
+            </p>
+          </div>
+        </div>
+
+        {/* Sección 5: Comunicación */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-slate-700 ml-1">Banner del Dashboard</label>
+          <label className="text-sm font-bold text-slate-700 ml-1">Mensaje institucional (banner)</label>
           <textarea
             name="bannerText"
             defaultValue={initialSettings?.bannerText || ""}
-            placeholder="Introduce un mensaje institucional para los clubes..."
+            placeholder="Ej: Temporada 2026 — ¡Bienvenidos al portal!"
             className="w-full px-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all h-28 resize-none font-medium placeholder:text-slate-300"
           />
-          <p className="text-[10px] text-slate-400 ml-1">Este texto aparecerá en la parte superior del panel de todos los clubes.</p>
+          <p className="text-[10px] text-slate-400 ml-1">
+            Aparece en la franja superior del portal público, bajo el título en la pantalla de login y
+            como cita en la portada de la liga.
+          </p>
         </div>
 
         {/* Mensajes de Feedback */}

@@ -1,11 +1,11 @@
 "use server";
 
-import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { assertActorMayAssignRole } from "@/lib/auth/assignable-roles";
+import { inviteStaffUserByEmail, resendStaffInvitation } from "@/lib/auth/staff-invite";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import { db } from "@/lib/db/client";
 import { authUsers, clubMembers, userAssignments } from "@/lib/db/schema";
@@ -19,13 +19,7 @@ const ASSIGNABLE_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as con
 const createProfileSchema = z
   .object({
     fullName: z.string().trim().min(3, "Mínimo 3 caracteres").max(120),
-    email: z
-      .string()
-      .trim()
-      .email("Correo inválido")
-      .refine((e) => /@gmail\.com$/i.test(e), {
-        message: "Debe ser Gmail (@gmail.com) para compatibilidad con Google OAuth.",
-      }),
+    email: z.string().trim().email("Correo inválido"),
     role: z.enum(ASSIGNABLE_ROLES),
     clubId: z.string().uuid().optional(),
   })
@@ -52,11 +46,27 @@ export type DeleteProfileAssignmentResult = {
   error?: string;
 };
 
-function randomPassword(): string {
-  return randomBytes(24).toString("base64url") + "Aa1!";
-}
+export type ResendStaffInvitationResult = {
+  success: boolean;
+  message?: string;
+  error?: string;
+};
 
 type AppMeta = Record<string, unknown>;
+
+async function resolveInviteLeagueSlug(opts: {
+  role: (typeof ASSIGNABLE_ROLES)[number];
+  targetLeagueId: string | null;
+  clubLeagueId?: string | null;
+}): Promise<string | null> {
+  const leagueId =
+    opts.role === "LEAGUE_ADMIN"
+      ? opts.targetLeagueId
+      : opts.clubLeagueId ?? opts.targetLeagueId;
+  if (!leagueId) return null;
+  const row = await leagueRepository.findById(leagueId);
+  return row?.slug ?? null;
+}
 
 function stripTenantKeys(meta: AppMeta): AppMeta {
   const next = { ...meta };
@@ -165,6 +175,16 @@ export const createProfileAssignmentAction = withAuth(
       if (!leagueRow) {
         return { success: false, message: "La liga indicada no existe." };
       }
+      if (context.role === "SUPER_ADMIN") {
+        const op = context.leagueId?.trim();
+        if (op && targetLeagueId !== op) {
+          return {
+            success: false,
+            message:
+              "El administrador debe crearse en la liga activa del panel (cámbiala en Perfiles si es necesario).",
+          };
+        }
+      }
     }
 
     let clubRow: { id: string; slug: string; leagueId: string | null } | null = null;
@@ -174,8 +194,8 @@ export const createProfileAssignmentAction = withAuth(
       if (!clubRow) {
         return { success: false, message: "El club seleccionado no existe." };
       }
+      const actorLeague = context.leagueId?.trim();
       if (context.role === "LEAGUE_ADMIN") {
-        const actorLeague = context.leagueId?.trim();
         if (!actorLeague) {
           return {
             success: false,
@@ -188,8 +208,22 @@ export const createProfileAssignmentAction = withAuth(
             message: "Solo puedes asignar delegados a clubes de tu liga.",
           };
         }
+      } else if (context.role === "SUPER_ADMIN" && actorLeague && clubRow.leagueId !== actorLeague) {
+        return {
+          success: false,
+          message: "El club no pertenece a la liga activa seleccionada en el panel.",
+        };
       }
     }
+
+    let repairedOrphanLeagueAdmin = false;
+    let invitedNewUser = false;
+
+    const inviteLeagueSlug = await resolveInviteLeagueSlug({
+      role,
+      targetLeagueId,
+      clubLeagueId: clubRow?.leagueId ?? null,
+    });
 
     try {
       const existingRows = await db
@@ -239,30 +273,67 @@ export const createProfileAssignmentAction = withAuth(
               active: true,
             })
             .onConflictDoNothing({ target: [clubMembers.userId, clubMembers.clubId] });
-        } else {
-          const existingNullAssignment = await db
-            .select({ userId: userAssignments.userId })
-            .from(userAssignments)
-            .where(
-              and(
-                eq(userAssignments.userId, targetUserId),
-                isNull(userAssignments.leagueId),
-                isNull(userAssignments.clubId),
-              ),
-            )
-            .limit(1);
+        } else if (role === "LEAGUE_ADMIN" && targetLeagueId) {
+          const existingForLeague = await userAssignmentRepository.findLeagueAdminForLeague(
+            targetUserId,
+            targetLeagueId,
+          );
+          if (existingForLeague) {
+            return {
+              success: false,
+              message: "Este usuario ya es administrador de la liga activa.",
+            };
+          }
 
-          if (existingNullAssignment[0]) {
+          const globalRow = await userAssignmentRepository.findGlobalByUserId(targetUserId);
+
+          if (globalRow?.role === "LEAGUE_ADMIN") {
+            await db
+              .update(userAssignments)
+              .set({ leagueId: targetLeagueId })
+              .where(
+                and(
+                  eq(userAssignments.userId, targetUserId),
+                  isNull(userAssignments.leagueId),
+                  isNull(userAssignments.clubId),
+                  eq(userAssignments.role, "LEAGUE_ADMIN"),
+                ),
+              );
+            repairedOrphanLeagueAdmin = true;
+          } else if (globalRow?.role === "SUPER_ADMIN") {
+            await db.insert(userAssignments).values({
+              userId: targetUserId,
+              leagueId: targetLeagueId,
+              clubId: null,
+              role: "LEAGUE_ADMIN",
+            });
+          } else if (globalRow) {
             return {
               success: false,
               message:
-                "Este usuario ya tiene una asignación global (sin club/liga). Elimínala antes de crear otra.",
+                "Este usuario tiene una asignación sin liga válida. Elimínala en la sección de abajo o edítala antes de continuar.",
+            };
+          } else {
+            await db.insert(userAssignments).values({
+              userId: targetUserId,
+              leagueId: targetLeagueId,
+              clubId: null,
+              role: "LEAGUE_ADMIN",
+            });
+          }
+        } else {
+          const globalRow = await userAssignmentRepository.findGlobalByUserId(targetUserId);
+          if (globalRow) {
+            return {
+              success: false,
+              message:
+                "Este usuario ya tiene una asignación global (sin club/liga). Elimínala en la sección de abajo antes de crear otra.",
             };
           }
 
           await db.insert(userAssignments).values({
             userId: targetUserId,
-            leagueId: role === "LEAGUE_ADMIN" ? targetLeagueId : null,
+            leagueId: null,
             clubId: null,
             role,
           });
@@ -296,26 +367,17 @@ export const createProfileAssignmentAction = withAuth(
           };
         }
       } else {
-        const pwd = randomPassword();
-        const { data: created, error: crErr } = await admin.auth.admin.createUser({
+        const invited = await inviteStaffUserByEmail(admin, {
           email: emailNorm,
-          password: pwd,
-          email_confirm: true,
-          user_metadata: { full_name: fullName },
-          app_metadata: metaPayload,
+          fullName,
+          appMetadata: metaPayload,
+          leagueSlug: inviteLeagueSlug,
         });
-        if (crErr || !created?.user) {
-          const msg = crErr?.message ?? "No se pudo crear el usuario.";
-          if (/already|registered|exist/i.test(msg)) {
-            return {
-              success: false,
-              message:
-                "Este correo ya está registrado; si no aparece en la tabla, revisa la sincronización entre Auth y Postgres.",
-            };
-          }
-          return { success: false, message: msg };
+        if (!invited.ok) {
+          return { success: false, message: invited.error };
         }
-        const targetUserId = created.user.id;
+        invitedNewUser = true;
+        const targetUserId = invited.userId;
 
         if (role === "CLUB_DELEGATE" && clubRow) {
           await db.insert(userAssignments).values({
@@ -347,10 +409,13 @@ export const createProfileAssignmentAction = withAuth(
       revalidatePath("/liga/perfiles/");
       return {
         success: true,
-        message:
-          role === "CLUB_DELEGATE"
-            ? "Delegado creado y vinculado al club. Ya puede iniciar sesión en la intranet del club."
-            : "Personal añadido correctamente.",
+        message: invitedNewUser
+          ? "Invitación enviada por correo. La persona debe abrir el enlace, definir contraseña e iniciar sesión (también puede usar Google si el correo lo permite)."
+          : role === "CLUB_DELEGATE"
+            ? "Delegado vinculado al club. Si ya tenía cuenta, puede iniciar sesión en la intranet del club."
+            : repairedOrphanLeagueAdmin
+              ? "Asignación corregida: el administrador quedó vinculado a la liga activa."
+              : "Personal añadido correctamente.",
       };
     } catch (e: unknown) {
       console.error("[createProfileAssignmentAction]", e);
@@ -473,6 +538,30 @@ export const updateProfileAssignmentAction = withAuth(
       }
     }
 
+    let targetLeagueId: string | null = null;
+    if (newRole === "LEAGUE_ADMIN") {
+      targetLeagueId = resolveTargetLeagueIdForAssignment("LEAGUE_ADMIN", formData, context);
+      if (!targetLeagueId) {
+        return {
+          success: false,
+          message:
+            context.role === "SUPER_ADMIN"
+              ? "Selecciona una liga activa antes de asignar administrador de liga."
+              : "Tu cuenta no tiene liga asignada.",
+        };
+      }
+      if (context.role === "SUPER_ADMIN") {
+        const op = context.leagueId?.trim();
+        if (op && targetLeagueId !== op) {
+          return {
+            success: false,
+            message:
+              "El administrador debe pertenecer a la liga activa del panel (cámbiala en Perfiles si es necesario).",
+          };
+        }
+      }
+    }
+
     let newClubRow: { id: string; slug: string; leagueId: string | null } | null = null;
     if (newRole === "CLUB_DELEGATE") {
       const cid = parsed.data.clubId!;
@@ -495,7 +584,8 @@ export const updateProfileAssignmentAction = withAuth(
       clubId: newClubRow?.id,
       clubSlug: newClubRow?.slug,
       clubLeagueId: newClubRow?.leagueId ?? null,
-      actorLeagueId: context.leagueId ?? null,
+      actorLeagueId:
+        newRole === "LEAGUE_ADMIN" ? targetLeagueId : context.leagueId ?? null,
     });
 
     try {
@@ -534,7 +624,7 @@ export const updateProfileAssignmentAction = withAuth(
         } else {
           await tx.insert(userAssignments).values({
             userId,
-            leagueId: null,
+            leagueId: newRole === "LEAGUE_ADMIN" ? targetLeagueId : null,
             clubId: null,
             role: newRole,
           });
@@ -592,6 +682,47 @@ const deleteAssignmentPayloadSchema = z.object({
   leagueId: z.string().uuid().nullable(),
   clubId: z.string().uuid().nullable(),
 });
+
+const resendInvitationPayloadSchema = z.object({
+  userId: z.string().uuid(),
+  email: z.string().trim().email(),
+  leagueSlug: z.string().trim().min(1).optional(),
+});
+
+export const resendStaffInvitationAction = withAuth(
+  async (
+    payload: unknown,
+    _actor: User,
+    context: AuthContext,
+  ): Promise<ResendStaffInvitationResult> => {
+    const parsed = resendInvitationPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+      return { success: false, message: "Datos inválidos para reenviar la invitación." };
+    }
+
+    const { userId, email } = parsed.data;
+    let leagueSlug = parsed.data.leagueSlug ?? null;
+
+    if (!leagueSlug && context.leagueId) {
+      const league = await leagueRepository.findById(context.leagueId);
+      leagueSlug = league?.slug ?? null;
+    }
+
+    const admin = getSupabaseAdmin();
+    const result = await resendStaffInvitation(admin, {
+      email,
+      userId,
+      leagueSlug,
+    });
+
+    if (!result.ok) {
+      return { success: false, message: result.error };
+    }
+
+    return { success: true, message: result.message };
+  },
+  ["SUPER_ADMIN", "LEAGUE_ADMIN"],
+);
 
 export const deleteProfileAssignmentAction = withAuth(
   async (

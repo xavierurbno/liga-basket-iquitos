@@ -11,5 +11,8 @@ export function assertActorMayAssignRole(
   if (targetRole === "SUPER_ADMIN" && actorRole !== "SUPER_ADMIN") {
     return "Solo un super administrador puede asignar el rol SUPER_ADMIN.";
   }
+  if (actorRole === "LEAGUE_ADMIN" && targetRole === "LEAGUE_ADMIN") {
+    return "Solo el super administrador puede asignar administradores de liga.";
+  }
   return null;
 }

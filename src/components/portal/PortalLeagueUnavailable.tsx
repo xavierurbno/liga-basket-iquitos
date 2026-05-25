@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /** Portal sin `leagueId` (BD inaccesible, timeout o sin ligas registradas). */
-export function PortalLeagueUnavailable() {
+export function PortalLeagueUnavailable({ detail }: { detail?: string }) {
   return (
     <section
       className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-10 text-center"
@@ -15,6 +15,11 @@ export function PortalLeagueUnavailable() {
         <code className="rounded bg-white px-1 text-xs">NEXT_PUBLIC_DEFAULT_LEAGUE_ID</code> en{" "}
         <code className="rounded bg-white px-1 text-xs">.env.local</code>.
       </p>
+      {detail ? (
+        <p className="mx-auto mt-3 max-w-lg rounded-lg bg-white/80 px-3 py-2 text-left text-xs text-amber-950">
+          {detail}
+        </p>
+      ) : null}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/"

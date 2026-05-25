@@ -21,6 +21,7 @@ import {
   obtenerUltimasEmisiones,
 } from "@/lib/actions/documentHistory";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
+import { getInstitutionalLogosAction } from "@/lib/actions/assets";
 
 interface EmisionDocumento {
   id: string;
@@ -92,7 +93,12 @@ const fadeSlide = {
 
 type Fase = "buscar" | "preview" | "generando";
 
-export function DocumentosModule() {
+type DocumentosModuleProps = {
+  /** Liga operativa: filtra historial y prioriza branding en PDFs. */
+  filterLeagueId?: string | null;
+};
+
+export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {}) {
   const [fase, setFase] = useState<Fase>("buscar");
   const [dni, setDni] = useState("");
   const [docSearchType, setDocSearchType] = useState("DNI");
@@ -117,14 +123,14 @@ export function DocumentosModule() {
   const fetchHistorial = useCallback(async () => {
     try {
       setCargandoHistorial(true);
-      const res = await obtenerUltimasEmisiones();
+      const res = await obtenerUltimasEmisiones(filterLeagueId);
       if (res.ok) setHistorial(res.emisiones!);
     } catch (error: unknown) {
       console.error(error);
     } finally {
       setCargandoHistorial(false);
     }
-  }, []);
+  }, [filterLeagueId]);
 
   useEffect(() => {
     fetchHistorial();
@@ -177,10 +183,15 @@ export function DocumentosModule() {
     if (isClub ? !clubSeleccionado : !jugador) return;
     setIsGenerando(true); setPdfError(null);
     try {
-      const [federacionDataUrl, ligaDataUrl] = await Promise.all([
-        publicPathToDataUrl("/logos/federacion.png"),
-        publicPathToDataUrl("/logos/liga.png"),
-      ]);
+      const docLeagueId = isClub ? clubSeleccionado?.leagueId : jugador?.leagueId;
+      const logosRes = await getInstitutionalLogosAction(docLeagueId);
+      const federacionDataUrl = logosRes.success ? logosRes.federacionBase64 : null;
+      const ligaDataUrl = logosRes.success ? logosRes.ligaBase64 : null;
+      if (!federacionDataUrl || !ligaDataUrl) {
+        setPdfError("No se pudieron cargar los logos de la liga.");
+        setIsGenerando(false);
+        return;
+      }
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       
       let inputData: DocumentoInput & { shortIdentifier: string };
@@ -197,6 +208,11 @@ export function DocumentosModule() {
             : null,
           federacionLogoPngDataUrl: federacionDataUrl,
           ligaLogoPngDataUrl: ligaDataUrl,
+          leagueId: docLeagueId ?? undefined,
+          brandPrimaryRgb: logosRes.success ? logosRes.primaryRgb : undefined,
+          brandAccentRgb: logosRes.success ? logosRes.accentRgb : undefined,
+          leagueDisplayName: logosRes.success ? logosRes.leagueDisplayName : undefined,
+          seasonLabel: logosRes.success ? logosRes.seasonLabel : undefined,
           siteUrl,
           generatedAtIso: new Date().toISOString(),
         };
@@ -216,6 +232,11 @@ export function DocumentosModule() {
           fotoRemoteUrl: jugador.photoUrl ?? null,
           federacionLogoPngDataUrl: federacionDataUrl,
           ligaLogoPngDataUrl: ligaDataUrl,
+          leagueId: docLeagueId ?? undefined,
+          brandPrimaryRgb: logosRes.success ? logosRes.primaryRgb : undefined,
+          brandAccentRgb: logosRes.success ? logosRes.accentRgb : undefined,
+          leagueDisplayName: logosRes.success ? logosRes.leagueDisplayName : undefined,
+          seasonLabel: logosRes.success ? logosRes.seasonLabel : undefined,
           siteUrl,
           generatedAtIso: new Date().toISOString(),
         };

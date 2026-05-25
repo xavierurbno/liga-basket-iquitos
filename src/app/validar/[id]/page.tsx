@@ -3,13 +3,18 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { HiCheckCircle } from "react-icons/hi";
 import { db } from "@/lib/db/client";
-import { categories, clubs, players } from "@/lib/db/schema";
+import { categories, clubs, leagues, players } from "@/lib/db/schema";
+import {
+  formatCarnetNumberForLeague,
+  resolveLeagueCarnetPrefix,
+} from "@/lib/leagues/league-carnet-prefix";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   robots: { index: false, follow: false },
+  title: "Validar credencial",
 };
 
 function formatNow(): string {
@@ -36,12 +41,14 @@ function resolvePublicImageUrl(rawUrl: string | null): string | null {
 
 type ValidacionJugador = {
   kind: "player";
+  leagueName: string | null;
   clubName: string;
   categoriaNombre: string;
   playerName: string;
   documentType: string;
   documentNumber: string;
   carnetNumber: string | null;
+  carnetDisplay: string | null;
   photoUrl: string | null;
 };
 
@@ -70,10 +77,13 @@ export default async function ValidarFichaPage({
       gender: players.gender,
       clubName: clubs.name,
       categoriaNombre: categories.name,
+      leagueName: leagues.name,
+      leagueSlug: leagues.slug,
     })
     .from(players)
     .innerJoin(clubs, eq(players.clubId, clubs.id))
     .leftJoin(categories, eq(players.categoryId, categories.id))
+    .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
     .where(eq(players.id, entityId))
     .limit(1);
 
@@ -83,14 +93,22 @@ export default async function ValidarFichaPage({
     const catLine = jugador.categoriaNombre
       ? lineaCategoriaInstitucional(jugador.categoriaNombre, [jugador.gender])
       : "—";
+    const cityPrefix = resolveLeagueCarnetPrefix({
+      slug: jugador.leagueSlug,
+      name: jugador.leagueName,
+    });
+    const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
+
     registro = {
       kind: "player",
+      leagueName: jugador.leagueName,
       clubName: jugador.clubName,
       categoriaNombre: catLine,
       playerName: `${jugador.lastname}, ${jugador.name}`,
       documentType: jugador.documentType,
       documentNumber: jugador.documentNumber,
       carnetNumber: jugador.carnetNumber,
+      carnetDisplay,
       photoUrl: resolvePublicImageUrl(jugador.photoUrl),
     };
   } else {
@@ -123,14 +141,19 @@ export default async function ValidarFichaPage({
     <main className="min-h-screen bg-linear-to-b from-white via-slate-50 to-slate-100 px-4 py-8 text-slate-900">
       <div className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/90 bg-white p-6 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.45)]">
         <p className="text-center text-[11px] font-semibold tracking-[0.22em] text-slate-500">
-          {esJugador ? "CREDENCIAL DEPORTISTA" : "VALIDACION OFICIAL"}
+          {esJugador ? "CREDENCIAL DEPORTIVA" : "VALIDACIÓN OFICIAL"}
         </p>
+        {jugadorRegistro?.leagueName ? (
+          <p className="mt-2 text-center text-xs font-bold uppercase leading-tight text-slate-700">
+            {jugadorRegistro.leagueName}
+          </p>
+        ) : null}
 
         <section className="relative mt-5 flex items-center justify-center rounded-2xl border border-slate-200 bg-linear-to-b from-white to-slate-50 py-6">
           {jugadorRegistro?.photoUrl ? (
             <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-slate-200 shadow-md">
               <Image
-                src={jugadorRegistro!.photoUrl}
+                src={jugadorRegistro.photoUrl}
                 alt=""
                 fill
                 className="object-cover"
@@ -141,7 +164,7 @@ export default async function ValidarFichaPage({
           ) : (
             <Image
               src="/logos/liga.png"
-              alt="Liga de Basket de Iquitos"
+              alt="Liga"
               width={128}
               height={128}
               className="object-contain opacity-95"
@@ -168,13 +191,16 @@ export default async function ValidarFichaPage({
                   {jugadorRegistro.documentType} {jugadorRegistro.documentNumber}
                 </p>
               </div>
-              {jugadorRegistro.carnetNumber ? (
+              {jugadorRegistro.carnetDisplay || jugadorRegistro.carnetNumber ? (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3.5">
                   <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-blue-600">
                     N° carnet
                   </p>
                   <p className="mt-1.5 font-mono text-base font-bold text-blue-900">
-                    {jugadorRegistro.carnetNumber}
+                    {jugadorRegistro.carnetDisplay ?? jugadorRegistro.carnetNumber}
+                  </p>
+                  <p className="mt-1 text-[10px] text-blue-700/80">
+                    Coincide con el código QR impreso en el reverso del carnet.
                   </p>
                 </div>
               ) : null}
@@ -186,13 +212,13 @@ export default async function ValidarFichaPage({
           </div>
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-              Categoria
+              Categoría
             </p>
             <p className="mt-1.5 text-base font-semibold text-slate-900">{registro.categoriaNombre}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-              Timestamp en vivo
+              Verificado en
             </p>
             <p className="mt-1.5 text-sm font-semibold text-slate-800">{formatNow()}</p>
           </div>

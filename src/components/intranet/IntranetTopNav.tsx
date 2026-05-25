@@ -7,6 +7,7 @@ import { UserAccountMenu } from "@/components/nav/UserAccountMenu";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
 import type { IntranetNavClub, IntranetNavLeague } from "@/components/intranet/IntranetSuperAdminNav";
 import type { IntranetRole } from "@/lib/auth/intranet-roles";
+import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 const navBtn =
   "inline-flex items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 text-xs font-bold tracking-wide text-slate-600 transition hover:border-[#005CEE] hover:text-[#005CEE]";
 const navBtnActive =
@@ -111,24 +112,24 @@ export function IntranetTopNav({
                 Panel operativo
               </Link>
               <Link
-                href="/super-admin/leagues"
+                href="/super-admin/leagues/"
                 className="font-medium text-slate-600 hover:text-[#005CEE] hover:underline"
               >
-                Gestionar ligas
+                Plataforma — Ligas
               </Link>
               <span className="text-slate-300">·</span>
-              <span className="hidden sm:inline">Portal público</span>
+              <span className="hidden sm:inline">Ver sitio público</span>
               <select
-                aria-label="Ir a liga pública"
+                aria-label="Abrir portal público de una liga"
                 className="max-w-[200px] rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900"
                 defaultValue=""
                 onChange={(e) => {
                   const slug = e.target.value;
                   if (!slug) return;
-                  router.push(`/?l=${encodeURIComponent(slug)}`);
+                  window.open(leaguePortalHome(slug), "_blank", "noopener,noreferrer");
                 }}
               >
-                <option value="">Ver en web…</option>
+                <option value="">Elegir liga…</option>
                 {leagues!.map((l) => (
                   <option key={l.id} value={l.slug}>
                     {l.name}

@@ -42,6 +42,15 @@ export type DocumentoInput = {
   correlative?: number;
   esCopia?: boolean;
   fechaOriginal?: string;
+  /** Liga de la emisión (historial por liga). */
+  leagueId?: string | null;
+  /** Colores desde `league_settings` (Fase 4/6). */
+  brandPrimaryRgb?: [number, number, number];
+  brandAccentRgb?: [number, number, number];
+  /** Nombre institucional en encabezado y párrafos (multiliga). */
+  leagueDisplayName?: string | null;
+  /** Etiqueta de temporada en textos (p. ej. «Temporada 2026»). */
+  seasonLabel?: string | null;
 };
 
 // ─── PALETA ───────────────────────────────────────────────────
@@ -135,14 +144,35 @@ async function genQr(url: string): Promise<string | null> {
 
 // ─── TEXTOS ───────────────────────────────────────────────────
 
-function buildTextoJugador(type: "CARTA_PASE" | "CONSTANCIA", nc: string, docType: string, docNum: string, club: string) {
-  if (type === "CARTA_PASE")
-    return `La LIGA DEPORTIVA DISTRITAL MIXTA DE BASKET DE IQUITOS certifica que el deportista ${nc}, con ${docType} ${docNum}, se encuentra en condición de JUGADOR LIBRE respecto al club ${club}. Se expide la presente para facilitar su nueva afiliación deportiva, sin que exista impedimento administrativo o disciplinario en nuestros registros oficiales.`;
-  return `Se hace constar que el deportista ${nc}, con ${docType} ${docNum}, figura como JUGADOR ACTIVO de la institución ${club} para la temporada 2026. El deportista se encuentra debidamente habilitado para participar en competiciones oficiales y representar a su club en eventos deportivos dentro y fuera de la región.`;
+const FALLBACK_LEAGUE_NAME =
+  "LIGA DEPORTIVA DISTRITAL MIXTA DE BASKET DE IQUITOS";
+
+function resolveLeagueName(input: DocumentoInput): string {
+  const n = input.leagueDisplayName?.trim();
+  return n || FALLBACK_LEAGUE_NAME;
 }
 
-function buildTextoSolvencia(clubName: string) {
-  return `La LIGA DEPORTIVA DISTRITAL MIXTA DE BASKET DE IQUITOS certifica que el Club ${clubName.toUpperCase()}, debidamente inscrito en nuestros registros institucionales, se encuentra APTO Y SOLVENTE para la temporada deportiva 2026, sin presentar deudas pendientes, sanciones disciplinarias ni impedimentos administrativos que limiten su participación en las competencias oficiales organizadas por esta institución.`;
+function resolveSeasonLabel(input: DocumentoInput): string {
+  const s = input.seasonLabel?.trim();
+  return s || `Temporada ${new Date().getFullYear()}`;
+}
+
+function buildTextoJugador(
+  type: "CARTA_PASE" | "CONSTANCIA",
+  nc: string,
+  docType: string,
+  docNum: string,
+  club: string,
+  leagueName: string,
+  seasonLabel: string,
+) {
+  if (type === "CARTA_PASE")
+    return `${leagueName} certifica que el deportista ${nc}, con ${docType} ${docNum}, se encuentra en condición de JUGADOR LIBRE respecto al club ${club}. Se expide la presente para facilitar su nueva afiliación deportiva, sin que exista impedimento administrativo o disciplinario en nuestros registros oficiales.`;
+  return `Se hace constar que el deportista ${nc}, con ${docType} ${docNum}, figura como JUGADOR ACTIVO de la institución ${club} para la ${seasonLabel}. El deportista se encuentra debidamente habilitado para participar en competiciones oficiales y representar a su club en eventos deportivos dentro y fuera de la región.`;
+}
+
+function buildTextoSolvencia(clubName: string, leagueName: string, seasonLabel: string) {
+  return `${leagueName} certifica que el Club ${clubName.toUpperCase()}, debidamente inscrito en nuestros registros institucionales, se encuentra APTO Y SOLVENTE para la ${seasonLabel}, sin presentar deudas pendientes, sanciones disciplinarias ni impedimentos administrativos que limiten su participación en las competencias oficiales organizadas por esta institución.`;
 }
 
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────
@@ -160,6 +190,8 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   const generatedAt = generatedAtIso ?? new Date().toISOString();
   const validUrl = `${siteUrl}/validar/${entityId}`;
   const esSolvencia = type === "SOLVENCIA_CLUB";
+  const leagueName = resolveLeagueName(input);
+  const seasonLabel = resolveSeasonLabel(input);
 
   // Resolución de foto (doble capa)
   let fotoDataUrl: string | null = fotoRaw ?? null;
@@ -167,13 +199,16 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
 
   const qrDataUrl = await genQr(validUrl);
 
+  const accentRgb = input.brandAccentRgb ?? CELESTE;
+  const primaryRgb = input.brandPrimaryRgb ?? NAVY;
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: false });
 
   // ── 1. MARCA DE AGUA ──────────────────────────────────────
   drawWatermark(doc, ligaLogoPngDataUrl);
 
-  // ── 2. BANDA SUPERIOR (Celeste Eléctrico) ─────────────────
-  doc.setFillColor(...CELESTE);
+  // ── 2. BANDA SUPERIOR (color de acento de la liga) ────────
+  doc.setFillColor(...accentRgb);
   doc.rect(0, 0, PAGE_W, BAND_H, "F");
 
   // ── 3. ENCABEZADO ─────────────────────────────────────────
@@ -182,14 +217,16 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   drawLogo(doc, ligaLogoPngDataUrl, PAGE_W - MARGIN - LOGO_W, HTOP, LOGO_W, LOGO_H, "Liga");
 
   let hY = HTOP + 5;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...primaryRgb);
   doc.text("FEDERACIÓN DEPORTIVA PERUANA DE BASKETBALL", CX, hY, { align: "center" });
 
   hY += 6;
   doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(...BLUE_700);
-  doc.text("LIGA DEPORTIVA DISTRITAL MIXTA DE BASKET DE IQUITOS", CX, hY, { align: "center" });
+  const leagueHeaderLines = doc.splitTextToSize(leagueName.toUpperCase(), INNER_W - 10);
+  doc.text(leagueHeaderLines, CX, hY, { align: "center" });
+  hY += leagueHeaderLines.length * 4.5;
 
-  hY += 7;
+  hY += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...GOLD);
   const tipoLabel = type === "CARTA_PASE" ? "CARTA DE PASE"
     : type === "CONSTANCIA" ? "CONSTANCIA DE JUGADOR"
@@ -206,7 +243,7 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
 
   // Fecha original (sin Ref.)
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...GRAY_500);
-  doc.text(`Iquitos, ${fechaPeru(esCopia ? fechaOriginal! : generatedAt)}`, MARGIN, BODY_TOP);
+  doc.text(fechaPeru(esCopia ? fechaOriginal! : generatedAt), MARGIN, BODY_TOP);
 
   // ── Foto (solo documentos de jugador) ─────────────────────
   if (!esSolvencia) {
@@ -216,10 +253,10 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
       const ratio = p.width / p.height;
       let fw = FOTO_W, fh = fw / ratio;
       if (fh > FOTO_H) { fh = FOTO_H; fw = fh * ratio; }
-      doc.setDrawColor(...CELESTE); doc.setLineWidth(0.6);
+      doc.setDrawColor(...accentRgb); doc.setLineWidth(0.6);
       doc.rect(FOTO_X - 1, BODY_TOP - 1, FOTO_W + 2, FOTO_H + 2);
       doc.addImage({ imageData: fotoDataUrl, format: f, x: FOTO_X + (FOTO_W - fw) / 2, y: BODY_TOP + (FOTO_H - fh) / 2, width: fw, height: fh, compression: "NONE" });
-      doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...CELESTE);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...accentRgb);
       doc.text("FOTO OFICIAL", FOTO_X + FOTO_W / 2, BODY_TOP + FOTO_H + 3.5, { align: "center" });
     } else {
       doc.setDrawColor(...GRAY_300); doc.setFillColor(248, 250, 252); doc.setLineWidth(0.3);
@@ -238,9 +275,16 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
 
   doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(25, 25, 25);
   const parrafo = esSolvencia
-    ? buildTextoSolvencia(clubName)
-    : buildTextoJugador(type as "CARTA_PASE" | "CONSTANCIA",
-        `${name!.toUpperCase()} ${lastname!.toUpperCase()}`, input.documentType || "DNI", input.documentNumber || "—", clubName.toUpperCase());
+    ? buildTextoSolvencia(clubName, leagueName, seasonLabel)
+    : buildTextoJugador(
+        type as "CARTA_PASE" | "CONSTANCIA",
+        `${name!.toUpperCase()} ${lastname!.toUpperCase()}`,
+        input.documentType || "DNI",
+        input.documentNumber || "—",
+        clubName.toUpperCase(),
+        leagueName,
+        seasonLabel,
+      );
 
   const parLines = doc.splitTextToSize(parrafo, TEXT_W);
   doc.text(parLines, MARGIN, bodyY, { lineHeightFactor: 1.65 });
@@ -259,7 +303,7 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
         ["NOMBRE DEL CLUB", clubName.toUpperCase()],
         ["CÓD. FEDERACIÓN", clubCodigoFederacion ?? "—"],
         ["PRESIDENTE", clubPresidente ?? "—"],
-        ["TEMPORADA", "2026"],
+        ["TEMPORADA", seasonLabel],
         ["CONDICIÓN", "APTO Y SOLVENTE ✓"],
       ]
     : [
@@ -272,14 +316,14 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   const TABLE_H = 8 + campos.length * ROW_H + 5;
 
   // Encabezado celeste
-  doc.setFillColor(...CELESTE);
+  doc.setFillColor(...accentRgb);
   doc.roundedRect(TABLE_X, bodyY, TABLE_W, 8, 2, 2, "F");
   doc.rect(TABLE_X, bodyY + 5, TABLE_W, 3, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...WHITE);
   doc.text(tableTitle, TABLE_X + TABLE_W / 2, bodyY + 5, { align: "center" });
 
   // Borde exterior (sin fill → transparente)
-  doc.setDrawColor(...CELESTE); doc.setLineWidth(0.35);
+  doc.setDrawColor(...accentRgb); doc.setLineWidth(0.35);
   doc.roundedRect(TABLE_X, bodyY, TABLE_W, TABLE_H, 2, 2);
 
   // Filas
@@ -312,12 +356,13 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   // ── 6. FIRMA ──────────────────────────────────────────────
   const FIRMA_Y = PAGE_H - 52;
   const FIRMA_W = 65;
-  doc.setDrawColor(...NAVY); doc.setLineWidth(0.55);
+  doc.setDrawColor(...primaryRgb); doc.setLineWidth(0.55);
   doc.line(CX - FIRMA_W / 2, FIRMA_Y, CX + FIRMA_W / 2, FIRMA_Y);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...primaryRgb);
   doc.text("PRESIDENTE", CX, FIRMA_Y + 6, { align: "center" });
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...GRAY_500);
-  doc.text("Liga Deportiva Distrital Mixta de Basket de Iquitos", CX, FIRMA_Y + 11.5, { align: "center" });
+  const firmaLines = doc.splitTextToSize(leagueName, FIRMA_W + 20);
+  doc.text(firmaLines, CX, FIRMA_Y + 11.5, { align: "center" });
 
   // ── 7. QR VALIDACIÓN ──────────────────────────────────────
   const QR_SIZE = 22;
@@ -336,7 +381,7 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   }
 
   // ── 8. BANDA INFERIOR (Celeste Eléctrico) ─────────────────
-  doc.setFillColor(...CELESTE);
+  doc.setFillColor(...accentRgb);
   doc.rect(0, PAGE_H - BAND_H, PAGE_W, BAND_H, "F");
   doc.setFont("helvetica", "normal"); doc.setFontSize(6); doc.setTextColor(220, 235, 255);
   
@@ -346,8 +391,10 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
       CX, PAGE_H - 2.5, { align: "center" }
     );
   } else {
+    const footerLeague =
+      input.leagueDisplayName?.trim() || "Liga deportiva";
     doc.text(
-      `Liga Basket Iquitos | Generado el: ${fechaPeru(generatedAt)} | ${stripProtocol(validUrl)}`,
+      `${footerLeague} | Generado el: ${fechaPeru(generatedAt)} | ${stripProtocol(validUrl)}`,
       CX, PAGE_H - 2.5, { align: "center" }
     );
   }

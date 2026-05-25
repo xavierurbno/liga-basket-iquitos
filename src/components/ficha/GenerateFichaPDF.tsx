@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import QRCode from "qrcode";
 import { GenerateFichaPDFJugador, GenerateFichaPDFProps } from "@/lib/types/ficha";
 import { escalarLogoParaPdf } from "@/lib/pdf/imagenImpresion";
@@ -10,6 +11,7 @@ import {
   type FichaPdfJugadorInput,
   type FichaPdfStaffInput,
 } from "@/lib/pdf/fichaCategoriaPdf";
+import { resolveFichaLeagueTitle } from "@/lib/pdf/fichaInstitucionalTextos";
 
 async function fetchUrlToPngDataUrl(
   url: string | null,
@@ -60,18 +62,29 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
       const base = typeof window !== "undefined" ? window.location.origin : "";
 
       const { getInstitutionalLogosAction } = await import("@/lib/actions/assets");
-      const logosRes = await getInstitutionalLogosAction();
+      const logosRes = await getInstitutionalLogosAction(props.leagueId);
 
       const [fedRaw, ligaRaw, clubRaw] = await Promise.all([
         Promise.resolve(logosRes.success ? logosRes.federacionBase64 : null),
         Promise.resolve(logosRes.success ? logosRes.ligaBase64 : null),
         fetchUrlToPngDataUrl(props.clubLogoUrl, "force-cache"),
       ]);
+      if (logosRes.success && !ligaRaw && props.leagueId?.trim()) {
+        toast.warning(
+          "Esta liga no tiene logo en configuración; el PDF usará el nombre correcto pero sin logo de liga. Súbelo en la ficha de la liga o en /liga/configuración/.",
+        );
+      }
+
       const [fedUrl, ligaUrl, clubLogoPdf] = await Promise.all([
         fedRaw ? escalarLogoParaPdf(fedRaw) : null,
         ligaRaw ? escalarLogoParaPdf(ligaRaw, 2800) : null,
         clubRaw ? escalarLogoParaPdf(clubRaw, 1200) : null,
       ]);
+
+      if (!fedUrl) {
+        toast.error("No se pudo cargar el logo de la federación.");
+        return;
+      }
 
       const ordenados = [...props.players].sort((x, y) => {
         const c = x.lastname.localeCompare(y.lastname, "es", { sensitivity: "base" });
@@ -137,7 +150,12 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
         fotoPngDataUrl: delFoto,
       };
 
+      const leagueTitle = resolveFichaLeagueTitle(
+        logosRes.success ? logosRes.leagueDisplayName : props.leagueDisplayName,
+      );
+
       const input: FichaCategoriaPdfInput = {
+        leagueDisplayName: leagueTitle,
         clubName: props.clubName,
         categoriaDetalle: props.categoriaDetalle,
         federacionLogoPngDataUrl: fedUrl,

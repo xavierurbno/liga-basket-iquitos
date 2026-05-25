@@ -7,6 +7,10 @@ import { settingsRepository } from "@/repositories/settingsRepository";
 import { revalidatePath } from "next/cache";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
+import { CARNET_THEME_PRESETS, parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
+import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
+import { revalidateLeagueBrandingPaths } from "@/lib/leagues/revalidate-portal-branding";
+import { leagueRepository } from "@/repositories/league.repository";
 
 /**
  * Esquema de validación para las configuraciones de la liga.
@@ -20,7 +24,65 @@ const leagueSettingsSchema = z.object({
   maxPlayersPerClub: z.coerce.number().int().min(1, "Mínimo 1 jugador por club").max(100, "Máximo 100 jugadores"),
   bannerText: z.string().max(500, "El banner es demasiado largo").optional(),
   loginLogoUrl: z.string().optional(),
+  portalPrimaryColor: z
+    .string()
+    .optional()
+    .refine((v) => !v?.trim() || /^#[0-9A-Fa-f]{6}$/.test(v.trim()), {
+      message: "Color primario inválido (formato #RRGGBB)",
+    }),
+  portalAccentColor: z
+    .string()
+    .optional()
+    .refine((v) => !v?.trim() || /^#[0-9A-Fa-f]{6}$/.test(v.trim()), {
+      message: "Color de acento inválido (formato #RRGGBB)",
+    }),
+  carnetFederationLogoUrl: z.string().optional(),
+  presidentSignatureUrl: z.string().optional(),
+  secretarySignatureUrl: z.string().optional(),
+  presidentDisplayName: z.string().max(120, "Nombre demasiado largo").optional(),
+  secretaryDisplayName: z.string().max(120, "Nombre demasiado largo").optional(),
+  carnetValidityLabel: z.string().max(80, "Vigencia demasiado larga").optional(),
+  carnetAuthorizationTemplate: z.string().max(600, "Texto legal demasiado largo").optional(),
+  carnetThemePreset: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v?.trim() || (CARNET_THEME_PRESETS as readonly string[]).includes(v.trim()),
+      { message: "Plantilla de carnet inválida" },
+    ),
+  carnetShowFederation: z.boolean().optional(),
+  carnetFederationDisplayName: z.string().max(200, "Nombre de federación demasiado largo").optional(),
+  carnetSportLabel: z.string().max(40, "Etiqueta demasiado larga").optional(),
+  carnetSportGraphicUrl: z.string().optional(),
 });
+
+async function uploadLeagueCarnetAsset(
+  supabase: ReturnType<typeof createServerClient>,
+  leagueId: string,
+  file: File,
+  assetName: string,
+): Promise<string> {
+  const fileExt = file.name.split(".").pop()?.toLowerCase() || "png";
+  const safeExt = ["png", "jpg", "jpeg", "webp"].includes(fileExt) ? fileExt : "png";
+  const storagePath = `leagues/${leagueId}/carnet/${assetName}.${safeExt}`;
+  const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucketName)
+    .upload(storagePath, file, {
+      upsert: true,
+      contentType: file.type || `image/${safeExt === "jpg" ? "jpeg" : safeExt}`,
+    });
+
+  if (uploadError) {
+    throw new Error(`Error subiendo ${assetName}: ${uploadError.message}`);
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+  return publicUrl;
+}
 
 export type SettingsActionState = {
   success?: boolean;
@@ -56,6 +118,10 @@ export const updateLeagueSettingsAction = withAuth(
     const leagueId = (formData.get("leagueId") as string) || context.leagueId;
     const loginLogoFile = formData.get("loginLogo") as File | null;
     const loginLogoUrl = (formData.get("currentLoginLogoUrl") as string) || "";
+    const carnetFederationLogoFile = formData.get("carnetFederationLogo") as File | null;
+    const carnetSportGraphicFile = formData.get("carnetSportGraphic") as File | null;
+    const presidentSignatureFile = formData.get("presidentSignature") as File | null;
+    const secretarySignatureFile = formData.get("secretarySignature") as File | null;
 
     const rawData = {
       leagueId,
@@ -66,6 +132,20 @@ export const updateLeagueSettingsAction = withAuth(
       maxPlayersPerClub: formData.get("maxPlayersPerClub"),
       bannerText: formData.get("bannerText"),
       loginLogoUrl,
+      portalPrimaryColor: formData.get("portalPrimaryColor"),
+      portalAccentColor: formData.get("portalAccentColor"),
+      carnetFederationLogoUrl: (formData.get("currentCarnetFederationLogoUrl") as string) || "",
+      presidentSignatureUrl: (formData.get("currentPresidentSignatureUrl") as string) || "",
+      secretarySignatureUrl: (formData.get("currentSecretarySignatureUrl") as string) || "",
+      presidentDisplayName: formData.get("presidentDisplayName"),
+      secretaryDisplayName: formData.get("secretaryDisplayName"),
+      carnetValidityLabel: formData.get("carnetValidityLabel"),
+      carnetAuthorizationTemplate: formData.get("carnetAuthorizationTemplate"),
+      carnetThemePreset: formData.get("carnetThemePreset"),
+      carnetShowFederation: formData.get("carnetShowFederation") === "on",
+      carnetFederationDisplayName: formData.get("carnetFederationDisplayName"),
+      carnetSportLabel: formData.get("carnetSportLabel"),
+      carnetSportGraphicUrl: (formData.get("currentCarnetSportGraphicUrl") as string) || "",
     };
 
     // 2. Validación
@@ -109,12 +189,65 @@ export const updateLeagueSettingsAction = withAuth(
         data.loginLogoUrl = publicUrl;
       }
 
+      if (carnetFederationLogoFile && carnetFederationLogoFile.size > 0) {
+        data.carnetFederationLogoUrl = await uploadLeagueCarnetAsset(
+          supabase,
+          vLeagueId,
+          carnetFederationLogoFile,
+          "federation-logo",
+        );
+      }
+
+      if (carnetSportGraphicFile && carnetSportGraphicFile.size > 0) {
+        data.carnetSportGraphicUrl = await uploadLeagueCarnetAsset(
+          supabase,
+          vLeagueId,
+          carnetSportGraphicFile,
+          "sport-graphic",
+        );
+      }
+
+      if (presidentSignatureFile && presidentSignatureFile.size > 0) {
+        data.presidentSignatureUrl = await uploadLeagueCarnetAsset(
+          supabase,
+          vLeagueId,
+          presidentSignatureFile,
+          "president-signature",
+        );
+      }
+
+      if (secretarySignatureFile && secretarySignatureFile.size > 0) {
+        data.secretarySignatureUrl = await uploadLeagueCarnetAsset(
+          supabase,
+          vLeagueId,
+          secretarySignatureFile,
+          "secretary-signature",
+        );
+      }
+
+      data.presidentDisplayName = (data.presidentDisplayName ?? "").trim();
+      data.secretaryDisplayName = (data.secretaryDisplayName ?? "").trim();
+      data.carnetValidityLabel = (data.carnetValidityLabel ?? "").trim();
+      data.carnetAuthorizationTemplate = (data.carnetAuthorizationTemplate ?? "").trim();
+      data.carnetThemePreset = parseCarnetThemePreset(data.carnetThemePreset);
+      data.carnetFederationDisplayName = (data.carnetFederationDisplayName ?? "").trim();
+      data.carnetSportLabel = (data.carnetSportLabel ?? "").trim();
+
+      data.portalPrimaryColor = normalizePortalHexColor(
+        data.portalPrimaryColor,
+        "#1e3a5f",
+      );
+      data.portalAccentColor = normalizePortalHexColor(data.portalAccentColor, "#005CEE");
+
       // 5. Persistencia
       await settingsRepository.updateLeagueSettings(vLeagueId, data);
-      
+
+      const leagueRow = await leagueRepository.findById(vLeagueId);
+      revalidateLeagueBrandingPaths(leagueRow?.slug);
       revalidatePath("/liga/");
-      revalidatePath("/", "page");
-      revalidatePath("/login");
+      revalidatePath("/liga/configuracion/");
+      revalidatePath("/super-admin/leagues");
+      revalidatePath(`/super-admin/leagues/${vLeagueId}`);
       
       return {
         success: true,

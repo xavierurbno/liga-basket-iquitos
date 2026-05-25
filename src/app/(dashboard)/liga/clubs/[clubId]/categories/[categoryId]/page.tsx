@@ -1,7 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { and, asc, eq } from "drizzle-orm";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { leagueRepository } from "@/repositories/league.repository";
+import {
+  formatCarnetNumberForLeague,
+  resolveLeagueCarnetPrefix,
+} from "@/lib/leagues/league-carnet-prefix";
 import { db } from "@/lib/db/client";
 import { categories, clubs, players } from "@/lib/db/schema";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
@@ -48,14 +56,36 @@ export default async function CategoriaDetallePage({
   const [club] = await db
     .select({
       id: clubs.id,
+      leagueId: clubs.leagueId,
       name: clubs.name,
       logoUrl: clubs.logoUrl,
+      federationCode: clubs.federationCode,
       foundationDate: clubs.foundationDate,
     })
     .from(clubs)
     .where(eq(clubs.id, clubId))
     .limit(1);
   if (!club) redirect("/liga/clubs");
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
+  );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const operationalLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
+  const effectiveLeagueId = club.leagueId?.trim() || operationalLeagueId;
+  const leagueRow = effectiveLeagueId
+    ? await leagueRepository.findById(effectiveLeagueId)
+    : null;
+  const cityPrefix = resolveLeagueCarnetPrefix({
+    slug: leagueRow?.slug,
+    name: leagueRow?.name,
+  });
+  const leagueDisplayName = leagueRow?.name ?? "Liga deportiva";
 
   const category = await db.query.categories.findFirst({
     where: (categories, { and, eq }) => 
@@ -325,6 +355,8 @@ export default async function CategoriaDetallePage({
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <GenerateCarnetPDF
+                          leagueId={effectiveLeagueId}
+                          leagueDisplayName={leagueDisplayName}
                           playerId={j.id}
                           fileName={`carnet-${j.documentNumber}`}
                           name={j.name}
@@ -334,9 +366,16 @@ export default async function CategoriaDetallePage({
                           fechaNacimientoIso={
                             j.birthdate ? new Date(j.birthdate).toISOString() : ""
                           }
+                          gender={j.gender}
                           clubName={club.name}
+                          federationSportsCode={club.federationCode}
+                          leagueSportsCode={cityPrefix}
                           categoriaDetalle={categoriaDetalle}
                           carnetNumber={j.carnetNumber}
+                          carnetNumberDisplay={formatCarnetNumberForLeague(
+                            j.carnetNumber,
+                            cityPrefix,
+                          )}
                           photoUrl={resolvePublicImageUrl(j.photoUrl)}
                           clubLogoUrl={club.logoUrl}
                           label="Carnet"

@@ -1,0 +1,43 @@
+/* Tema por liga: variables --portal-primary, --portal-accent (definidas en .portal-league-theme). */
+
+.portal-league-theme .portal-accent-bg {
+  background-color: var(--portal-accent);
+}
+
+.portal-league-theme .portal-accent-text {
+  color: var(--portal-accent);
+}
+
+.portal-league-theme .portal-primary-text {
+  color: var(--portal-primary);
+}
+
+.portal-league-theme .portal-accent-bg {
+  background-color: var(--portal-accent);
+}
+
+.portal-league-theme .portal-accent-border {
+  border-color: color-mix(in srgb, var(--portal-accent) 35%, white);
+}
+
+.portal-league-theme .portal-accent-ring {
+  --tw-ring-color: color-mix(in srgb, var(--portal-accent) 40%, transparent);
+}
+
+.portal-league-theme #campeonatos-heading,
+.portal-league-theme h2.portal-section-title {
+  color: var(--portal-primary);
+}
+
+.portal-league-theme .portal-badge {
+  background-color: color-mix(in srgb, var(--portal-accent) 12%, white);
+  color: var(--portal-accent);
+}
+
+.portal-league-theme a.portal-link:hover {
+  color: var(--portal-accent);
+}
+
+.portal-league-theme .portal-card:hover {
+  border-color: var(--portal-accent);
+}

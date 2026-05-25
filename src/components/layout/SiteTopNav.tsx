@@ -9,9 +9,16 @@ import {
 export function SiteTopNav({
   variant,
   hidePanelGestión,
+  leagueSlug,
+  leagueName,
+  leagueLogoUrl,
 }: {
   variant?: PortalSiteHeaderVariant;
   hidePanelGestión?: boolean;
+  /** Contexto `/l/[slug]`: inicio y anclas de esa liga. */
+  leagueSlug?: string;
+  leagueName?: string;
+  leagueLogoUrl?: string | null;
 }) {
   return (
     <Suspense
@@ -20,10 +27,19 @@ export function SiteTopNav({
           variant={variant}
           panelHref={DEFAULT_PORTAL_PANEL_HREF}
           hidePanelGestión={hidePanelGestión}
+          leagueSlug={leagueSlug}
+          leagueName={leagueName}
+          leagueLogoUrl={leagueLogoUrl}
         />
       }
     >
-      <PortalSiteHeader variant={variant} hidePanelGestión={hidePanelGestión} />
+      <PortalSiteHeader
+        variant={variant}
+        hidePanelGestión={hidePanelGestión}
+        leagueSlug={leagueSlug}
+        leagueName={leagueName}
+        leagueLogoUrl={leagueLogoUrl}
+      />
     </Suspense>
   );
 }

@@ -242,7 +242,9 @@ export async function uploadClubPhotosAction(
       if (file.size === 0) return null;
 
       const rawBuffer = Buffer.from(await file.arrayBuffer());
-      const watermarkedBuffer = await applyWatermark(rawBuffer);
+      const watermarkedBuffer = await applyWatermark(rawBuffer, {
+        leagueId: club.leagueId,
+      });
 
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
       const filePath = `gallery/${clubId}/${fileName}`;
@@ -281,11 +283,11 @@ export async function uploadClubPhotosAction(
 
     revalidatePath("/liga/");
     revalidatePath("/liga/galeria-general");
-    revalidatePath("/galeria-institucional");
-    revalidatePath("/", "page");
     revalidatePath(`/liga/clubs/${club.id}/`);
     revalidatePath(`/liga/clubs/${club.id}/galeria`);
     revalidatePath(`/galeria/club/${club.id}`);
+    const { revalidateLeaguePortalByLeagueId } = await import("@/lib/portal/revalidate-league-portal");
+    await revalidateLeaguePortalByLeagueId(club.leagueId, club.id);
 
     return { success: true };
   } catch (err: unknown) {

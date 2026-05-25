@@ -656,6 +656,7 @@ export const setTournamentPublicFixture = withAuth(
     revalidatePath("/liga/portal-publico");
     revalidatePath(`/liga/torneos/${tournamentId}`);
     revalidatePath(`/torneos/${t.leagueSlug}/${t.slug}`);
+    revalidatePath(`/l/${t.leagueSlug}/torneos/${t.slug}/`);
     return { success: true };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]
@@ -686,6 +687,7 @@ export const deleteTournament = withAuth(
     revalidatePath("/liga/portal-publico");
     if (row.isPublicFixture) {
       revalidatePath(`/torneos/${row.leagueSlug}/${row.slug}`);
+      revalidatePath(`/l/${row.leagueSlug}/torneos/${row.slug}/`);
     }
     return { success: true };
   },
@@ -700,7 +702,11 @@ export const getTournamentExportData = withAuth(
     _user: User,
     context: AuthContext
   ): Promise<
-    | { success: true; data: import("@/lib/tournaments/export-types").TournamentExportPayload }
+    | {
+        success: true;
+        data: import("@/lib/tournaments/export-types").TournamentExportPayload;
+        leagueId: string;
+      }
     | { success: false; error: string }
   > => {
     const leagueId = resolveLeagueId(context);
@@ -709,7 +715,7 @@ export const getTournamentExportData = withAuth(
     const { getTournamentExportBundle } = await import("@/lib/tournaments/queries");
     const bundle = await getTournamentExportBundle(tournamentId, leagueId);
     if (!bundle) return { success: false, error: "Torneo no encontrado." };
-    return { success: true, data: bundle };
+    return { success: true, data: bundle, leagueId };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]
 );

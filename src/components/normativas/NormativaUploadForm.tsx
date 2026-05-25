@@ -6,7 +6,14 @@ import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { createNormativaDocumentAction } from "@/lib/actions/normativas-admin";
 
-export function NormativaUploadForm() {
+type NormativaUploadFormProps = {
+  /** Liga a la que se vincula el documento (obligatorio en servidor). */
+  leagueId: string;
+  /** Ruta pública donde aparecerá si es visible (solo texto de ayuda). */
+  publicListHint?: string;
+};
+
+export function NormativaUploadForm({ leagueId, publicListHint = "/normativas/" }: NormativaUploadFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [fileLabel, setFileLabel] = useState<string | null>(null);
@@ -49,9 +56,12 @@ export function NormativaUploadForm() {
         Solo super administrador o administrador de liga. El archivo se guarda en el bucket de Supabase (por
         defecto <code className="rounded bg-slate-100 px-1">Nomativa</code> o{" "}
         <code className="rounded bg-slate-100 px-1">NEXT_PUBLIC_BUCKET_NORMATIVAS</code>) y el registro en la tabla{" "}
-        <code className="rounded bg-slate-100 px-1">normativas</code> de Postgres; las marcadas como públicas
-        aparecen en <code className="rounded bg-slate-100 px-1">/normativas</code>.
+        <code className="rounded bg-slate-100 px-1">normativas</code> de Postgres (vinculadas a tu liga); las
+        marcadas como públicas aparecen en{" "}
+        <code className="rounded bg-slate-100 px-1">{publicListHint}</code>.
       </p>
+
+      <input type="hidden" name="leagueId" value={leagueId} />
 
       <div>
         <label htmlFor="nt-title" className="block text-xs font-semibold text-slate-600">

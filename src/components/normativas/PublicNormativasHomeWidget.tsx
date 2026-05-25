@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
 
 /**
  * Bloque FEB en la home (columna derecha): puerta de entrada a la normativa pública.
- * Sin listado de archivos; toda la tarjeta enlaza a `/normativas/`.
  */
-export function PublicNormativasHomeWidget() {
+export function PublicNormativasHomeWidget({ leagueSlug }: { leagueSlug?: string }) {
+  const href = leagueSlug?.trim()
+    ? leaguePortalNormativas(leagueSlug.trim())
+    : "/normativas/";
+
   return (
     <section className="shrink-0" aria-labelledby="home-normativa-heading">
       <Link
-        href="/normativas/"
+        href={href}
         className="group flex flex-col rounded-sm border border-slate-200/90 bg-white px-4 py-3 shadow-sm transition hover:border-[#005CEE]/35 hover:shadow-[0_8px_24px_-12px_rgba(0,92,238,0.2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE] sm:py-3.5"
       >
         <h2

@@ -17,5 +17,5 @@ export function clubBelongsToOperationalLeague(
 }
 
 export function operationalLeagueRequiredMessage(): string {
-  return "Selecciona una liga activa en la barra superior antes de continuar.";
+  return "Selecciona una liga activa en la barra superior del panel (/liga) antes de continuar.";
 }

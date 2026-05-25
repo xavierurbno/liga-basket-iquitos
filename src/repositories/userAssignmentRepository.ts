@@ -35,6 +35,48 @@ export class UserAssignmentRepository {
     return rows;
   }
 
+  /** Fila con `league_id` y `club_id` nulos (p. ej. admin de liga mal migrado). */
+  async findGlobalByUserId(userId: string): Promise<AssignmentWithEmail | null> {
+    const [row] = await db
+      .select({
+        userId: userAssignments.userId,
+        leagueId: userAssignments.leagueId,
+        clubId: userAssignments.clubId,
+        role: userAssignments.role,
+        email: authUsers.email,
+      })
+      .from(userAssignments)
+      .innerJoin(authUsers, eq(userAssignments.userId, authUsers.id))
+      .where(
+        and(
+          eq(userAssignments.userId, userId),
+          isNull(userAssignments.leagueId),
+          isNull(userAssignments.clubId),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findLeagueAdminForLeague(
+    userId: string,
+    leagueId: string,
+  ): Promise<{ userId: string } | null> {
+    const [row] = await db
+      .select({ userId: userAssignments.userId })
+      .from(userAssignments)
+      .where(
+        and(
+          eq(userAssignments.userId, userId),
+          eq(userAssignments.leagueId, leagueId),
+          eq(userAssignments.role, "LEAGUE_ADMIN"),
+          isNull(userAssignments.clubId),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
   async findOneByComposite(params: {
     userId: string;
     leagueId: string | null;
@@ -52,6 +94,29 @@ export class UserAssignmentRepository {
       )
       .limit(1);
     return row ?? null;
+  }
+
+  async findLeagueAdmins(leagueId: string): Promise<AssignmentWithEmail[]> {
+    const rows = await db
+      .select({
+        userId: userAssignments.userId,
+        leagueId: userAssignments.leagueId,
+        clubId: userAssignments.clubId,
+        role: userAssignments.role,
+        email: authUsers.email,
+      })
+      .from(userAssignments)
+      .innerJoin(authUsers, eq(userAssignments.userId, authUsers.id))
+      .where(
+        and(eq(userAssignments.leagueId, leagueId), eq(userAssignments.role, "LEAGUE_ADMIN")),
+      )
+      .orderBy(desc(userAssignments.createdAt));
+    return rows;
+  }
+
+  async countLeagueAdmins(leagueId: string): Promise<number> {
+    const rows = await this.findLeagueAdmins(leagueId);
+    return rows.length;
   }
 
   async deleteByComposite(params: {

@@ -1,11 +1,44 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { and, eq } from "drizzle-orm";
+import { createServerClient } from "@supabase/ssr";
 import { db } from "@/lib/db/client";
 import { categories, clubs, players } from "@/lib/db/schema";
+import { CarnetConfigAlert } from "@/components/carnet/CarnetConfigAlert";
+import { CarnetPrintGuide } from "@/components/carnet/CarnetPrintGuide";
+import { CarnetVistaPrevia } from "@/components/carnet/CarnetVistaPrevia";
 import { GenerateCarnetPDF } from "@/components/carnet/GenerateCarnetPDF";
+import {
+  buildCarnetLeagueReadiness,
+  buildPlayerCarnetWarnings,
+} from "@/lib/carnet/carnetLeagueReadiness";
+import { buildPlayerValidationUrl } from "@/lib/carnet/buildCarnetJugadorPdfInput";
+import { isLddbiCarnetPreset } from "@/lib/carnet/lddbiTemplateLayout";
+import {
+  LDDBI_PREMIUM_ACCENT_HEX,
+  LDDBI_PREMIUM_PRIMARY_HEX,
+} from "@/lib/carnet/lddbiPremiumTheme";
+import {
+  CARNET_THEME_PRESET_LABELS,
+  parseCarnetThemePreset,
+  resolveCarnetThemeConfig,
+} from "@/lib/carnet/carnetTheme";
+import {
+  buildCarnetAuthorizationText,
+  resolveCarnetValidityLabel,
+} from "@/lib/carnet/carnetInstitucionalText";
+import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
+import { settingsRepository } from "@/repositories/settingsRepository";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { leagueRepository } from "@/repositories/league.repository";
+import {
+  formatCarnetNumberForLeague,
+  labelCarnetCategorySegment,
+  resolveLeagueCarnetPrefix,
+} from "@/lib/leagues/league-carnet-prefix";
 
 function aIso(transactionDate: Date | null | undefined): string {
   if (!transactionDate) return "";
@@ -39,9 +72,11 @@ export default async function CarnetJugadorPage({
   const [club] = await db
     .select({
       id: clubs.id,
+      leagueId: clubs.leagueId,
       name: clubs.name,
       logoUrl: clubs.logoUrl,
       slug: clubs.slug,
+      federationCode: clubs.federationCode,
     })
     .from(clubs)
     .where(eq(clubs.id, clubId))
@@ -78,12 +113,99 @@ export default async function CarnetJugadorPage({
     .limit(1);
   if (!jugador) redirect(`/liga/clubs/${clubId}/categories/${categoryId}`);
 
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
+  );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const operationalLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
+  const effectiveLeagueId = club.leagueId?.trim() || operationalLeagueId;
+  const leagueRow = effectiveLeagueId
+    ? await leagueRepository.findById(effectiveLeagueId)
+    : null;
+  const cityPrefix = resolveLeagueCarnetPrefix({
+    slug: leagueRow?.slug,
+    name: leagueRow?.name,
+  });
+  const leagueDisplayName = leagueRow?.name ?? "Liga deportiva";
+  const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
+  const carnetParts = carnetDisplay?.split("-") ?? [];
+  const categorySegment = carnetParts[2] ?? null;
+
   const categoriaDetalle = lineaCategoriaInstitucional(category.name, [jugador.gender]);
+  /** En carnet: solo nombre de categoría (el género va en su fila; evita "MIXTO" repetido). */
+  const categoriaCarnet = category.name.trim();
   const fotoPublica = resolvePublicImageUrl(jugador.photoUrl);
   const fileName = `carnet-${club.slug}-${jugador.documentNumber}`.replace(/[^a-zA-Z0-9._-]/g, "-");
 
+  const leagueSettings = effectiveLeagueId
+    ? await settingsRepository.getLeagueSettings(effectiveLeagueId)
+    : null;
+  const leagueLogoUrl = resolvePublicImageUrl(leagueSettings?.loginLogoUrl ?? null);
+  const showFederation = leagueSettings?.carnetShowFederation !== false;
+  const federacionLogoUrl = showFederation
+    ? resolvePublicImageUrl(leagueSettings?.carnetFederationLogoUrl ?? null) ??
+      "/logos/federacion.png"
+    : null;
+  const carnetSportGraphicUrl = resolvePublicImageUrl(
+    leagueSettings?.carnetSportGraphicUrl ?? null,
+  );
+  const presidentSignatureUrl = resolvePublicImageUrl(
+    leagueSettings?.presidentSignatureUrl ?? null,
+  );
+  const secretarySignatureUrl = resolvePublicImageUrl(
+    leagueSettings?.secretarySignatureUrl ?? null,
+  );
+  const carnetTheme = resolveCarnetThemeConfig(leagueSettings);
+  const carnetPresetLabel = CARNET_THEME_PRESET_LABELS[carnetTheme.preset];
+  const authorizationText = buildCarnetAuthorizationText(
+    leagueDisplayName,
+    leagueSettings?.carnetAuthorizationTemplate,
+    { lddbiPreset: isLddbiCarnetPreset(carnetTheme.preset) },
+  );
+  const vigenciaLabel = resolveCarnetValidityLabel(
+    leagueSettings?.carnetValidityLabel,
+    leagueSettings?.seasonName,
+  );
+  const validationUrl = buildPlayerValidationUrl(jugador.id, "");
+  const portalPrimaryColor =
+    isLddbiCarnetPreset(carnetTheme.preset)
+      ? LDDBI_PREMIUM_PRIMARY_HEX
+      : normalizePortalHexColor(leagueSettings?.portalPrimaryColor, "#1e3a5f");
+  const portalAccentColor = isLddbiCarnetPreset(carnetTheme.preset)
+    ? LDDBI_PREMIUM_ACCENT_HEX
+    : normalizePortalHexColor(leagueSettings?.portalAccentColor, "#0d9488");
+  const fechaNacimientoLabel = jugador.birthdate
+    ? new Date(jugador.birthdate).toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : "—";
+
+  const leagueReadiness = buildCarnetLeagueReadiness(
+    leagueSettings,
+    Boolean(leagueLogoUrl),
+    Boolean(federacionLogoUrl),
+    carnetTheme.preset,
+  );
+  const playerWarnings = buildPlayerCarnetWarnings({
+    hasPhoto: Boolean(fotoPublica),
+    hasCarnetNumber: Boolean(carnetDisplay),
+  });
+  const settingsHref = effectiveLeagueId
+    ? `/liga/configuracion/#carnet-settings`
+    : "/liga/configuracion/#carnet-settings";
+  const superAdminSettingsHref = effectiveLeagueId
+    ? `/super-admin/leagues/${effectiveLeagueId}#carnet-settings`
+    : settingsHref;
+
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-6">
+    <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-slate-500">{club.name}</p>
@@ -91,6 +213,10 @@ export default async function CarnetJugadorPage({
             Carnet — {jugador.lastname}, {jugador.name}
           </h1>
           <p className="text-sm text-slate-600">{categoriaDetalle}</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Plantilla de liga: <strong>{carnetPresetLabel}</strong> (
+            <code className="font-mono">{carnetTheme.preset}</code>)
+          </p>
         </div>
         <Link
           href={`/liga/clubs/${clubId}/categories/${categoryId}`}
@@ -99,9 +225,53 @@ export default async function CarnetJugadorPage({
           Volver
         </Link>
       </div>
+      <CarnetConfigAlert
+        warnings={[...leagueReadiness.warnings, ...playerWarnings]}
+        settingsHref={settingsHref}
+      />
+
+      <CarnetVistaPrevia
+        leagueId={effectiveLeagueId}
+        playerId={jugador.id}
+        leagueDisplayName={leagueDisplayName}
+        clubLogoUrl={resolvePublicImageUrl(club.logoUrl)}
+        documentType={jugador.documentType}
+        fechaNacimientoIso={
+          jugador.birthdate ? new Date(jugador.birthdate).toISOString() : ""
+        }
+        categoriaDetalle={categoriaDetalle}
+        leagueLogoUrl={leagueLogoUrl}
+        federacionLogoUrl={federacionLogoUrl}
+        photoUrl={fotoPublica}
+        name={jugador.name}
+        lastname={jugador.lastname}
+        documentNumber={jugador.documentNumber}
+        fechaNacimientoLabel={fechaNacimientoLabel}
+        gender={jugador.gender}
+        clubName={club.name}
+        federationSportsCode={club.federationCode}
+        leagueSportsCode={cityPrefix}
+        categoriaNombre={categoriaCarnet}
+        carnetNumberDisplay={carnetDisplay}
+        presidentDisplayName={leagueSettings?.presidentDisplayName ?? ""}
+        secretaryDisplayName={leagueSettings?.secretaryDisplayName ?? ""}
+        presidentSignatureUrl={presidentSignatureUrl}
+        secretarySignatureUrl={secretarySignatureUrl}
+        authorizationText={authorizationText}
+        vigenciaLabel={vigenciaLabel}
+        validationUrl={validationUrl}
+        portalPrimaryColor={portalPrimaryColor}
+        portalAccentColor={portalAccentColor}
+        carnetThemePreset={parseCarnetThemePreset(leagueSettings?.carnetThemePreset)}
+        carnetShowFederation={showFederation}
+        carnetFederationDisplayName={leagueSettings?.carnetFederationDisplayName}
+        carnetSportLabel={leagueSettings?.carnetSportLabel}
+        carnetSportGraphicUrl={carnetSportGraphicUrl}
+      />
+
       <div className="rounded-2xl border border-[#BFDBFE] bg-white p-6 shadow-sm">
         <div className="flex gap-4">
-          <div className="relative h-28 w-[4.5rem] shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+          <div className="relative h-28 w-18 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
             {fotoPublica ? (
               <Image src={fotoPublica} alt="" fill className="object-cover" sizes="72px" />
             ) : (
@@ -118,15 +288,37 @@ export default async function CarnetJugadorPage({
                 ? new Date(jugador.birthdate).toLocaleDateString("es-PE")
                 : "—"}
             </p>
-            {jugador.carnetNumber ? (
-              <p className="font-mono text-xs font-semibold text-[#2563EB]">
-                N° {jugador.carnetNumber}
-              </p>
+            {carnetDisplay ? (
+              <div className="space-y-1">
+                <p className="font-mono text-xs font-semibold text-[#2563EB]">
+                  N° {carnetDisplay}
+                </p>
+                <p className="text-[10px] leading-snug text-slate-500">
+                  <span className="font-semibold text-slate-600">{cityPrefix}</span> = sede (
+                  {leagueDisplayName}) ·{" "}
+                  <span className="font-semibold text-slate-600">
+                    {categorySegment ?? "—"}
+                  </span>{" "}
+                  = {categorySegment ? labelCarnetCategorySegment(categorySegment) : "categoría"}
+                </p>
+              </div>
             ) : null}
           </div>
         </div>
-        <div className="mt-6 print:hidden">
+        <div className="mt-6 space-y-4 print:hidden">
+          <CarnetPrintGuide />
+          {!leagueReadiness.ready ? (
+            <p className="text-center text-[11px] font-medium text-amber-800">
+              Completa la configuración del carnet en{" "}
+              <a href={superAdminSettingsHref} className="font-bold underline">
+                ajustes de liga
+              </a>{" "}
+              para un reverso con firmas oficiales.
+            </p>
+          ) : null}
           <GenerateCarnetPDF
+            leagueId={effectiveLeagueId}
+            leagueDisplayName={leagueDisplayName}
             playerId={jugador.id}
             fileName={fileName}
             name={jugador.name}
@@ -134,9 +326,13 @@ export default async function CarnetJugadorPage({
             documentType={jugador.documentType}
             documentNumber={jugador.documentNumber}
             fechaNacimientoIso={aIso(jugador.birthdate)}
+            gender={jugador.gender}
             clubName={club.name}
-            categoriaDetalle={categoriaDetalle}
+            federationSportsCode={club.federationCode}
+            leagueSportsCode={cityPrefix}
+            categoriaDetalle={categoriaCarnet}
             carnetNumber={jugador.carnetNumber}
+            carnetNumberDisplay={carnetDisplay}
             photoUrl={fotoPublica}
             clubLogoUrl={club.logoUrl}
             label="Descargar carnet PDF"

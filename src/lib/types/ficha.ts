@@ -9,6 +9,9 @@ export type GenerateFichaPDFJugador = {
 };
 
 export type GenerateFichaPDFProps = {
+  leagueId?: string | null;
+  /** Nombre oficial de la liga (cabecera PDF). */
+  leagueDisplayName: string;
   fileName: string;
   teamId: string;
   clubName: string;
@@ -49,6 +52,9 @@ export type FichaStaff = {
 };
 
 export type FichaVistaPreviaProps = {
+  leagueDisplayName: string;
+  /** Logo de la liga (cabecera y marca de agua). */
+  leagueLogoUrl: string;
   clubName: string;
   clubLogoUrl: string | null;
   categoriaDetalle: string;

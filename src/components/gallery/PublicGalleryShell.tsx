@@ -8,6 +8,10 @@ interface PublicGalleryShellProps {
   subtitle?: string;
   photoCount: number;
   children: React.ReactNode;
+  leagueSlug?: string;
+  leagueName?: string;
+  leagueLogoUrl?: string | null;
+  backHref?: string;
 }
 
 export function PublicGalleryShell({
@@ -15,15 +19,23 @@ export function PublicGalleryShell({
   subtitle,
   photoCount,
   children,
+  leagueSlug,
+  leagueName,
+  leagueLogoUrl,
+  backHref = "/",
 }: PublicGalleryShellProps) {
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
-      <SiteTopNav />
+      <SiteTopNav
+        leagueSlug={leagueSlug}
+        leagueName={leagueName}
+        leagueLogoUrl={leagueLogoUrl}
+      />
       <main className={`flex-1 pb-10 pt-4 ${PORTAL_SHELL_CLASS}`}>
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link
-              href="/"
+              href={backHref}
               className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition-colors hover:text-[#005CEE]"
             >
               <ArrowLeft className="h-4 w-4" />

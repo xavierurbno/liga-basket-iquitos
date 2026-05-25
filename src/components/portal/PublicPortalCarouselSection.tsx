@@ -9,11 +9,22 @@ import { getRandomCarouselPhotos } from "@/services/galleryService";
 
 const CAROUSEL_MS = 12_000;
 
-export async function PublicPortalCarouselSection({ leagueId }: { leagueId: string }) {
+export async function PublicPortalCarouselSection({
+  leagueId,
+  leagueSlug,
+}: {
+  leagueId: string;
+  leagueSlug?: string;
+}) {
+  if (!leagueId?.trim()) {
+    console.warn("[portal] carrusel omitido: leagueId vacío");
+    return null;
+  }
+
   let photos: Awaited<ReturnType<typeof getRandomCarouselPhotos>> = [];
   try {
     photos = await withQueryTimeout(
-      getRandomCarouselPhotos(8, leagueId),
+      getRandomCarouselPhotos(8, leagueId.trim()),
       CAROUSEL_MS,
       "portalCarousel"
     );
@@ -28,7 +39,7 @@ export async function PublicPortalCarouselSection({ leagueId }: { leagueId: stri
         layout="feb"
         febRightColumn={
           <Suspense fallback={<FebRightColumnSkeleton />}>
-            <CarouselSponsorsColumn leagueId={leagueId} />
+            <CarouselSponsorsColumn leagueId={leagueId} leagueSlug={leagueSlug} />
           </Suspense>
         }
       />

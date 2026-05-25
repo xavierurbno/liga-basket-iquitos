@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { LayoutDashboard, Search, ShieldCheck, Trophy } from "lucide-react";
+import { Globe, LayoutDashboard, Search, ShieldCheck, Trophy } from "lucide-react";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
+import { buildPortalLoginHref, leaguePortalHome } from "@/lib/portal/league-portal-paths";
+import { fetchPortalLeagueBranding } from "@/lib/portal/portal-league-cache";
+import { PROGRAM_LEAGUES_DIRECTORY_PATH } from "@/lib/portal/default-portal-league";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 
@@ -69,21 +72,45 @@ export function PortalSiteHeaderBar({
   variant = "portal",
   panelHref = "/",
   hidePanelGestión = false,
+  leagueSlug,
+  leagueName,
+  leagueLogoUrl,
 }: {
   variant?: PortalSiteHeaderVariant;
   panelHref?: string;
   /** Si es true, oculta «Panel de gestión» en variantes que lo muestran por defecto (p. ej. busqueda365). */
   hidePanelGestión?: boolean;
+  leagueSlug?: string;
+  leagueName?: string;
+  leagueLogoUrl?: string | null;
 }) {
   const showGestiónLink =
     !hidePanelGestión && (variant === "busqueda365" || variant === "normativas");
+  const homeHref = leagueSlug ? leaguePortalHome(leagueSlug) : "/";
+  const campeonatosHref = leagueSlug ? `${homeHref}#campeonatos` : "/#campeonatos";
+  const inLeaguePortal = Boolean(leagueSlug && leagueName);
+  const portalLoginHref = leagueSlug
+    ? buildPortalLoginHref({
+        leagueSlug,
+        next: panelHref.startsWith("/liga") ? panelHref : homeHref,
+      })
+    : panelHref;
 
   return (
     <header className="w-full border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <div
         className={`relative flex min-h-36 flex-wrap items-center justify-between gap-3 py-2.5 sm:py-3 ${PORTAL_SHELL_CLASS}`}
       >
-        <LeagueHeaderLogo size="hero" priority className="min-w-0" />
+        <LeagueHeaderLogo
+          size="hero"
+          priority
+          className="min-w-0"
+          href={homeHref}
+          linkTitle={leagueName ? `Inicio — ${leagueName}` : "Inicio"}
+          brandName={inLeaguePortal ? leagueName : undefined}
+          logoUrl={leagueLogoUrl ?? undefined}
+          leagueSlug={leagueSlug}
+        />
         <nav className="relative z-20 flex shrink-0 flex-wrap items-center justify-end gap-2" aria-label="Navegación principal">
           {showGestiónLink ? (
             <Link
@@ -96,7 +123,7 @@ export function PortalSiteHeaderBar({
             </Link>
           ) : variant === "portal" ? (
             <>
-              <Link href="/#campeonatos" className={navBtnClass}>
+              <Link href={campeonatosHref} className={navBtnClass}>
                 <Trophy className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
                 Campeonatos
               </Link>
@@ -104,9 +131,17 @@ export function PortalSiteHeaderBar({
                 <Search className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
                 Búsqueda 365
               </Link>
-              <Link href={panelHref} className={navBtnClass}>
+              <Link
+                href={PROGRAM_LEAGUES_DIRECTORY_PATH}
+                className={navBtnClass}
+                title="Ver otras ligas del programa"
+              >
+                <Globe className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
+                Ligas
+              </Link>
+              <Link href={portalLoginHref} className={navBtnClass}>
                 <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
-                Intranet
+                Iniciar sesión
               </Link>
             </>
           ) : null}
@@ -124,10 +159,36 @@ export function PortalSiteHeaderBar({
 export async function PortalSiteHeader({
   variant = "portal",
   hidePanelGestión,
+  leagueSlug,
+  leagueName,
+  leagueLogoUrl,
 }: {
   variant?: PortalSiteHeaderVariant;
   hidePanelGestión?: boolean;
+  leagueSlug?: string;
+  leagueName?: string;
+  leagueLogoUrl?: string | null;
 }) {
   const panelHref = await resolvePortalPanelHref();
-  return <PortalSiteHeaderBar variant={variant} panelHref={panelHref} hidePanelGestión={hidePanelGestión} />;
+  let resolvedName = leagueName;
+  let resolvedLogo = leagueLogoUrl;
+
+  if (leagueSlug?.trim() && (!resolvedName || resolvedLogo === undefined)) {
+    const branding = await fetchPortalLeagueBranding(leagueSlug.trim());
+    if (branding) {
+      resolvedName = resolvedName ?? branding.name;
+      if (resolvedLogo === undefined) resolvedLogo = branding.logoUrl;
+    }
+  }
+
+  return (
+    <PortalSiteHeaderBar
+      variant={variant}
+      panelHref={panelHref}
+      hidePanelGestión={hidePanelGestión}
+      leagueSlug={leagueSlug}
+      leagueName={resolvedName}
+      leagueLogoUrl={resolvedLogo}
+    />
+  );
 }

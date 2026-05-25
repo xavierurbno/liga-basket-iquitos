@@ -102,7 +102,7 @@ export function LoginForm({
   }
 
   const inputClass =
-    "w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-[border-color,box-shadow] focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/15";
+    "w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-[border-color,box-shadow] focus:border-[var(--portal-accent,#1e3a5f)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--portal-accent,#1e3a5f)_15%,transparent)]";
 
   return (
     <div className="space-y-4">
@@ -134,9 +134,9 @@ export function LoginForm({
             <label htmlFor="password" className="text-sm font-medium text-slate-700">
               Contraseña
             </label>
-            <a 
-              href="/forgot-password" 
-              className="text-xs font-medium text-[#1e3a5f] hover:underline"
+            <a
+              href="/forgot-password"
+              className="portal-accent-text text-xs font-medium hover:underline"
             >
               ¿Olvidaste tu contraseña?
             </a>
@@ -156,7 +156,7 @@ export function LoginForm({
         <button
           type="submit"
           disabled={loading || googleLoading}
-          className="w-full rounded-lg bg-[#1e3a5f] py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/15 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+          className="portal-accent-bg w-full rounded-lg py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/15 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
         >
           {loading ? "Entrando…" : "Iniciar sesión"}
         </button>
@@ -175,7 +175,7 @@ export function LoginForm({
         type="button"
         onClick={handleGoogleLogin}
         disabled={loading || googleLoading}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-[#005CEE] py-3 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:bg-[#0050cf] disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+        className="portal-accent-bg flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
       >
         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white">
           <FcGoogle className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function LoginForm({
       <div className="pt-2 text-center">
         <p className="text-sm text-slate-600">
           ¿No tienes una cuenta?{" "}
-          <a href="/register" className="font-semibold text-[#1e3a5f] hover:underline">
+          <a href="/register" className="portal-accent-text font-semibold hover:underline">
             Regístrate aquí
           </a>
         </p>

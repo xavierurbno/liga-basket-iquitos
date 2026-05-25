@@ -48,8 +48,9 @@ export function SelectActiveLeaguePrompt({
             />
           )}
           <p className="text-xs text-slate-500">
-            También puedes cambiar la liga activa desde la barra superior en cualquier página de{" "}
-            <strong>/liga</strong>.
+            También puedes cambiar la liga activa desde el selector en la{" "}
+            <strong>barra superior del panel</strong> (visible en todas las páginas de{" "}
+            <strong>/liga</strong>).
           </p>
         </div>
       ) : (

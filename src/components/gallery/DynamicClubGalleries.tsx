@@ -3,6 +3,10 @@ import Link from "next/link";
 import { photoRepository } from "@/repositories/photoRepository";
 import { Camera } from "lucide-react";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
+import {
+  leaguePortalClubGallery,
+  leaguePortalInstitutionalGallery,
+} from "@/lib/portal/league-portal-paths";
 
 const GALLERY_MS = 12_000;
 
@@ -24,7 +28,18 @@ function logGalleryFetchFailure(label: string, reason: unknown) {
   );
 }
 
-export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) {
+export async function DynamicClubGalleries({
+  leagueId,
+  leagueSlug,
+  leagueName,
+  leagueLogoUrl,
+}: {
+  leagueId?: string;
+  /** Slug para enlaces `/l/[slug]/galeria/...` */
+  leagueSlug?: string;
+  leagueName?: string;
+  leagueLogoUrl?: string | null;
+}) {
   try {
     const [clubsR, generalR, countR] = await Promise.allSettled([
       withQueryTimeout(
@@ -74,12 +89,20 @@ export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) 
 
         {/* ── Grid de Tarjetas FEB ── */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {/* Tarjeta LDDBI */}
+          {/* Galería institucional de la liga */}
           <FebCard
-            href="/galeria-institucional"
+            href={
+              leagueSlug
+                ? leaguePortalInstitutionalGallery(leagueSlug)
+                : "/galeria-institucional/"
+            }
             coverUrl={generalPhotos[0]?.url ?? null}
-            fallbackLogoUrl="/logo-liga.png"
-            title="GALERÍA LDDBI"
+            fallbackLogoUrl={leagueSlug ? (leagueLogoUrl ?? null) : "/logo-liga.png"}
+            title={
+              leagueName
+                ? `GALERÍA ${leagueName.length > 28 ? "INSTITUCIONAL" : leagueName}`.toUpperCase()
+                : "GALERÍA LDDBI"
+            }
             subtitle="Fotos institucionales de la liga"
             photoCount={totalGeneral}
             accentColor="#005CEE"
@@ -89,7 +112,11 @@ export async function DynamicClubGalleries({ leagueId }: { leagueId?: string }) 
           {clubsWithPhotos.map((club) => (
             <FebCard
               key={club.clubId}
-              href={`/galeria/club/${club.clubId}`}
+              href={
+                leagueSlug
+                  ? leaguePortalClubGallery(leagueSlug, club.clubId)
+                  : `/galeria/club/${club.clubId}/`
+              }
               coverUrl={club.photos[0]?.url ?? null}
               fallbackLogoUrl={club.logoUrl}
               title={club.clubName}

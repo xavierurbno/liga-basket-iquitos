@@ -1,18 +1,20 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { leagueRepository } from "@/repositories/league.repository";
-import { LeagueSettingsForm } from "@/components/admin/LeagueSettingsForm";
-import { CreateLeagueModal } from "@/components/admin/CreateLeagueModal";
-import { DeleteLeagueButton } from "@/components/admin/DeleteLeagueButton";
-import { ManageLeagueButton } from "@/components/liga/ManageLeagueButton";
+import { CreateLeagueWizard } from "@/components/admin/CreateLeagueWizard";
+import { CopyLeaguePublicLink } from "@/components/admin/CopyLeaguePublicLink";
+import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
 
 export default async function LeaguesAdminPage() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
   );
   const {
     data: { user },
@@ -20,6 +22,9 @@ export default async function LeaguesAdminPage() {
   const activeLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
 
   const leagues = await leagueRepository.findAllWithSettings();
+  const adminCounts = await Promise.all(
+    leagues.map((l) => userAssignmentRepository.countLeagueAdmins(l.id)),
+  );
 
   return (
     <div className="space-y-10 pb-20">
@@ -29,7 +34,7 @@ export default async function LeaguesAdminPage() {
             Control de <span className="italic text-blue-600">Ligas</span>
           </h1>
           <p className="max-w-2xl font-semibold leading-snug text-slate-500">
-            Crea ligas, configura temporadas y abre el panel operativo con un clic.
+            Crea ligas con el asistente, abre la ficha de cada una y copia el enlace público.
           </p>
         </div>
 
@@ -40,55 +45,84 @@ export default async function LeaguesAdminPage() {
               {leagues.length} {leagues.length === 1 ? "liga" : "ligas"}
             </span>
           </div>
-          <CreateLeagueModal />
+          <CreateLeagueWizard />
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-16">
-        {leagues.map((league) => (
-          <section key={league.id} className="group relative">
-            <div className="absolute -left-4 top-0 bottom-0 w-1 rounded-full bg-linear-to-b from-blue-500 to-indigo-500 opacity-0 transition-opacity group-hover:opacity-100" />
-
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900">{league.name}</h2>
-                {activeLeagueId === league.id ? (
-                  <p className="mt-1 text-xs font-semibold text-emerald-600">
-                    Liga activa en el panel operativo
-                  </p>
-                ) : null}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {leagues.map((league, index) => {
+          const adminCount = adminCounts[index] ?? 0;
+          const fichaHref = `/super-admin/leagues/${league.id}/`;
+          return (
+            <article
+              key={league.id}
+              className="group relative flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-[#005CEE]/30 hover:shadow-md"
+            >
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">{league.name}</h2>
+                  <p className="mt-1 font-mono text-xs text-slate-400">{leaguePortalHome(league.slug)}</p>
+                  {activeLeagueId === league.id ? (
+                    <p className="mt-2 text-xs font-semibold text-emerald-600">
+                      Liga activa en el panel operativo
+                    </p>
+                  ) : null}
+                </div>
+                <Link
+                  href={fichaHref}
+                  className="inline-flex items-center gap-1 rounded-xl bg-[#005CEE] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-[#004bb5]"
+                >
+                  Ficha
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ManageLeagueButton leagueId={league.id} />
-                <DeleteLeagueButton leagueId={league.id} leagueName={league.name} />
+
+              <dl className="mb-4 grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <dt className="font-bold uppercase tracking-wider text-slate-400">Admins</dt>
+                  <dd className="mt-0.5 text-lg font-black text-slate-800">{adminCount}</dd>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <dt className="font-bold uppercase tracking-wider text-slate-400">Temporada</dt>
+                  <dd className="mt-0.5 truncate font-semibold text-slate-700">
+                    {league.settings?.seasonName ?? "—"}
+                  </dd>
+                </div>
+              </dl>
+
+              <CopyLeaguePublicLink slug={league.slug} leagueName={league.name} />
+
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                <Link
+                  href={leaguePortalHome(league.slug)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold uppercase tracking-wide text-slate-600 hover:text-[#005CEE]"
+                >
+                  Portal
+                </Link>
+                <span className="text-slate-200">·</span>
+                <Link
+                  href={fichaHref}
+                  className="text-xs font-bold uppercase tracking-wide text-slate-600 hover:text-[#005CEE]"
+                >
+                  Configurar
+                </Link>
               </div>
-            </div>
-
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                ID: {league.id.slice(0, 8)}…
-              </span>
-              <div className="flex-1 h-px bg-slate-200" />
-            </div>
-
-            <LeagueSettingsForm
-              leagueId={league.id}
-              leagueName={league.name}
-              initialSettings={league.settings}
-            />
-          </section>
-        ))}
-
-        {leagues.length === 0 && (
-          <div className="flex flex-col items-center gap-4 rounded-[2.5rem] border-4 border-dashed border-slate-100 bg-white py-24 text-center">
-            <p className="text-xl font-bold text-slate-400">No hay ligas configuradas</p>
-            <p className="mt-1 text-sm font-medium text-slate-300">
-              Usa «Nueva Liga» para crear la primera y entrar al panel operativo.
-            </p>
-          </div>
-        )}
+            </article>
+          );
+        })}
       </div>
+
+      {leagues.length === 0 && (
+        <div className="flex flex-col items-center gap-4 rounded-[2.5rem] border-4 border-dashed border-slate-100 bg-white py-24 text-center">
+          <p className="text-xl font-bold text-slate-400">No hay ligas configuradas</p>
+          <p className="mt-1 text-sm font-medium text-slate-300">
+            Usa «Nueva Liga» para lanzar el asistente de alta.
+          </p>
+          <CreateLeagueWizard triggerLabel="Crear primera liga" />
+        </div>
+      )}
     </div>
   );
 }

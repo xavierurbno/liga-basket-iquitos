@@ -12,11 +12,30 @@ import {
   Files,
   Scale,
   ShieldCheck,
+  Palette,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
-const cardClass =
-  "relative z-0 flex min-h-[8.5rem] cursor-pointer flex-col rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-[0_20px_50px_-35px_rgba(59,130,246,0.55)] transition hover:border-[#005CEE] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE]";
+/** Elevación + brillo azul institucional (#005CEE) en hover/focus. */
+const cardClass = [
+  "group relative z-0 flex min-h-[8.5rem] cursor-pointer flex-col",
+  "rounded-2xl border border-[#BFDBFE] bg-white p-5",
+  "transform translate-y-0 scale-100",
+  "shadow-[0_20px_50px_-35px_rgba(59,130,246,0.55)]",
+  "transition-[transform,box-shadow,border-color,ring-color] duration-300 ease-out",
+  "hover:z-10 hover:-translate-y-1 hover:scale-[1.02]",
+  "hover:border-[#005CEE]",
+  "hover:shadow-[0_12px_28px_-8px_rgba(0,92,238,0.28),0_0_20px_rgba(0,92,238,0.4)]",
+  "hover:ring-2 hover:ring-[#005CEE]/30",
+  "focus-visible:z-10 focus-visible:outline-none",
+  "focus-visible:-translate-y-1 focus-visible:scale-[1.02]",
+  "focus-visible:border-[#005CEE]",
+  "focus-visible:shadow-[0_12px_28px_-8px_rgba(0,92,238,0.28),0_0_20px_rgba(0,92,238,0.4)]",
+  "focus-visible:ring-2 focus-visible:ring-[#005CEE]/40",
+  "motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:hover:scale-100",
+  "motion-reduce:focus-visible:translate-y-0 motion-reduce:focus-visible:scale-100",
+].join(" ");
 
 export type LigaHubCardItem = {
   href: string;
@@ -81,6 +100,13 @@ const adminHubItems: readonly LigaHubCardItem[] = [
     body: "Publica torneos en la portada y comparte el enlace del fixture público.",
   },
   {
+    href: "/liga/configuracion/",
+    icon: Palette,
+    iconClass: "text-fuchsia-600",
+    title: "Marca e identidad",
+    body: "Logo, colores del portal, mensaje en login y documentos PDF de la liga.",
+  },
+  {
     href: "/liga/galeria-general/",
     icon: Images,
     iconClass: "text-sky-600",
@@ -110,6 +136,15 @@ const adminHubItems: readonly LigaHubCardItem[] = [
   },
 ];
 
+/** Solo SUPER_ADMIN: gestión global de ligas (crear / eliminar / fichas). */
+const superAdminPlatformCard: LigaHubCardItem = {
+  href: "/super-admin/leagues/",
+  icon: LayoutGrid,
+  iconClass: "text-[#005CEE]",
+  title: "Plataforma — Ligas",
+  body: "Único acceso de plataforma: listado, alta, ficha y eliminación de ligas.",
+};
+
 const profilesCard: LigaHubCardItem = {
   href: "/liga/perfiles/",
   icon: ShieldCheck,
@@ -124,25 +159,37 @@ type LigaHubCardGridProps = {
   viewerSegment: LigaHubViewerSegment;
   /** Solo SUPER_ADMIN y LEAGUE_ADMIN en modo staff. */
   showProfilesCard?: boolean;
+  /** Tarjeta hacia /super-admin/leagues (solo super administrador). */
+  showSuperAdminPlatform?: boolean;
 };
 
 export function LigaHubCardGrid({
   viewerSegment,
   showProfilesCard = false,
+  showSuperAdminPlatform = false,
 }: LigaHubCardGridProps) {
+  const staffBase: LigaHubCardItem[] = showProfilesCard
+    ? [...adminHubItems.slice(0, 2), profilesCard, ...adminHubItems.slice(2)]
+    : [...adminHubItems];
+
   const items: LigaHubCardItem[] =
     viewerSegment === "delegate"
       ? [...delegateHubItems]
-      : showProfilesCard
-        ? [...adminHubItems.slice(0, 2), profilesCard, ...adminHubItems.slice(2)]
-        : [...adminHubItems];
+      : showSuperAdminPlatform
+        ? [superAdminPlatformCard, ...staffBase]
+        : staffBase;
 
   return (
-    <div className="relative z-1 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="relative z-1 grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {items.map(({ href, icon: Icon, iconClass, title, body }) => (
         <Link key={`${href}-${title}`} href={href} className={`${cardClass} h-full`}>
-          <Icon className={`h-8 w-8 shrink-0 ${iconClass}`} aria-hidden />
-          <h2 className="mt-3 text-lg font-bold text-slate-900">{title}</h2>
+          <Icon
+            className={`h-8 w-8 shrink-0 transition-transform duration-300 ease-out motion-reduce:transition-none group-hover:scale-105 motion-reduce:group-hover:scale-100 ${iconClass}`}
+            aria-hidden
+          />
+          <h2 className="mt-3 text-lg font-bold text-slate-900 transition-colors duration-300 ease-out group-hover:text-[#005CEE]">
+            {title}
+          </h2>
           <p className="mt-1 text-sm text-slate-600">{body}</p>
         </Link>
       ))}

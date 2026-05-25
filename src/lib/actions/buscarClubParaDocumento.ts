@@ -13,6 +13,7 @@ export type ClubDocumental = {
   presidentName: string | null;
   presidentLastname: string | null;
   district: string | null;
+  leagueId: string | null;
 };
 
 export type BusquedaClubResult =
@@ -41,6 +42,7 @@ export async function buscarClubParaDocumento(
         presidentName: clubs.presidentName,
         presidentLastname: clubs.presidentLastname,
         district: clubs.district,
+        leagueId: clubs.leagueId,
       })
       .from(clubs)
       .where(ilike(clubs.name, `%${q}%`))

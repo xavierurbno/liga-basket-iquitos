@@ -12,10 +12,16 @@ const STYLES: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-export function TournamentStatusBadge({ status }: { status: string }) {
+export function TournamentStatusBadge({
+  status,
+  className = "",
+}: {
+  status: string;
+  className?: string;
+}) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STYLES[status] ?? STYLES.draft}`}
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STYLES[status] ?? STYLES.draft} ${className}`}
     >
       {LABELS[status] ?? status}
     </span>

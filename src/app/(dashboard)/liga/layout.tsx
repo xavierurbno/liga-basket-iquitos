@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { LigaOperationalNav } from "@/components/nav/LigaOperationalNav";
 import { MasterClockCounter } from "@/components/system/MasterClockCounter";
+import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { hasIntranetAccess, intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
 import type { Role } from "@/lib/auth/withAuth";
 
@@ -31,6 +32,7 @@ export default async function SystemLayout({
 
   const appRole = user.app_metadata?.role as Role | undefined;
   const intranetNavLabel = hasIntranetAccess(appRole) ? intranetPortalNavLabel(appRole) : null;
+  const opCtx = await getLigaOperationalContext();
 
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
@@ -52,6 +54,11 @@ export default async function SystemLayout({
           <LigaOperationalNav
             userEmail={user.email ?? null}
             intranetNavLabel={intranetNavLabel}
+            role={opCtx.role}
+            leagues={opCtx.leagues.map((l) => ({ id: l.id, name: l.name }))}
+            activeLeagueId={opCtx.leagueId}
+            activeLeagueName={opCtx.leagueName}
+            activeLeagueSlug={opCtx.activeLeagueSlug}
           />
         </div>
       </header>

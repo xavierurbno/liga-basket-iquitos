@@ -53,13 +53,25 @@ const FICHA_PREFIX_BY_CATEGORIA: Record<Categoria, string> = {
   VETERANOS: "VET",
 };
 
+/** Palabras en el nombre de categoría del club → segmento del carnet. */
+const CLUB_CATEGORY_KEYWORDS: [string, string][] = [
+  ["VETERANOS", "VET"],
+  ["VETERANO", "VET"],
+  ["SUPERIOR", "SUP"],
+  ["MAYORES", "MAY"],
+  ["INFANTIL", "INF"],
+  ["JUVENIL", "JUV"],
+];
+
 export function generarNumeroFicha(
   category: Categoria,
   numero: number,
   anio: number = new Date().getFullYear(),
+  leaguePrefix: string = "IQ",
 ): string {
-  const prefix = FICHA_PREFIX_BY_CATEGORIA[category];
-  return `IQ-${anio}-${prefix}-${numero.toString().padStart(4, "0")}`;
+  const cat = FICHA_PREFIX_BY_CATEGORIA[category];
+  const city = leaguePrefix.trim().toUpperCase() || "IQ";
+  return `${city}-${anio}-${cat}-${numero.toString().padStart(4, "0")}`;
 }
 
 /**
@@ -72,16 +84,27 @@ export function prefijoFichaDesdeCategoriaClub(
 ): string {
   const uMatch = categoryName.match(/U\s*(\d{1,2})/i);
   if (uMatch) return `U${uMatch[1]}`;
+
+  const upper = categoryName.toUpperCase();
+  for (const [keyword, code] of CLUB_CATEGORY_KEYWORDS) {
+    if (upper.includes(keyword)) return code;
+  }
+
+  const firstWord = upper.split(/\s+/)[0]?.replace(/[^A-Z]/g, "") ?? "";
+  if (firstWord.length >= 3) return firstWord.slice(0, 3);
+
   return FICHA_PREFIX_BY_CATEGORIA[calcularCategoria(birthdate)];
 }
 
-/** Número de carnet usando nombre de categoría del club + edad del deportista. */
+/** Número de carnet: `{ciudad}-{año}-{categoría}-{secuencia}`. */
 export function generarNumeroFichaDesdeCategoriaClub(
   categoryName: string,
   birthdate: Date,
   numero: number,
   anio: number = new Date().getFullYear(),
+  leaguePrefix: string = "IQ",
 ): string {
   const prefix = prefijoFichaDesdeCategoriaClub(categoryName, birthdate);
-  return `IQ-${anio}-${prefix}-${numero.toString().padStart(4, "0")}`;
+  const city = leaguePrefix.trim().toUpperCase() || "IQ";
+  return `${city}-${anio}-${prefix}-${numero.toString().padStart(4, "0")}`;
 }

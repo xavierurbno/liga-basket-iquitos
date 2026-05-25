@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2, AlertTriangle, X, Loader2 } from "lucide-react";
 import { deleteLeagueAction } from "@/actions/leagues";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ interface DeleteLeagueButtonProps {
 }
 
 export function DeleteLeagueButton({ leagueId, leagueName }: DeleteLeagueButtonProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -21,6 +23,8 @@ export function DeleteLeagueButton({ leagueId, leagueName }: DeleteLeagueButtonP
       if (result.success) {
         toast.success(result.message);
         setIsOpen(false);
+        router.push("/super-admin/leagues/");
+        router.refresh();
       } else {
         toast.error("error" in result ? result.error : result.message);
       }

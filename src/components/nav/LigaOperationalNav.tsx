@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { UserAccountMenu } from "@/components/nav/UserAccountMenu";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
+import type { Role } from "@/lib/auth/withAuth";
+
 const navBtn =
   "inline-flex items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 text-xs font-bold tracking-wide text-slate-600 transition hover:border-[#005CEE] hover:text-[#005CEE]";
 const navBtnActive =
@@ -14,13 +16,18 @@ function isLigaOperativoPath(pathname: string) {
   return pathname === "/liga" || pathname === "/liga/" || pathname.startsWith("/liga/");
 }
 
-/** Barra /liga: accesos duplicados de las tarjetas del panel se quitan; rutas vía `/liga` o cards. */
+/** Barra global de `/liga/*`: logo, panel operativo y cuenta. */
 export function LigaOperationalNav({
   userEmail,
   intranetNavLabel,
 }: {
   userEmail: string | null;
   intranetNavLabel: string | null;
+  role?: Role;
+  leagues?: { id: string; name: string }[];
+  activeLeagueId?: string | null;
+  activeLeagueName?: string | null;
+  activeLeagueSlug?: string | null;
 }) {
   const pathname = usePathname();
 
@@ -30,7 +37,7 @@ export function LigaOperationalNav({
         <LeagueHeaderLogo size="compact" className="min-w-0" />
       </div>
 
-      <div className="relative z-20 flex w-full flex-wrap items-center justify-end gap-2 border-t border-[#BFDBFE] pt-3 sm:w-auto sm:border-t-0 sm:pt-0 lg:w-auto">
+      <div className="relative z-20 flex flex-wrap items-center justify-end gap-2">
         {intranetNavLabel ? (
           <Link
             href="/liga/"

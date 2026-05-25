@@ -18,20 +18,26 @@ export default async function LigaOperationalHubPage() {
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
           {viewerSegment === "delegate"
             ? "Como delegado gestionas el club que te asignó la administración (categorías, fichas) y puedes consultar jugadores en Búsqueda 365."
-            : "Accede a clubes, categorías, tesorería y herramientas administrativas. Usa las tarjetas de abajo para abrir cada módulo."}
+            : role === "SUPER_ADMIN"
+              ? "Las tarjetas operan la liga activa. Usa Plataforma — Ligas para elegir liga, crear, eliminar o abrir la ficha de cada una."
+              : "Accede a clubes, categorías, tesorería y herramientas administrativas. Usa las tarjetas de abajo para abrir cada módulo."}
         </p>
       </div>
 
       {showLeagueContext ? (
         <LeagueContextCard
           variant={role === "SUPER_ADMIN" ? "super_admin" : "league_admin"}
-          leagues={ctx.leagues.map((l) => ({ id: l.id, name: l.name }))}
           activeLeagueId={ctx.leagueId}
           activeLeagueName={ctx.leagueName}
+          activeLeagueSlug={ctx.activeLeagueSlug}
         />
       ) : null}
 
-      <LigaHubCardGrid viewerSegment={viewerSegment} showProfilesCard={showProfilesCard} />
+      <LigaHubCardGrid
+        viewerSegment={viewerSegment}
+        showProfilesCard={showProfilesCard}
+        showSuperAdminPlatform={role === "SUPER_ADMIN"}
+      />
     </div>
   );
 }

@@ -21,11 +21,17 @@ interface MultimediaGalleryProps {
 
 const align = "px-4 sm:px-6 lg:px-8";
 
-export function FebRightColumn({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
+export function FebRightColumn({
+  sponsors,
+  leagueSlug,
+}: {
+  sponsors: SponsorCarouselItem[];
+  leagueSlug?: string;
+}) {
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:col-span-1 lg:min-h-0">
       <SponsorCarousel sponsors={sponsors} />
-      <PublicNormativasHomeWidget />
+      <PublicNormativasHomeWidget leagueSlug={leagueSlug} />
     </div>
   );
 }

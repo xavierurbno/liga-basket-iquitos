@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
+import { leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
 
-const ctaFallback = [
+function ctaFallbackForLeague(leagueSlug?: string) {
+  const normativasHref = leagueSlug?.trim()
+    ? leaguePortalNormativas(leagueSlug.trim())
+    : "/normativas/";
+  return [
   {
-    href: "/normativas/",
+    href: normativasHref,
     title: "Normativas",
     subtitle: "Documentación oficial de la liga",
     className: "from-slate-800 to-slate-950",
@@ -15,11 +20,19 @@ const ctaFallback = [
     className: "from-[#1e3a5f] to-slate-900",
   },
 ] as const;
+}
 
 /**
  * Columna derecha estilo FEB: dos bloques apilados (patrocinadores o CTAs).
  */
-export async function PortalHomeHeroSidebar({ leagueId }: { leagueId?: string }) {
+export async function PortalHomeHeroSidebar({
+  leagueId,
+  leagueSlug,
+}: {
+  leagueId?: string;
+  leagueSlug?: string;
+}) {
+  const ctaFallback = ctaFallbackForLeague(leagueSlug);
   const sponsors =
     leagueId != null ? await getSponsorsByLeagueAction(leagueId) : [];
   const top = sponsors.slice(0, 2);

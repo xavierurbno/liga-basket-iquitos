@@ -5,8 +5,8 @@ import { calcularEdad } from "@/lib/utils/age";
 import {
   FICHA_COLUMNAS_TABLA,
   FICHA_T1,
-  FICHA_T2,
   FICHA_T3,
+  resolveFichaLeagueTitle,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
 import { FichaVistaPreviaJugador, FichaStaff, FichaVistaPreviaProps } from "@/lib/types/ficha";
@@ -41,6 +41,8 @@ function ordenarJugadores(j: FichaVistaPreviaJugador[]) {
 const HEAD_BG = "#2563EB";
 
 export function FichaVistaPrevia({
+  leagueDisplayName,
+  leagueLogoUrl,
   clubName,
   clubLogoUrl,
   categoriaDetalle,
@@ -49,21 +51,25 @@ export function FichaVistaPrevia({
   delegado,
 }: FichaVistaPreviaProps) {
   const filas = useMemo(() => ordenarJugadores(players), [players]);
+  const leagueTitle = resolveFichaLeagueTitle(leagueDisplayName);
+  const hasLeagueLogo = Boolean(leagueLogoUrl?.trim());
 
   return (
     <div className="relative mx-auto max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
       {/* Marca de agua (réplica del PDF: logo liga centrado, ~5% opacidad) */}
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        aria-hidden
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logos/liga.png"
-          alt=""
-          className="max-h-[72%] w-[88%] max-w-3xl object-contain opacity-[0.05]"
-        />
-      </div>
+      {hasLeagueLogo ? (
+        <div
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          aria-hidden
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={leagueLogoUrl}
+            alt=""
+            className="max-h-[72%] w-[88%] max-w-3xl object-contain opacity-[0.05]"
+          />
+        </div>
+      ) : null}
 
       <div className="relative z-10 p-[14mm] pb-8 pt-[14mm]">
         {/* Cabecera institucional */}
@@ -82,7 +88,7 @@ export function FichaVistaPrevia({
               {FICHA_T1}
             </p>
             <p className="text-[11px] font-bold uppercase leading-tight text-slate-900 sm:text-xs md:text-[12px]">
-              {FICHA_T2}
+              {leagueTitle}
             </p>
             <p className="pt-0 text-[11px] font-bold uppercase text-slate-900 sm:text-xs md:text-[12px]">
               {FICHA_T3}
@@ -90,12 +96,18 @@ export function FichaVistaPrevia({
           </div>
 
           <div className="flex h-[38mm] w-[30mm] shrink-0 items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logos/liga.png"
-              alt="Liga de Basket de Iquitos"
-              className="max-h-full max-w-full object-contain"
-            />
+            {hasLeagueLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={leagueLogoUrl}
+                alt={leagueDisplayName}
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-slate-50 px-1 text-center text-[7px] font-semibold uppercase leading-tight text-slate-400">
+                Logo liga
+              </div>
+            )}
           </div>
         </header>
 

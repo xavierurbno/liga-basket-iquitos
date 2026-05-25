@@ -12,9 +12,11 @@ import {
 import type { Role } from "@/lib/auth/withAuth";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
+import { ActiveLeagueSelector } from "@/components/liga/ActiveLeagueSelector";
 import { leagueRepository } from "@/repositories/league.repository";
 import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
+import { partitionPerfilesAssignments } from "@/lib/perfiles/perfiles-league-scope";
 
 async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
   const raw = await userAssignmentRepository.findAllWithEmail();
@@ -80,20 +82,6 @@ async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
   });
 }
 
-function filterRowsForOperationalLeague(
-  rows: ProfileAssignmentRow[],
-  operationalLeagueId: string,
-): ProfileAssignmentRow[] {
-  return rows.filter((r) => {
-    if (r.role === "SUPER_ADMIN") return true;
-    if (r.role === "LEAGUE_ADMIN") return r.leagueId === operationalLeagueId;
-    if (r.role === "CLUB_DELEGATE") {
-      return r.delegateClubLeagueId === operationalLeagueId;
-    }
-    return false;
-  });
-}
-
 export default async function LigaPerfilesPage() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -134,20 +122,18 @@ export default async function LigaPerfilesPage() {
         role={role}
         leagues={leagues}
         title="Selecciona una liga para gestionar perfiles"
-        description="Los administradores de liga y delegados se asignan en el contexto de una liga activa."
+        description="Los administradores de liga y delegados se registran por liga. Elige la liga de Iquitos (u otra) antes de continuar."
       />
     );
   }
 
-  const leagueName = operationalLeagueId
-    ? (await leagueRepository.findById(operationalLeagueId))?.name ?? null
-    : null;
+  const leagueId = operationalLeagueId!;
+  const league = await leagueRepository.findById(leagueId);
+  const leagueName = league?.name ?? null;
+  const allLeagues = role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
 
   const allRows = await buildAssignmentRows();
-  const tableRows =
-    role === "SUPER_ADMIN" && operationalLeagueId
-      ? filterRowsForOperationalLeague(allRows, operationalLeagueId)
-      : allRows;
+  const { leagueRows: tableRows, orphanRows } = partitionPerfilesAssignments(allRows, leagueId);
 
   const canManageDestructive = role === "SUPER_ADMIN";
   const canInviteStaff = role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN";
@@ -162,21 +148,39 @@ export default async function LigaPerfilesPage() {
     .from(clubs)
     .orderBy(asc(clubs.name));
 
-  const clubOptionsForPicker: DelegateClubPickerOption[] = operationalLeagueId
-    ? clubRows
-        .filter((c) => c.leagueId === operationalLeagueId)
-        .map(({ id, name, slug }) => ({ id, name, slug }))
-    : [];
+  const clubOptionsForPicker: DelegateClubPickerOption[] = clubRows
+    .filter((c) => c.leagueId === leagueId)
+    .map(({ id, name, slug }) => ({ id, name, slug }));
 
   return (
     <div className="space-y-8 pb-12">
+      {role === "SUPER_ADMIN" && allLeagues.length > 0 ? (
+        <div className="rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#005CEE]">
+            Liga operativa
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Perfiles y altas se aplican solo a la liga seleccionada. Si no ves a alguien (p. ej. admin
+            de Iquitos), cambia aquí a esa liga.
+          </p>
+          <div className="mt-4">
+            <ActiveLeagueSelector leagues={allLeagues} activeLeagueId={leagueId} />
+          </div>
+        </div>
+      ) : null}
+
       {leagueName ? (
         <p className="text-sm text-slate-600">
-          Liga activa: <strong className="text-[#0f2040]">{leagueName}</strong>
-          {role === "SUPER_ADMIN" ? (
+          Mostrando personal de: <strong className="text-[#0f2040]">{leagueName}</strong>
+          {role === "LEAGUE_ADMIN" ? (
             <span className="text-slate-500">
               {" "}
-              · al crear un administrador de liga se usará esta liga por defecto
+              · puedes registrar delegados de club de esta liga
+            </span>
+          ) : role === "SUPER_ADMIN" ? (
+            <span className="text-slate-500">
+              {" "}
+              · puedes registrar administradores de liga y delegados
             </span>
           ) : null}
         </p>
@@ -185,7 +189,7 @@ export default async function LigaPerfilesPage() {
       <PerfilesHubHeader
         canInviteStaff={canInviteStaff}
         clubOptions={clubOptionsForPicker}
-        defaultLeagueId={operationalLeagueId}
+        defaultLeagueId={leagueId}
         leagueName={leagueName}
         actorRole={role}
       />
@@ -196,10 +200,38 @@ export default async function LigaPerfilesPage() {
         canEdit={canInviteStaff}
         clubOptions={clubOptionsForPicker}
         actorRole={role}
-        actorLeagueId={operationalLeagueId}
-        defaultLeagueId={operationalLeagueId}
+        actorLeagueId={leagueId}
+        defaultLeagueId={leagueId}
         leagueName={leagueName}
+        inviteLeagueSlug={league?.slug ?? null}
       />
+
+      {role === "SUPER_ADMIN" && orphanRows.length > 0 ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+            <p className="font-bold text-amber-900">Asignaciones pendientes de liga</p>
+            <p className="mt-1 text-amber-900/90">
+              Estos usuarios existen en la base de datos pero no aparecen al filtrar por liga (p. ej.
+              administrador sin <code className="text-xs">league_id</code>). Puedes eliminarlos,
+              editarlos o volver a dar de alta el mismo correo en la liga activa para corregirlos
+              automáticamente.
+            </p>
+          </div>
+          <ProfilesAssignmentsTable
+            rows={orphanRows}
+            canDelete={canManageDestructive}
+            canEdit={canInviteStaff}
+            clubOptions={clubOptionsForPicker}
+            actorRole={role}
+            actorLeagueId={leagueId}
+            defaultLeagueId={leagueId}
+            leagueName={leagueName}
+            inviteLeagueSlug={league?.slug ?? null}
+            emptyMessage="No hay asignaciones huérfanas."
+            showOrphanScopeHint
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

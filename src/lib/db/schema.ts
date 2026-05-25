@@ -108,6 +108,7 @@ export const normativas = pgTable(
   "normativas",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "cascade" }),
     titulo: text("titulo").notNull(),
     descripcion: text("descripcion"),
     urlArchivo: text("url_archivo").notNull(),
@@ -118,6 +119,7 @@ export const normativas = pgTable(
   },
   (table) => ({
     esPublicoIdx: index("normativas_es_publico_idx").on(table.esPublico),
+    leagueIdIdx: index("normativas_league_id_idx").on(table.leagueId),
   })
 );
 
@@ -359,11 +361,31 @@ export const leagueSettings = pgTable(
     transferPeriodEnd: timestamp("transfer_period_end"),
     bannerText: text("banner_text"),
     loginLogoUrl: text("login_logo_url"),
+    portalPrimaryColor: varchar("portal_primary_color", { length: 7 }).default("#1e3a5f"),
+    portalAccentColor: varchar("portal_accent_color", { length: 7 }).default("#005CEE"),
     pointsWin: integer("points_win").default(2),
     pointsLoss: integer("points_loss").default(1),
     pointsWalkover: integer("points_walkover").default(0),
     maxPlayersPerClub: integer("max_players_per_club").default(15),
     isManualOverride: boolean("is_manual_override").default(false),
+    /** Override opcional del logo de federación en carnet/PDF (null = global `public/logos/federacion.png`). */
+    carnetFederationLogoUrl: text("carnet_federation_logo_url"),
+    presidentSignatureUrl: text("president_signature_url"),
+    secretarySignatureUrl: text("secretary_signature_url"),
+    presidentDisplayName: text("president_display_name"),
+    secretaryDisplayName: text("secretary_display_name"),
+    /** Ej: "03/2026 - 03/2027" */
+    carnetValidityLabel: text("carnet_validity_label"),
+    /** Plantilla legal; placeholder `{ligaNombre}`. */
+    carnetAuthorizationTemplate: text("carnet_authorization_template"),
+    /** institutional_soft | lddbi_bold | lddbi_template | federation_bar_sport */
+    carnetThemePreset: varchar("carnet_theme_preset", { length: 32 })
+      .default("institutional_soft")
+      .notNull(),
+    carnetShowFederation: boolean("carnet_show_federation").default(true).notNull(),
+    carnetFederationDisplayName: text("carnet_federation_display_name"),
+    carnetSportLabel: varchar("carnet_sport_label", { length: 40 }),
+    carnetSportGraphicUrl: text("carnet_sport_graphic_url"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -410,6 +432,7 @@ export const documentHistory = pgTable(
   "document_history",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "set null" }),
     type: varchar("type", { length: 50 }).notNull(),
     entityId: uuid("entity_id").notNull(),
     shortIdentifier: varchar("short_identifier", { length: 20 }).notNull(),
@@ -420,6 +443,7 @@ export const documentHistory = pgTable(
   (table) => ({
     entityIdx: index("docs_hist_entity_idx").on(table.entityId),
     typeIdx: index("docs_hist_type_idx").on(table.type),
+    leagueIdIdx: index("document_history_league_id_idx").on(table.leagueId),
   })
 );
 

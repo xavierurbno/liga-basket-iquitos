@@ -28,6 +28,8 @@ export type JugadorDocumental = {
   fechaNacimientoIso: string;
   /** Número de ficha asignado por la liga */
   carnetNumber: string | null;
+  /** Liga del club (logo en PDF) */
+  leagueId: string | null;
 };
 
 export type BusquedaResult =
@@ -94,6 +96,7 @@ export const buscarJugadorPorDocumento = withAuth(
           carnetNumber: players.carnetNumber,
           clubName: clubs.name,
           categoriaNombre: categories.name,
+          leagueId: clubs.leagueId,
         })
         .from(players)
         .leftJoin(clubs, eq(players.clubId, clubs.id))
@@ -131,6 +134,7 @@ export const buscarJugadorPorDocumento = withAuth(
         photoUrl,
         fechaNacimientoIso: row.birthdate?.toISOString() ?? "",
         carnetNumber: row.carnetNumber ?? null,
+        leagueId: row.leagueId ?? null,
       };
 
       return { ok: true, jugador: jugadorDocumental };

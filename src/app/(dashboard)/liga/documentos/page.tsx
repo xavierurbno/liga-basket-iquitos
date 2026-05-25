@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 
 export const metadata = {
   title: "Gestión Documental | Liga Basket Iquitos",
@@ -20,9 +21,11 @@ export default async function DocumentosPage() {
         getAll: () => cookieStore.getAll(),
         setAll() {},
       },
-    }
+    },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const isSuperAdmin = isDashboardSuperAdmin(user);
@@ -31,5 +34,7 @@ export default async function DocumentosPage() {
     redirect("/liga/");
   }
 
-  return <DocumentosModule />;
+  const filterLeagueId = resolveOperationalLeagueId(user, cookieStore);
+
+  return <DocumentosModule filterLeagueId={filterLeagueId} />;
 }

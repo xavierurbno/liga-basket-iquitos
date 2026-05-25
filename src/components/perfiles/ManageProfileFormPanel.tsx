@@ -10,6 +10,11 @@ import {
   type CreateProfileAssignmentState,
 } from "@/actions/profile.actions";
 import type { DelegateClubPickerOption } from "./PerfilesHubHeader";
+import {
+  assignableRolesForActor,
+  type AssignableStaffRoleOption,
+} from "@/lib/perfiles/perfiles-league-scope";
+import type { Role } from "@/lib/auth/withAuth";
 
 export type AssignableStaffRole = "SUPER_ADMIN" | "LEAGUE_ADMIN" | "CLUB_DELEGATE";
 
@@ -58,13 +63,18 @@ function toastPayloadForServerError(state: ProfileAssignmentActionState): string
 }
 
 function defaultRoleForCreate(
-  actorRole: string | undefined,
+  actorRole: Role | undefined,
   defaultLeagueId: string | null | undefined,
 ): AssignableStaffRole {
-  if (actorRole === "SUPER_ADMIN" && defaultLeagueId) return "LEAGUE_ADMIN";
-  if (actorRole === "LEAGUE_ADMIN") return "LEAGUE_ADMIN";
-  return "SUPER_ADMIN";
+  const options = assignableRolesForActor(actorRole, Boolean(defaultLeagueId?.trim()));
+  return options[0] ?? "CLUB_DELEGATE";
 }
+
+const ROLE_OPTION_LABELS: Record<AssignableStaffRole, string> = {
+  SUPER_ADMIN: "Super administrador",
+  LEAGUE_ADMIN: "Administrador de liga",
+  CLUB_DELEGATE: "Delegado de club",
+};
 
 export function ManageProfileFormPanel({
   clubOptions,
@@ -98,20 +108,34 @@ export function ManageProfileFormPanel({
 
   const fieldErrors = "errors" in state ? state.errors : undefined;
 
-  const [role, setRole] = useState<AssignableStaffRole>(
-    editInitial?.role ?? defaultRoleForCreate(actorRole, defaultLeagueId),
+  const roleOptions = assignableRolesForActor(
+    actorRole as Role | undefined,
+    Boolean(defaultLeagueId?.trim()),
   );
+
+  const [role, setRole] = useState<AssignableStaffRole>(() => {
+    const initial = editInitial?.role ?? defaultRoleForCreate(actorRole as Role | undefined, defaultLeagueId);
+    if (roleOptions.includes(initial)) return initial;
+    return roleOptions[0] ?? "CLUB_DELEGATE";
+  });
 
   const closeModal = useCallback(() => {
     onRequestClose();
-    setRole(editInitial?.role ?? defaultRoleForCreate(actorRole, defaultLeagueId));
+    setRole(
+      editInitial?.role ??
+        defaultRoleForCreate(actorRole as Role | undefined, defaultLeagueId),
+    );
   }, [onRequestClose, editInitial?.role, actorRole, defaultLeagueId]);
 
   useEffect(() => {
     if (editInitial?.role) {
-      setRole(editInitial.role);
+      setRole(
+        roleOptions.includes(editInitial.role)
+          ? editInitial.role
+          : (roleOptions[0] ?? "CLUB_DELEGATE"),
+      );
     }
-  }, [editInitial?.userId, editInitial?.role]);
+  }, [editInitial?.userId, editInitial?.role, roleOptions]);
 
   useEffect(() => {
     if (isPending) successHandledRef.current = false;
@@ -169,7 +193,7 @@ export function ManageProfileFormPanel({
             <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
               {isEdit
                 ? "Actualiza nombre, rol o club del delegado sin cambiar el correo."
-                : "Alta centralizada: los delegados se vinculan a un club real al guardar."}
+                : "Se enviará una invitación por correo para definir contraseña y acceder a la intranet."}
             </p>
           </div>
           <button
@@ -259,11 +283,14 @@ export function ManageProfileFormPanel({
                   required
                   value={role}
                   onChange={(e) => setRole(e.target.value as AssignableStaffRole)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#005CEE] focus:ring-2 focus:ring-[#005CEE]/15"
+                  disabled={isEdit && actorRole === "LEAGUE_ADMIN"}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#005CEE] focus:ring-2 focus:ring-[#005CEE]/15 disabled:bg-slate-100"
                 >
-                  <option value="SUPER_ADMIN">Super administrador</option>
-                  <option value="LEAGUE_ADMIN">Administrador de liga</option>
-                  <option value="CLUB_DELEGATE">Delegado de club</option>
+                  {roleOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {ROLE_OPTION_LABELS[opt]}
+                    </option>
+                  ))}
                 </select>
                 {fieldErrors?.role?.[0] ? (
                   <p className="text-[11px] font-bold text-red-600">{fieldErrors.role[0]}</p>
@@ -325,7 +352,11 @@ export function ManageProfileFormPanel({
                   disabled={isPending || (role === "CLUB_DELEGATE" && clubOptions.length === 0)}
                   className="w-full rounded-xl bg-[#005CEE] py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-[0_12px_28px_-14px_rgba(0,92,238,0.85)] transition hover:brightness-110 disabled:bg-slate-300 disabled:shadow-none"
                 >
-                  {isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Guardar asignación"}
+                  {isPending
+                    ? "Guardando…"
+                    : isEdit
+                      ? "Guardar cambios"
+                      : "Enviar invitación"}
                 </button>
               </div>
             </>

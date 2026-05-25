@@ -8,9 +8,10 @@ import { photoRepository } from "@/repositories/photoRepository";
 import { Pagination } from "@/components/gallery/Pagination";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
-import { resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 import { canUploadInstitutionalGallery } from "@/lib/gallery/gallery-permissions";
 import { readUserRole } from "@/lib/auth/read-user-role";
+import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
+import { leaguePortalInstitutionalGallery } from "@/lib/portal/league-portal-paths";
 
 interface PageProps {
   searchParams: Promise<{ page?: string }>;
@@ -21,25 +22,24 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
   const currentPage = Math.max(1, parseInt(pageStr || "1"));
   const ITEMS_PER_PAGE = 30;
 
-  const { leagueId: operationalLeagueId, leagueName } = await getLigaOperationalContext();
-  const leagueId =
-    operationalLeagueId ?? (await resolveDefaultPortalLeagueId()) ?? undefined;
+  const ctx = await getLigaOperationalContext();
 
-  if (!leagueId) {
+  if (ctx.needsLeagueSelection) {
     return (
-      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <p className="text-sm font-bold text-amber-900">
-          Selecciona una liga activa para gestionar fotos institucionales.
-        </p>
-        <Link
-          href="/liga/"
-          className="mt-4 inline-block text-sm font-black text-[#005CEE] hover:underline"
-        >
-          Ir al panel de gestión →
-        </Link>
-      </div>
+      <SelectActiveLeaguePrompt
+        role={ctx.role}
+        leagues={ctx.leagues.map((l) => ({ id: l.id, name: l.name }))}
+        activeLeagueId={ctx.leagueId}
+        title="Selecciona una liga"
+        description="La galería institucional se gestiona por liga. Elige la liga activa en la barra superior o aquí."
+      />
     );
   }
+
+  const leagueId = ctx.leagueId!;
+  const publicGalleryHref = ctx.activeLeagueSlug
+    ? leaguePortalInstitutionalGallery(ctx.activeLeagueSlug)
+    : "/galeria-institucional/";
 
   const [photos, totalCount] = await Promise.all([
     photoRepository.getGeneral(currentPage, ITEMS_PER_PAGE, leagueId),
@@ -57,10 +57,12 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
         getAll: () => cookieStore.getAll(),
         setAll() {},
       },
-    }
+    },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = readUserRole(user);
   const canDelete = isDashboardSuperAdmin(user);
   const canUpload = canUploadInstitutionalGallery(role);
@@ -69,10 +71,10 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          Gestión interna · {leagueName ?? "Liga activa"}
+          Gestión interna · {ctx.leagueName ?? "Liga activa"}
         </p>
         <Link
-          href="/galeria-institucional"
+          href={publicGalleryHref}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#005CEE] shadow-sm transition-all hover:bg-slate-50"
@@ -94,8 +96,8 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
               </h2>
               <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
                 Solo administradores · visible en{" "}
-                <Link href="/galeria-institucional" className="text-[#005CEE] hover:underline">
-                  /galeria-institucional
+                <Link href={publicGalleryHref} className="text-[#005CEE] hover:underline">
+                  galería pública de la liga
                 </Link>
               </p>
             </div>
@@ -113,7 +115,12 @@ export default async function GaleriaGeneralPage({ searchParams }: PageProps) {
         {photos.length > 0 ? (
           <>
             <PhotoGalleryGrid
-              photos={photos.map((p) => ({ id: p.id, url: p.url, caption: p.caption, alt: "Foto LDDBI" }))}
+              photos={photos.map((p) => ({
+                id: p.id,
+                url: p.url,
+                caption: p.caption,
+                alt: "Foto institucional",
+              }))}
               emptyMessage="Aún no hay fotos en la galería general."
               emptySubMessage={
                 canUpload

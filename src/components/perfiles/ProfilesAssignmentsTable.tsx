@@ -3,12 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
-import { deleteProfileAssignmentAction } from "@/actions/profile.actions";
+import { Mail, Pencil, Trash2 } from "lucide-react";
+import {
+  deleteProfileAssignmentAction,
+  resendStaffInvitationAction,
+} from "@/actions/profile.actions";
 import type { DelegateClubPickerOption } from "@/components/perfiles/PerfilesHubHeader";
 import { ManageProfileFormPanel, type EditProfileInitial } from "@/components/perfiles/ManageProfileFormPanel";
 import type { Role } from "@/lib/auth/withAuth";
 import type { UserRole } from "@/lib/db/schema";
+import { canActorEditAssignmentRow } from "@/lib/perfiles/perfiles-league-scope";
 
 export type ProfileAssignmentRow = {
   assignmentKey: string;
@@ -48,18 +52,13 @@ function roleLabel(role: UserRole): string {
   }
 }
 
+/** @deprecated Usar `canActorEditAssignmentRow` desde perfiles-league-scope. */
 export function canActorEditProfileRow(
   actorRole: Role | undefined,
   actorLeagueId: string | undefined,
   row: ProfileAssignmentRow,
 ): boolean {
-  if (!actorRole) return false;
-  if (actorRole === "SUPER_ADMIN") return true;
-  if (actorRole !== "LEAGUE_ADMIN") return false;
-  const lid = actorLeagueId?.trim();
-  if (!lid) return false;
-  if (row.role !== "CLUB_DELEGATE" || !row.clubId) return false;
-  return row.delegateClubLeagueId === lid;
+  return canActorEditAssignmentRow(actorRole, actorLeagueId, row);
 }
 
 type ProfilesAssignmentsTableProps = {
@@ -71,6 +70,11 @@ type ProfilesAssignmentsTableProps = {
   actorLeagueId?: string | null;
   defaultLeagueId?: string | null;
   leagueName?: string | null;
+  /** Slug de la liga operativa (enlace post-invitación y reenvío). */
+  inviteLeagueSlug?: string | null;
+  emptyMessage?: string;
+  /** Muestra aviso de alcance en filas sin liga/club válido. */
+  showOrphanScopeHint?: boolean;
 };
 
 export function ProfilesAssignmentsTable({
@@ -82,6 +86,9 @@ export function ProfilesAssignmentsTable({
   actorLeagueId,
   defaultLeagueId,
   leagueName,
+  inviteLeagueSlug,
+  emptyMessage = "No hay asignaciones registradas.",
+  showOrphanScopeHint = false,
 }: ProfilesAssignmentsTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -98,6 +105,35 @@ export function ProfilesAssignmentsTable({
       fullName: row.displayName,
       email: row.email,
       role: row.role as EditProfileInitial["role"],
+    });
+  }
+
+  function handleResendInvite(row: ProfileAssignmentRow) {
+    startTransition(async () => {
+      const result = await resendStaffInvitationAction({
+        userId: row.userId,
+        email: row.email,
+        leagueSlug: inviteLeagueSlug ?? undefined,
+      });
+
+      if (result && "success" in result && result.success) {
+        const okMsg =
+          "message" in result && typeof result.message === "string"
+            ? result.message
+            : "Correo reenviado.";
+        toast.success(okMsg);
+        return;
+      }
+
+      const errMsg =
+        result && typeof result === "object"
+          ? ("message" in result && typeof result.message === "string"
+              ? result.message
+              : "error" in result && typeof result.error === "string"
+                ? result.error
+                : null)
+          : null;
+      toast.error(errMsg ?? "No se pudo reenviar la invitación.");
     });
   }
 
@@ -170,7 +206,7 @@ export function ProfilesAssignmentsTable({
                     colSpan={showActionsColumn ? 4 : 3}
                     className="px-4 py-12 text-center text-sm font-medium text-slate-500"
                   >
-                    No hay asignaciones registradas.
+                    {emptyMessage}
                   </td>
                 </tr>
               ) : (
@@ -183,26 +219,45 @@ export function ProfilesAssignmentsTable({
                       <td className="px-4 py-3 font-semibold text-slate-900">{r.displayName}</td>
                       <td className="px-4 py-3 text-slate-600">{r.email}</td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide ring-1 ring-inset ${roleBadgeClasses(r.role)}`}
-                        >
-                          {roleLabel(r.role)}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex w-fit rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide ring-1 ring-inset ${roleBadgeClasses(r.role)}`}
+                          >
+                            {roleLabel(r.role)}
+                          </span>
+                          {showOrphanScopeHint ? (
+                            <span className="text-[11px] font-semibold text-amber-800">
+                              Sin liga asignada en BD
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       {showActionsColumn ? (
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap justify-end gap-2">
                             {canEditRow ? (
-                              <button
-                                type="button"
-                                disabled={isPending}
-                                onClick={() => openEdit(r)}
-                                className="inline-flex items-center justify-center rounded-lg border border-[#BFDBFE] bg-white p-2 text-[#005CEE] transition hover:bg-blue-50 disabled:opacity-50"
-                                title="Editar asignación y datos"
-                              >
-                                <Pencil className="h-4 w-4" aria-hidden />
-                                <span className="sr-only">Editar</span>
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isPending}
+                                  onClick={() => handleResendInvite(r)}
+                                  className="inline-flex items-center justify-center rounded-lg border border-[#BFDBFE] bg-white p-2 text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                                  title="Reenviar invitación o enlace de acceso"
+                                >
+                                  <Mail className="h-4 w-4" aria-hidden />
+                                  <span className="sr-only">Reenviar invitación</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isPending}
+                                  onClick={() => openEdit(r)}
+                                  className="inline-flex items-center justify-center rounded-lg border border-[#BFDBFE] bg-white p-2 text-[#005CEE] transition hover:bg-blue-50 disabled:opacity-50"
+                                  title="Editar asignación y datos"
+                                >
+                                  <Pencil className="h-4 w-4" aria-hidden />
+                                  <span className="sr-only">Editar</span>
+                                </button>
+                              </>
                             ) : null}
                             {canDelete ? (
                               <button

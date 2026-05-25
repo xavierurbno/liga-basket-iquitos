@@ -1,8 +1,8 @@
 import type { jsPDF } from "jspdf";
 import {
   FICHA_T1,
-  FICHA_T2,
   FICHA_T3,
+  resolveFichaLeagueTitle,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
 /** Mismo margen X que logos Federación (izq.) y Liga (der.) — alineado con tablas. */
@@ -37,6 +37,41 @@ export function drawLogoFit(
   }
   const ox = x + (maxW - w) / 2;
   const oy = y + (maxH - h) / 2;
+  doc.addImage({
+    imageData: dataUrl,
+    format: fmt,
+    x: ox,
+    y: oy,
+    width: w,
+    height: h,
+    compression: "NONE",
+  });
+}
+
+/** Llena el recuadro completo (equivalente a object-fit: cover) — logos con mismo tamaño visual. */
+export function drawLogoCover(
+  doc: jsPDF,
+  dataUrl: string | null,
+  x: number,
+  y: number,
+  boxW: number,
+  boxH: number,
+) {
+  if (!dataUrl || !dataUrl.startsWith("data:image")) return;
+  let fmt: "PNG" | "JPEG" = "PNG";
+  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")) {
+    fmt = "JPEG";
+  }
+  const props = doc.getImageProperties(dataUrl);
+  const ratio = props.width / props.height;
+  let w = boxW;
+  let h = w / ratio;
+  if (h < boxH) {
+    h = boxH;
+    w = h * ratio;
+  }
+  const ox = x + (boxW - w) / 2;
+  const oy = y + (boxH - h) / 2;
   doc.addImage({
     imageData: dataUrl,
     format: fmt,
@@ -92,6 +127,8 @@ function drawLineaSeparadoraEditorial(doc: jsPDF, y: number, pageW: number, marg
 export type PdfCabeceraInstitucionalInput = {
   federacionLogoPngDataUrl: string | null;
   ligaLogoPngDataUrl: string | null;
+  /** Segunda línea (nombre de la liga). Por defecto FICHA_T2 (Iquitos). */
+  leagueTitleLine?: string;
   /** Tercera línea centrada (por defecto FICHA_T3). */
   documentTitle?: string;
   /** Líneas en negrita bajo el separador (p. ej. CLUB / CATEGORÍA o TORNEO). */
@@ -129,9 +166,10 @@ export type CabeceraInstitucionalMetrics = {
 
 export function calcCabeceraInstitucionalMetrics(
   doc: jsPDF,
-  input: Pick<PdfCabeceraInstitucionalInput, "identityLines" | "documentTitle">
+  input: Pick<PdfCabeceraInstitucionalInput, "identityLines" | "documentTitle" | "leagueTitleLine">
 ): CabeceraInstitucionalMetrics {
   const documentTitle = input.documentTitle ?? FICHA_T3;
+  const leagueTitleLine = resolveFichaLeagueTitle(input.leagueTitleLine);
   const pageW = doc.internal.pageSize.getWidth();
   const margin = PAGE_X_MARGIN_MM;
   const sideW = 30;
@@ -142,7 +180,7 @@ export function calcCabeceraInstitucionalMetrics(
   doc.setFontSize(14);
   const lines1 = doc.splitTextToSize(FICHA_T1, centerMaxW);
   doc.setFontSize(12);
-  const lines2 = doc.splitTextToSize(FICHA_T2, centerMaxW);
+  const lines2 = doc.splitTextToSize(leagueTitleLine, centerMaxW);
 
   const lineH14 = 5.5;
   const lineH12 = 4.8;

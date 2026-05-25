@@ -15,6 +15,8 @@ export type LigaOperationalContext = {
   role: Role | undefined;
   leagueId: string | null;
   leagueName: string | null;
+  /** Slug de la liga operativa (enlaces a `/l/[slug]/`). */
+  activeLeagueSlug: string | null;
   needsLeagueSelection: boolean;
   leagues: { id: string; name: string; slug: string }[];
 };
@@ -45,9 +47,17 @@ export const getLigaOperationalContext = cache(async (): Promise<LigaOperational
     role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
 
   let leagueName: string | null = null;
+  let activeLeagueSlug: string | null = null;
   if (leagueId) {
-    const league = await leagueRepository.findById(leagueId);
-    leagueName = league?.name ?? null;
+    const fromList = leagues.find((l) => l.id === leagueId);
+    if (fromList) {
+      leagueName = fromList.name;
+      activeLeagueSlug = fromList.slug;
+    } else {
+      const league = await leagueRepository.findById(leagueId);
+      leagueName = league?.name ?? null;
+      activeLeagueSlug = league?.slug ?? null;
+    }
   }
 
   return {
@@ -55,6 +65,7 @@ export const getLigaOperationalContext = cache(async (): Promise<LigaOperational
     role,
     leagueId,
     leagueName,
+    activeLeagueSlug,
     needsLeagueSelection,
     leagues,
   };

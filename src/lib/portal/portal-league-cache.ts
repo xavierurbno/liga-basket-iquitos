@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { leagueRepository } from "@/repositories/league.repository";
+import { loadLeaguePortalBranding, type LeaguePortalBranding } from "@/lib/leagues/league-branding";
 
 const CACHE_REVALIDATE_SEC = 120;
 const MEM_TTL_MS = 120_000;
@@ -9,7 +10,7 @@ type LeagueRow = { id: string; name: string; slug: string } | null;
 
 const fetchDefaultLeagueCached = unstable_cache(
   () => leagueRepository.findDefaultForPortal(),
-  ["portal-league-default"],
+  ["portal-league-default-v2"],
   { revalidate: CACHE_REVALIDATE_SEC },
 );
 
@@ -65,4 +66,11 @@ export async function fetchPortalLeagueBySlug(slug: string) {
   const trimmed = slug.trim();
   if (!trimmed) return null;
   return fetchLeagueBySlugCached(trimmed);
+}
+
+/** Liga + branding de portal para `/l/[slug]/` y login. */
+export async function fetchPortalLeagueBranding(slug: string): Promise<LeaguePortalBranding | null> {
+  const league = await fetchPortalLeagueBySlug(slug);
+  if (!league) return null;
+  return loadLeaguePortalBranding(league);
 }

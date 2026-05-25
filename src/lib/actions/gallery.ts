@@ -69,7 +69,7 @@ export const uploadPhotosAction = withAuth(
 
         const arrayBuffer = await file.arrayBuffer();
         const inputBuffer = Buffer.from(arrayBuffer);
-        const processedBuffer = await applyWatermark(inputBuffer);
+        const processedBuffer = await applyWatermark(inputBuffer, { leagueId });
 
         const fileId = crypto.randomUUID();
         const filePath = `gallery/${fileId}.jpg`;
@@ -107,8 +107,8 @@ export const uploadPhotosAction = withAuth(
 
       revalidatePath("/liga/");
       revalidatePath("/liga/galeria-general");
-      revalidatePath("/galeria-institucional");
-      revalidatePath("/", "page");
+      const { revalidateLeaguePortalByLeagueId } = await import("@/lib/portal/revalidate-league-portal");
+      await revalidateLeaguePortalByLeagueId(validRows[0]?.leagueId ?? leagueId);
       return { success: true };
     } catch (err: any) {
       console.error("Upload Error:", err);
@@ -167,8 +167,8 @@ export const deletePhotoAction = withAuth(
 
       revalidatePath("/liga/");
       revalidatePath("/liga/galeria-general");
-      revalidatePath("/galeria-institucional");
-      revalidatePath("/", "page");
+      const { revalidateLeaguePortalByLeagueId } = await import("@/lib/portal/revalidate-league-portal");
+      await revalidateLeaguePortalByLeagueId(photo.leagueId ?? undefined, photo.clubId ?? undefined);
       return { success: true };
     } catch (err: any) {
       console.error("Delete Action Error:", err);

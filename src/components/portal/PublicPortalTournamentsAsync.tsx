@@ -4,7 +4,13 @@ import { listPublicTournamentsByLeague } from "@/lib/tournaments/queries";
 
 const TOURNAMENTS_MS = 12_000;
 
-export async function PublicPortalTournamentsAsync({ leagueId }: { leagueId: string }) {
+export async function PublicPortalTournamentsAsync({
+  leagueId,
+  portalLeagueSlug,
+}: {
+  leagueId: string;
+  portalLeagueSlug?: string;
+}) {
   let tournaments: Awaited<ReturnType<typeof listPublicTournamentsByLeague>> = [];
   try {
     tournaments = await withQueryTimeout(
@@ -16,5 +22,7 @@ export async function PublicPortalTournamentsAsync({ leagueId }: { leagueId: str
     console.warn("[portal] campeonatos no disponibles:", err);
   }
 
-  return <PublicTournamentsSection tournaments={tournaments} />;
+  return (
+    <PublicTournamentsSection tournaments={tournaments} portalLeagueSlug={portalLeagueSlug} />
+  );
 }

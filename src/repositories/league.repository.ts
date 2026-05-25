@@ -1,6 +1,21 @@
 import { db } from "@/lib/db/client";
-import { leagues, leagueSettings } from "@/lib/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { PRIMARY_PORTAL_LEAGUE_SLUGS } from "@/lib/portal/portal-league-constants";
+import {
+  categories,
+  clubs,
+  galleryPhotos,
+  leagues,
+  leagueSettings,
+  normativas,
+  players,
+  sponsors,
+  tournaments,
+  treasury,
+  userAssignments,
+} from "@/lib/db/schema";
+import { asc, desc, eq, ilike, or } from "drizzle-orm";
+
+export { PRIMARY_PORTAL_LEAGUE_SLUGS };
 
 export class LeagueRepository {
   /**
@@ -77,37 +92,72 @@ export class LeagueRepository {
   }
 
   /**
-   * Liga por defecto del portal público (una fila, sin listar todas las ligas).
+   * Liga de la portada `/` (Iquitos / LDDBI). No usar la liga creada más reciente.
    */
   async findDefaultForPortal() {
-    const [bySlug] = await db
+    for (const slug of PRIMARY_PORTAL_LEAGUE_SLUGS) {
+      const row = await this.findBySlug(slug);
+      if (row) return row;
+    }
+
+    const envId = process.env.NEXT_PUBLIC_DEFAULT_LEAGUE_ID?.trim();
+    if (envId) {
+      const row = await this.findById(envId);
+      if (row) {
+        return { id: row.id, name: row.name, slug: row.slug };
+      }
+    }
+
+    const [byName] = await db
       .select({
         id: leagues.id,
         name: leagues.name,
         slug: leagues.slug,
       })
       .from(leagues)
-      .where(or(eq(leagues.slug, "iquitos"), ilike(leagues.slug, "%iquitos%")))
-      .orderBy(desc(leagues.createdAt))
+      .where(
+        or(
+          ilike(leagues.name, "%iquitos%"),
+          ilike(leagues.name, "%LDDBI%"),
+          ilike(leagues.name, "%distrital de basket de iquitos%"),
+        ),
+      )
+      .orderBy(asc(leagues.createdAt))
       .limit(1);
 
-    if (bySlug) return bySlug;
+    if (byName) return byName;
 
-    const [latest] = await db
+    const [oldest] = await db
       .select({
         id: leagues.id,
         name: leagues.name,
         slug: leagues.slug,
       })
       .from(leagues)
-      .orderBy(desc(leagues.createdAt))
+      .orderBy(asc(leagues.createdAt))
       .limit(1);
 
-    return latest ?? null;
+    return oldest ?? null;
   }
 
+  /**
+   * Elimina la liga y datos asociados. Borra en orden explícito porque en producción
+   * `clubs.league_id` puede no tener ON DELETE CASCADE (clubs_league_id_fkey).
+   */
   async delete(id: string) {
-    return await db.delete(leagues).where(eq(leagues.id, id));
+    return db.transaction(async (tx) => {
+      await tx.delete(tournaments).where(eq(tournaments.leagueId, id));
+      await tx.delete(clubs).where(eq(clubs.leagueId, id));
+      await tx.delete(players).where(eq(players.leagueId, id));
+      await tx.delete(categories).where(eq(categories.leagueId, id));
+      await tx.delete(treasury).where(eq(treasury.leagueId, id));
+      await tx.delete(userAssignments).where(eq(userAssignments.leagueId, id));
+      await tx.delete(galleryPhotos).where(eq(galleryPhotos.leagueId, id));
+      await tx.delete(sponsors).where(eq(sponsors.leagueId, id));
+      await tx.delete(normativas).where(eq(normativas.leagueId, id));
+      await tx.delete(leagueSettings).where(eq(leagueSettings.leagueId, id));
+      return tx.delete(leagues).where(eq(leagues.id, id));
+    });
   }
 }
 
