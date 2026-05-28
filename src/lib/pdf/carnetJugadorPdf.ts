@@ -10,7 +10,7 @@ import { drawCarnetLddbiTemplateAnverso } from "@/lib/pdf/carnet/lddbiTemplate/c
 import { drawCarnetLddbiTemplateReverso } from "@/lib/pdf/carnet/lddbiTemplate/carnetLddbiTemplateReverso";
 import { drawCarnetReverso } from "@/lib/pdf/carnet/carnetReverso";
 
-export type { CarnetJugadorInput, CarnetJugadorPdfInput } from "@/lib/types/carnet";
+export type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 
 /**
  * Genera el carnet CR80 horizontal a doble cara (anverso + reverso).
