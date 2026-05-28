@@ -1,8 +1,9 @@
 "use server";
 
-import path from "path";
-import fs from "fs/promises";
 import sharp from "sharp";
+import { assertInstitutionalAssetsForLeague } from "@/lib/auth/institutional-assets-access";
+import { requireAuth } from "@/lib/auth/require-auth";
+import type { Role } from "@/lib/auth/withAuth";
 import { buildCarnetInstitucionalContext } from "@/lib/carnet/buildCarnetInstitucionalContext";
 import { resolveDefaultLddbiBasketballWatermarkPng } from "@/lib/carnet/lddbiDefaultWatermark.server";
 import { resolveLddbiTemplatePngAssets } from "@/lib/carnet/lddbiTemplateAssets.server";
@@ -21,6 +22,24 @@ import {
 } from "@/lib/pdf/brand-colors";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import { leagueRepository } from "@/repositories/league.repository";
+
+const INSTITUTIONAL_ASSETS_ROLES: Role[] = [
+  "SUPER_ADMIN",
+  "LEAGUE_ADMIN",
+  "CLUB_DELEGATE",
+];
+
+async function gateInstitutionalAssets(
+  leagueId: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const auth = await requireAuth(INSTITUTIONAL_ASSETS_ROLES);
+  if (auth.denied) return { ok: false, error: auth.error };
+
+  const scope = await assertInstitutionalAssetsForLeague(auth.context, leagueId);
+  if (!scope.ok) return { ok: false, error: scope.error };
+
+  return { ok: true };
+}
 
 export type InstitutionalLogosResult =
   | {
@@ -41,8 +60,13 @@ export type InstitutionalLogosResult =
 export async function getInstitutionalLogosAction(
   leagueId?: string | null,
 ): Promise<InstitutionalLogosResult> {
+  const leagueIdNorm = leagueId?.trim() || null;
+  const gate = await gateInstitutionalAssets(leagueIdNorm);
+  if (!gate.ok) {
+    return { success: false, error: gate.error };
+  }
+
   try {
-    const leagueIdNorm = leagueId?.trim() || null;
     const [fed, liga, settings, leagueRow] = await Promise.all([
       resolveFederationLogoForLeaguePngDataUrl(leagueIdNorm, 200),
       resolveLeagueLogoPngDataUrl(leagueIdNorm, 300),
@@ -81,52 +105,23 @@ export async function getInstitutionalLogosAction(
   }
 }
 
-/** @deprecated Usar getInstitutionalLogosAction(leagueId) */
-export async function getInstitutionalLogosFromDiskAction(): Promise<InstitutionalLogosResult> {
-  try {
-    const logosDir = path.resolve(process.cwd(), "public", "logos");
-    const fedPath = path.join(logosDir, "federacion.png");
-    const ligaPath = path.join(logosDir, "liga.png");
-
-    const [fedBuffer, ligaBuffer] = await Promise.all([
-      fs.readFile(fedPath),
-      fs.readFile(ligaPath),
-    ]);
-
-    const [fedProcessed, ligaProcessed] = await Promise.all([
-      sharp(fedBuffer).resize(200).png().toBuffer(),
-      sharp(ligaBuffer).resize(300).png().toBuffer(),
-    ]);
-
-    return {
-      success: true,
-      federacionBase64: `data:image/png;base64,${fedProcessed.toString("base64")}`,
-      ligaBase64: `data:image/png;base64,${ligaProcessed.toString("base64")}`,
-      primaryRgb: DEFAULT_PDF_PRIMARY_RGB,
-      accentRgb: DEFAULT_PDF_ACCENT_RGB,
-      leagueDisplayName: "LIGA DEPORTIVA DISTRITAL MIXTA DE BASKET DE IQUITOS",
-      seasonLabel: `Temporada ${new Date().getFullYear()}`,
-    };
-  } catch (error) {
-    console.error("Error cargando logos desde disco:", error);
-    return {
-      success: false,
-      error: "No se pudieron cargar los logos institucionales.",
-    };
-  }
-}
-
 /**
  * Contexto institucional + assets rasterizados para el carnet deportista (servidor).
  */
 export async function getCarnetInstitutionalAssetsAction(
   leagueId: string,
 ): Promise<CarnetInstitutionalAssetsResult> {
+  const leagueIdNorm = leagueId?.trim();
+  if (!leagueIdNorm) {
+    return { success: false, error: "ID de liga inválido." };
+  }
+
+  const gate = await gateInstitutionalAssets(leagueIdNorm);
+  if (!gate.ok) {
+    return { success: false, error: gate.error };
+  }
+
   try {
-    const leagueIdNorm = leagueId?.trim();
-    if (!leagueIdNorm) {
-      return { success: false, error: "ID de liga inválido." };
-    }
 
     const [settings, leagueRow, ligaLogoPng, federacionLogoPng] = await Promise.all([
       settingsRepository.getLeagueSettings(leagueIdNorm),

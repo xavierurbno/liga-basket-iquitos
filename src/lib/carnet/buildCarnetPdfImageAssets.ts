@@ -32,14 +32,6 @@ async function fetchUrlToPngDataUrl(
   }
 }
 
-function buildPlayerValidationUrl(playerId: string, baseOrigin: string): string | null {
-  const id = playerId?.trim();
-  if (!id) return null;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || baseOrigin;
-  if (!siteUrl) return null;
-  return `${siteUrl.replace(/\/+$/, "")}/validar/${encodeURIComponent(id)}`;
-}
-
 /**
  * Precarga y escala todas las imágenes del carnet antes de pintar jsPDF.
  * Debe ejecutarse en el cliente (canvas / Image).
@@ -47,7 +39,7 @@ function buildPlayerValidationUrl(playerId: string, baseOrigin: string): string 
 export async function buildCarnetPdfImageAssets(
   params: BuildCarnetPdfImageAssetsParams,
 ): Promise<BuildCarnetPdfImageAssetsResult> {
-  const validationUrl = buildPlayerValidationUrl(params.playerId, params.baseOrigin);
+  const validationUrl = params.validationUrl?.trim() || null;
 
   const [clubRaw, fotoRaw, presidentRaw, secretaryRaw] = await Promise.all([
     fetchUrlToPngDataUrl(params.clubLogoUrl, "force-cache"),

@@ -11,6 +11,7 @@ import {
   type FichaPdfJugadorInput,
   type FichaPdfStaffInput,
 } from "@/lib/pdf/fichaCategoriaPdf";
+import { getEntityValidationUrlAction } from "@/lib/actions/validation-url";
 import { resolveFichaLeagueTitle } from "@/lib/pdf/fichaInstitucionalTextos";
 
 async function fetchUrlToPngDataUrl(
@@ -42,15 +43,6 @@ async function blobToPngDataUrl(blob: Blob): Promise<string> {
 
 function nombreCompleto(n: string | null, a: string | null): string {
   return [n, a].filter(Boolean).join(" ").trim();
-}
-
-function buildValidationUrl(teamId: string, baseOrigin: string): string | null {
-  const cleanTeamId = teamId?.trim();
-  if (!cleanTeamId) return null;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || baseOrigin;
-  if (!siteUrl) return null;
-  const normalizedSite = siteUrl.replace(/\/+$/, "");
-  return `${normalizedSite}/validar/${encodeURIComponent(cleanTeamId)}`;
 }
 
 export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
@@ -113,7 +105,8 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
       const coachName = nombreCompleto(props.coachName, props.coachLastname);
       const delegateName = nombreCompleto(props.delegateName, props.delegateLastname);
       const generatedAtIso = new Date().toISOString();
-      const validationUrl = buildValidationUrl(props.teamId, base);
+      const validationRes = await getEntityValidationUrlAction(props.teamId, "category");
+      const validationUrl = validationRes.ok ? validationRes.url : null;
       const [validationQrPngDataUrl, entFotoRaw, delFotoRaw] = await Promise.all([
         validationUrl
           ? QRCode.toDataURL(validationUrl, {

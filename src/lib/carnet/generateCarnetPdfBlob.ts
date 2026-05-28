@@ -1,3 +1,4 @@
+import { getEntityValidationUrlAction } from "@/lib/actions/validation-url";
 import { buildCarnetJugadorPdfInput } from "@/lib/carnet/buildCarnetJugadorPdfInput";
 import { buildCarnetPdfImageAssets } from "@/lib/carnet/buildCarnetPdfImageAssets";
 import { loadCarnetInstitutionalAssets } from "@/lib/carnet/loadCarnetInstitutionalAssets";
@@ -16,10 +17,17 @@ export async function generateCarnetPdfBlob(
     props.leagueDisplayName?.trim() || "Liga deportiva",
   );
 
+  let validationUrl = props.validationUrl?.trim() || null;
+  if (!validationUrl) {
+    const urlRes = await getEntityValidationUrlAction(props.playerId, "player");
+    if (urlRes.ok) validationUrl = urlRes.url;
+  }
+
   const assets = await buildCarnetPdfImageAssets({
     photoUrl: props.photoUrl,
     clubLogoUrl: props.clubLogoUrl,
     playerId: props.playerId,
+    validationUrl,
     baseOrigin: base,
     ligaLogoPngDataUrl: inst.ligaLogoPngDataUrl,
     federacionLogoPngDataUrl: inst.federacionLogoPngDataUrl,
@@ -34,7 +42,7 @@ export async function generateCarnetPdfBlob(
   }
 
   const input = buildCarnetJugadorPdfInput(
-    props,
+    { ...props, validationUrl },
     assets,
     inst.institucional,
     base,

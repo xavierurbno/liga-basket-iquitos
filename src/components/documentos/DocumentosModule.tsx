@@ -22,6 +22,7 @@ import {
 } from "@/lib/actions/documentHistory";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
 import { getInstitutionalLogosAction } from "@/lib/actions/assets";
+import { getEntityValidationUrlAction } from "@/lib/actions/validation-url";
 
 interface EmisionDocumento {
   id: string;
@@ -217,10 +218,12 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
           generatedAtIso: new Date().toISOString(),
         };
       } else if (jugador) {
+        const validationRes = await getEntityValidationUrlAction(jugador.id, "player");
         const fotoDataUrl = jugador.photoUrl ? await urlToDataUrl(jugador.photoUrl) : null;
         inputData = {
           type: tipoDoc as "CARTA_PASE" | "CONSTANCIA",
           entityId: jugador.id,
+          validationUrl: validationRes.ok ? validationRes.url : null,
           shortIdentifier: jugador.documentNumber,
           name: jugador.name,
           lastname: jugador.lastname,

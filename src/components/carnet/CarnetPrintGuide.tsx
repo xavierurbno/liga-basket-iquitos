@@ -20,7 +20,7 @@ export function CarnetPrintGuide() {
           Usa papel o PVC carnet; revisa que el QR del reverso lea bien antes de entregar.
         </li>
         <li>
-          El código QR abre <code className="rounded bg-white px-1">/validar/[id]</code> para mesa
+          El código QR abre <code className="rounded bg-white px-1">/validar/[token]</code> para mesa
           de control.
         </li>
       </ol>

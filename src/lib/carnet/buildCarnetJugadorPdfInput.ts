@@ -16,17 +16,6 @@ import type {
   GenerateCarnetPDFProps,
 } from "@/lib/types/carnet";
 
-export function buildPlayerValidationUrl(
-  playerId: string,
-  baseOrigin: string,
-): string | null {
-  const id = playerId?.trim();
-  if (!id) return null;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || baseOrigin;
-  if (!siteUrl) return null;
-  return `${siteUrl.replace(/\/+$/, "")}/validar/${encodeURIComponent(id)}`;
-}
-
 export function fallbackCarnetInstitucionalInput(
   leagueDisplayName: string,
 ): CarnetInstitucionalInput {
@@ -69,7 +58,7 @@ export function buildCarnetJugadorPdfInput(
     leagueSportsCode: props.leagueSportsCode?.trim() || null,
     categoriaNombre: props.categoriaDetalle,
     carnetNumber: props.carnetNumberDisplay ?? props.carnetNumber,
-    validationUrl: buildPlayerValidationUrl(props.playerId, baseOrigin),
+    validationUrl: props.validationUrl?.trim() || null,
     generatedAtIso: new Date().toISOString(),
   };
 }

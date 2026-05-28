@@ -9,6 +9,10 @@ import {
   resolveLeagueCarnetPrefix,
 } from "@/lib/leagues/league-carnet-prefix";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
+import {
+  isLegacyValidationUuid,
+  verifyEntityValidationToken,
+} from "@/lib/validation/entity-validation-token";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +49,6 @@ type ValidacionJugador = {
   clubName: string;
   categoriaNombre: string;
   playerName: string;
-  documentType: string;
-  documentNumber: string;
   carnetNumber: string | null;
   carnetDisplay: string | null;
   photoUrl: string | null;
@@ -58,60 +60,85 @@ type ValidacionCategoria = {
   categoriaNombre: string;
 };
 
+function resolveValidationTarget(segment: string): {
+  entityId: string;
+  lookup: "player" | "category";
+} | null {
+  const raw = decodeURIComponent(segment).trim();
+  if (!raw) return null;
+
+  const verified = verifyEntityValidationToken(raw);
+  if (verified) {
+    return {
+      entityId: verified.entityId,
+      lookup: verified.kind === "player" ? "player" : "category",
+    };
+  }
+
+  if (isLegacyValidationUuid(raw)) {
+    return { entityId: raw, lookup: "player" };
+  }
+
+  return null;
+}
+
 export default async function ValidarFichaPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const entityId = decodeURIComponent(id).trim();
+  const target = resolveValidationTarget(id);
+  if (!target) redirect("/");
 
-  const [jugador] = await db
-    .select({
-      name: players.name,
-      lastname: players.lastname,
-      documentType: players.documentType,
-      documentNumber: players.documentNumber,
-      carnetNumber: players.carnetNumber,
-      photoUrl: players.photoUrl,
-      gender: players.gender,
-      clubName: clubs.name,
-      categoriaNombre: categories.name,
-      leagueName: leagues.name,
-      leagueSlug: leagues.slug,
-    })
-    .from(players)
-    .innerJoin(clubs, eq(players.clubId, clubs.id))
-    .leftJoin(categories, eq(players.categoryId, categories.id))
-    .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
-    .where(eq(players.id, entityId))
-    .limit(1);
+  const { entityId, lookup } = target;
 
   let registro: ValidacionJugador | ValidacionCategoria | null = null;
 
-  if (jugador) {
-    const catLine = jugador.categoriaNombre
-      ? lineaCategoriaInstitucional(jugador.categoriaNombre, [jugador.gender])
-      : "—";
-    const cityPrefix = resolveLeagueCarnetPrefix({
-      slug: jugador.leagueSlug,
-      name: jugador.leagueName,
-    });
-    const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
+  if (lookup === "player") {
+    const [jugador] = await db
+      .select({
+        name: players.name,
+        lastname: players.lastname,
+        carnetNumber: players.carnetNumber,
+        photoUrl: players.photoUrl,
+        gender: players.gender,
+        clubName: clubs.name,
+        categoriaNombre: categories.name,
+        leagueName: leagues.name,
+        leagueSlug: leagues.slug,
+      })
+      .from(players)
+      .innerJoin(clubs, eq(players.clubId, clubs.id))
+      .leftJoin(categories, eq(players.categoryId, categories.id))
+      .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
+      .where(eq(players.id, entityId))
+      .limit(1);
 
-    registro = {
-      kind: "player",
-      leagueName: jugador.leagueName,
-      clubName: jugador.clubName,
-      categoriaNombre: catLine,
-      playerName: `${jugador.lastname}, ${jugador.name}`,
-      documentType: jugador.documentType,
-      documentNumber: jugador.documentNumber,
-      carnetNumber: jugador.carnetNumber,
-      carnetDisplay,
-      photoUrl: resolvePublicImageUrl(jugador.photoUrl),
-    };
-  } else {
+    if (jugador) {
+      const catLine = jugador.categoriaNombre
+        ? lineaCategoriaInstitucional(jugador.categoriaNombre, [jugador.gender])
+        : "—";
+      const cityPrefix = resolveLeagueCarnetPrefix({
+        slug: jugador.leagueSlug,
+        name: jugador.leagueName,
+      });
+      const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
+
+      registro = {
+        kind: "player",
+        leagueName: jugador.leagueName,
+        clubName: jugador.clubName,
+        categoriaNombre: catLine,
+        playerName: `${jugador.lastname}, ${jugador.name}`,
+        carnetNumber: jugador.carnetNumber,
+        carnetDisplay,
+        photoUrl: resolvePublicImageUrl(jugador.photoUrl),
+      };
+    }
+  }
+
+  if (!registro) {
     const [categoria] = await db
       .select({
         clubName: clubs.name,
@@ -187,8 +214,9 @@ export default async function ValidarFichaPage({
                 <p className="mt-1.5 text-base font-semibold text-slate-900">
                   {jugadorRegistro.playerName}
                 </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {jugadorRegistro.documentType} {jugadorRegistro.documentNumber}
+                <p className="mt-1 text-xs text-slate-500">
+                  Identidad verificada en el registro oficial de la liga (sin exposición de
+                  documento en línea).
                 </p>
               </div>
               {jugadorRegistro.carnetDisplay || jugadorRegistro.carnetNumber ? (

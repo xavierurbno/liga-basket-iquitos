@@ -26,6 +26,8 @@ export type GenerateCarnetPDFProps = {
   carnetNumber: string | null;
   photoUrl: string | null;
   clubLogoUrl: string | null;
+  /** URL firmada `/validar` (generada en servidor). */
+  validationUrl?: string | null;
   /** Etiqueta del botón (tabla vs página dedicada). */
   label?: string;
   className?: string;
@@ -84,25 +86,6 @@ export type CarnetJugadorPdfInput = CarnetDeportistaInput &
     generatedAtIso?: string;
   };
 
-/** @deprecated Usar `CarnetJugadorPdfInput` (carnet CR80 doble cara). */
-export type CarnetJugadorInput = {
-  playerId: string;
-  name: string;
-  lastname: string;
-  documentType: string;
-  documentNumber: string;
-  fechaNacimientoIso: string;
-  clubName: string;
-  categoriaNombre: string;
-  carnetNumber: string | null;
-  leagueDisplayName?: string | null;
-  fotoPngDataUrl: string | null;
-  ligaLogoPngDataUrl: string | null;
-  clubLogoPngDataUrl: string | null;
-  validationQrPngDataUrl?: string | null;
-  generatedAtIso?: string;
-};
-
 export type CarnetInstitutionalAssetUrls = {
   ligaLogoUrl: string | null;
   federacionLogoUrl: string | null;
@@ -133,6 +116,8 @@ export type BuildCarnetPdfImageAssetsParams = {
   photoUrl: string | null;
   clubLogoUrl: string | null;
   playerId: string;
+  /** URL firmada de validación (emitida en servidor). */
+  validationUrl?: string | null;
   baseOrigin: string;
   ligaLogoPngDataUrl: string | null;
   federacionLogoPngDataUrl?: string | null;

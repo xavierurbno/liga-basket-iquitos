@@ -14,7 +14,7 @@ import {
   buildCarnetLeagueReadiness,
   buildPlayerCarnetWarnings,
 } from "@/lib/carnet/carnetLeagueReadiness";
-import { buildPlayerValidationUrl } from "@/lib/carnet/buildCarnetJugadorPdfInput";
+import { buildPlayerValidationUrl } from "@/lib/validation/build-validation-url.server";
 import { isLddbiCarnetPreset } from "@/lib/carnet/lddbiTemplateLayout";
 import {
   LDDBI_PREMIUM_ACCENT_HEX,

@@ -17,8 +17,10 @@ export type TipoDocumento = "CARTA_PASE" | "CONSTANCIA" | "SOLVENCIA_CLUB";
 
 export type DocumentoInput = {
   type: TipoDocumento;
-  /** ID del jugador o club — se usa para el QR de validación */
+  /** ID del jugador o club (registro interno). */
   entityId: string;
+  /** URL pública de validación (token firmado); si falta, se usa legado con `entityId`. */
+  validationUrl?: string | null;
   // ── Jugador (CARTA_PASE / CONSTANCIA) ──
   name?: string;
   lastname?: string;
@@ -188,7 +190,9 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   } = input;
 
   const generatedAt = generatedAtIso ?? new Date().toISOString();
-  const validUrl = `${siteUrl}/validar/${entityId}`;
+  const validUrl =
+    input.validationUrl?.trim() ||
+    `${siteUrl.replace(/\/+$/, "")}/validar/${encodeURIComponent(entityId)}`;
   const esSolvencia = type === "SOLVENCIA_CLUB";
   const leagueName = resolveLeagueName(input);
   const seasonLabel = resolveSeasonLabel(input);

@@ -44,5 +44,6 @@ export function mapVistaPreviaToGenerateCarnetPdfProps(
     carnetNumberDisplay: props.carnetNumberDisplay,
     photoUrl: props.photoUrl,
     clubLogoUrl: extras.clubLogoUrl ?? null,
+    validationUrl: props.validationUrl,
   };
 }
