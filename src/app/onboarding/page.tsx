@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { MasterClockCounter } from "@/components/system/MasterClockCounter";
 import { OnboardingForm } from "@/components/onboarding/OnboardingForm";
+import { readUserRole } from "@/lib/auth/read-user-role";
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -29,6 +30,14 @@ export default async function OnboardingPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const role = readUserRole(user);
+  if (role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN") {
+    redirect("/liga/");
+  }
+  if (role !== "CLUB_DELEGATE") {
+    redirect("/");
   }
 
   // Verificar si ya tiene club para no dejarlo en onboarding

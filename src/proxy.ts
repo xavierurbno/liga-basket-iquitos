@@ -263,7 +263,7 @@ export async function proxy(request: NextRequest) {
         } catch {
           /* lookup de club falló; continuar sin redirigir por slug */
         }
-      } else if (userRole === "CLUB_DELEGATE" || userRole === "LEAGUE_ADMIN") {
+      } else if (userRole === "CLUB_DELEGATE") {
         if (pathnameCanon !== "/onboarding") {
           const url = request.nextUrl.clone();
           url.pathname = "/onboarding";

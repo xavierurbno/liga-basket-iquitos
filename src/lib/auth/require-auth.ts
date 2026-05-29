@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
+import { readUserRole } from "@/lib/auth/read-user-role";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import type { AuthContext, Role } from "@/lib/auth/withAuth";
 
@@ -43,7 +44,7 @@ export async function requireAuth(requiredRoles: Role | Role[]): Promise<Require
       return { denied: true, error: "No autenticado. Por favor, inicia sesión." };
     }
 
-    const role = user.app_metadata?.role as Role | undefined;
+    const role = readUserRole(user) as Role | undefined;
     if (!role || !rolesArray.includes(role)) {
       return { denied: true, error: "Acceso denegado: permisos insuficientes." };
     }

@@ -9,13 +9,10 @@ function readMasterSuperAdminEmailFromEnv(): string {
   if (typeof raw === "string" && raw.trim()) {
     return raw.trim().toLowerCase();
   }
-  if (process.env.NODE_ENV === "production") {
-    console.error(
-      "[intranet-gate] MASTER_SUPER_ADMIN_EMAIL no está definido en producción; el bypass por correo maestro queda desactivado."
-    );
-    return "";
-  }
-  return "zxrios9@gmail.com";
+  console.warn(
+    "[intranet-gate] MASTER_SUPER_ADMIN_EMAIL no está definido; el bypass por correo maestro queda desactivado.",
+  );
+  return "";
 }
 
 /** Resuelto una vez al cargar el módulo (Edge/Node). */
@@ -28,6 +25,7 @@ export const MASTER_SUPER_ADMIN_EMAIL = readMasterSuperAdminEmailFromEnv();
 export const INTRANET_LIGA_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
 
 export function isMasterSuperAdminEmail(email: string | undefined): boolean {
+  if (!MASTER_SUPER_ADMIN_EMAIL) return false;
   if (!email || typeof email !== "string") return false;
   return email.trim().toLowerCase() === MASTER_SUPER_ADMIN_EMAIL;
 }

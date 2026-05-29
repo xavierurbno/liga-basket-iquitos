@@ -99,3 +99,56 @@ export async function assertClubExists(clubId: string): Promise<boolean> {
   const [row] = await db.select({ id: clubs.id }).from(clubs).where(eq(clubs.id, clubId)).limit(1);
   return Boolean(row);
 }
+
+/**
+ * Impide registrar movimientos en clubes fuera del alcance del operador.
+ * - Propietarios del sistema: sin límite.
+ * - Resto con acceso full: club debe pertenecer a la liga operativa activa,
+ *   salvo membresía ADMIN directa en ese club.
+ */
+export async function assertTreasuryWriteClubAccess(
+  userId: string,
+  email: string | null | undefined,
+  clubId: string,
+  operationalLeagueId?: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const access = await resolveTreasuryAccess(userId, email);
+  if (access.kind !== "full") {
+    return { ok: false, error: "No tienes permiso para registrar movimientos." };
+  }
+
+  const [club] = await db
+    .select({ id: clubs.id, leagueId: clubs.leagueId })
+    .from(clubs)
+    .where(eq(clubs.id, clubId))
+    .limit(1);
+  if (!club) return { ok: false, error: "Club no válido." };
+
+  if (isSystemOwnerEmail(email)) return { ok: true };
+
+  const scopeLeagueId = operationalLeagueId?.trim();
+  if (!scopeLeagueId || !club.leagueId || club.leagueId === scopeLeagueId) {
+    return { ok: true };
+  }
+
+  const memberships = await db
+    .select({ role: clubMembers.role })
+    .from(clubMembers)
+    .where(
+      and(
+        eq(clubMembers.userId, userId),
+        eq(clubMembers.clubId, clubId),
+        eq(clubMembers.active, true),
+      ),
+    );
+
+  const hasDirectAdmin = memberships.some((m) =>
+    FULL_TREASURY_ROLES.has(normalizeRol(m.role)),
+  );
+  if (hasDirectAdmin) return { ok: true };
+
+  return {
+    ok: false,
+    error: "No puedes registrar movimientos en clubes de otra liga.",
+  };
+}

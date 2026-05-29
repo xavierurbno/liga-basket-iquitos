@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
-import { ilike } from "drizzle-orm";
+import { buildDocumentClubSearchConditions } from "@/lib/auth/document-club-search-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
 
 export type ClubDocumental = {
@@ -32,6 +32,17 @@ export async function buscarClubParaDocumento(
   if (q.length < 2)
     return { ok: false, error: "Ingresa al menos 2 caracteres para buscar." };
 
+  const whereClause = buildDocumentClubSearchConditions(q, auth.context);
+  if (!whereClause) {
+    if (auth.context.role === "CLUB_DELEGATE") {
+      return { ok: false, error: "Tu cuenta no tiene un club asignado para buscar documentos." };
+    }
+    if (auth.context.role === "LEAGUE_ADMIN") {
+      return { ok: false, error: "Selecciona una liga activa antes de buscar clubes." };
+    }
+    return { ok: false, error: "No tienes contexto de liga para buscar clubes." };
+  }
+
   try {
     const rows = await db
       .select({
@@ -45,7 +56,7 @@ export async function buscarClubParaDocumento(
         leagueId: clubs.leagueId,
       })
       .from(clubs)
-      .where(ilike(clubs.name, `%${q}%`))
+      .where(whereClause)
       .limit(10);
 
     if (rows.length === 0)

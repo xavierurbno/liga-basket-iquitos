@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { User } from "@supabase/supabase-js";
+import { extractClubIdFromActionArgs } from "@/lib/auth/extract-club-id-from-args";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { readUserRole } from "@/lib/auth/read-user-role";
 
@@ -70,13 +71,17 @@ export function withAuth<T, P extends any[]>(
         return { success: false, error: "Acceso denegado: Permisos insuficientes." };
       }
 
-      // 2. Aislamiento de Tenant (Solo si el primer argumento es FormData y el rol es CLUB_DELEGATE)
-      if (role === "CLUB_DELEGATE" && args[0] instanceof FormData) {
-        const formData = args[0];
-        const clubIdFromForm = formData.get("clubId") as string;
-        if (clubIdFromForm && clubIdFromMeta && clubIdFromForm !== clubIdFromMeta) {
-          console.warn(`[SECURITY] User ${user.id} attempted to access unauthorized club ${clubIdFromForm}`);
-          return { success: false, error: "Acceso denegado: Intento de modificación no autorizada." };
+      // 2. Aislamiento de tenant para delegados (FormData u objetos con clubId)
+      if (role === "CLUB_DELEGATE") {
+        const clubIdFromArgs = extractClubIdFromActionArgs(args);
+        if (clubIdFromArgs && clubIdFromMeta && clubIdFromArgs !== clubIdFromMeta) {
+          console.warn(
+            `[SECURITY] User ${user.id} attempted to access unauthorized club ${clubIdFromArgs}`,
+          );
+          return {
+            success: false,
+            error: "Acceso denegado: Intento de modificación no autorizada.",
+          };
         }
       }
 

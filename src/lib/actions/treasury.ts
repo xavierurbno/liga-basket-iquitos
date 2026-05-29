@@ -5,7 +5,11 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db/client";
 import { treasury } from "@/lib/db/schema";
-import { assertClubExists, resolveTreasuryAccess } from "@/lib/auth/treasury-access";
+import {
+  assertTreasuryWriteClubAccess,
+  resolveTreasuryAccess,
+} from "@/lib/auth/treasury-access";
+import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { createTreasuryTxSchema, type CreateTreasuryTxValues } from "@/lib/validations/treasury";
 
 async function supabaseFromCookies() {
@@ -43,8 +47,16 @@ export async function createTreasuryTransaction(
     return { success: false, error: "No tienes permiso para registrar movimientos." };
   }
 
-  const clubOk = await assertClubExists(parsed.data.clubId);
-  if (!clubOk) return { success: false, error: "Club no válido." };
+  const cookieStore = await cookies();
+  const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
+
+  const scope = await assertTreasuryWriteClubAccess(
+    user.id,
+    user.email,
+    parsed.data.clubId,
+    operationalLeagueId,
+  );
+  if (!scope.ok) return { success: false, error: scope.error };
 
   await db.insert(treasury).values({
     clubId: parsed.data.clubId,
