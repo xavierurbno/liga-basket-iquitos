@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { signInWithPasswordAction } from "@/lib/actions/auth";
+import { buildSafeOAuthCallbackUrl } from "@/lib/security/oauth-redirect";
 import { FcGoogle } from "react-icons/fc";
 
 export function LoginForm({
@@ -68,8 +69,12 @@ export function LoginForm({
 
     try {
       const origin = window.location.origin;
-      // trailingSlash: true → callback con barra final; PKCE debe iniciarse en el navegador.
-      const callbackUrl = `${origin}/auth/callback/?next=${encodeURIComponent(resolvedPostLogin)}`;
+      const callbackUrl = buildSafeOAuthCallbackUrl(origin, resolvedPostLogin);
+      if (!callbackUrl) {
+        setError("Este dominio no está autorizado para iniciar sesión con Google.");
+        setGoogleLoading(false);
+        return;
+      }
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",

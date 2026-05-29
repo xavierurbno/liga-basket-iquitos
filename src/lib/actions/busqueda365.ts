@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import { categories, clubs, players } from "@/lib/db/schema";
 import { isValidUuid, sanitizeTsQueryInput } from "@/lib/db/public-read-guards";
 import { resolvePublicJugadorImageUrl } from "@/lib/utils/jugador-image-url";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
 /** Option del buscador: cada fila en `categories` (category interna al club). */
 export type Busqueda365CategoriaOpcion = {
@@ -70,6 +71,11 @@ const getCachedCategoriasGlobal = unstable_cache(
  * No expone DNI de staff ni columnas sensibles.
  */
 export async function listarCategoriasBusqueda365(): Promise<ListarCategoriasResult> {
+  const rateError = await enforceRateLimit("busqueda365");
+  if (rateError) {
+    return { success: false, error: rateError };
+  }
+
   try {
     const rows = await getCachedCategoriasGlobal();
 
@@ -101,6 +107,11 @@ export async function listarPlantillaPorCategoriaId(
   categoriaClubId: string,
   searchTerm?: string
 ): Promise<ListarPlantillaResult> {
+  const rateError = await enforceRateLimit("busqueda365");
+  if (rateError) {
+    return { success: false, error: rateError };
+  }
+
   const id = categoriaClubId.trim();
   if (!isValidUuid(id)) {
     return { success: false, error: "Identificador de category no valid." };

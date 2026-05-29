@@ -5,6 +5,11 @@ import {
   actsAsSuperAdminInProxy,
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
+import { getClientIpFromHeaders } from "@/lib/security/client-ip";
+import {
+  checkRateLimit,
+  rateLimitExceededMessage,
+} from "@/lib/security/rate-limit";
 
 function isSuperAdminPath(pathnameCanon: string, pathname: string): boolean {
   return pathnameCanon === "/super-admin" || pathname.startsWith("/super-admin/");
@@ -55,6 +60,25 @@ function isPublicFastPath(pathnameCanon: string): boolean {
   return PROXY_RESERVED_SEGMENTS.has(first);
 }
 
+function maybeRateLimitResponse(
+  request: NextRequest,
+  scope: "login" | "validar" | "busqueda365",
+): NextResponse | null {
+  const clientIp = getClientIpFromHeaders(request.headers);
+  const result = checkRateLimit(scope, clientIp);
+  if (result.allowed) return null;
+
+  const message = rateLimitExceededMessage(result.retryAfterSec);
+  return new NextResponse(message, {
+    status: 429,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Retry-After": String(result.retryAfterSec),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 /**
  * Middleware de borde (Next.js 16+: `src/proxy.ts` sustituye a `middleware.ts`).
  * @see https://nextjs.org/docs/messages/middleware-to-proxy
@@ -62,6 +86,24 @@ function isPublicFastPath(pathnameCanon: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
+
+  if (pathnameCanon === "/login" || pathname.startsWith("/login/")) {
+    const limited = maybeRateLimitResponse(request, "login");
+    if (limited) return limited;
+  }
+
+  if (pathname.startsWith("/validar")) {
+    const limited = maybeRateLimitResponse(request, "validar");
+    if (limited) return limited;
+  }
+
+  if (
+    pathnameCanon === "/busqueda-365" ||
+    pathname.startsWith("/busqueda-365/")
+  ) {
+    const limited = maybeRateLimitResponse(request, "busqueda365");
+    if (limited) return limited;
+  }
 
   if (pathnameCanon === "/" && request.nextUrl.searchParams.has("l")) {
     const slug = request.nextUrl.searchParams.get("l")?.trim();

@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import {
+  buildContentSecurityPolicy,
+  buildPermissionsPolicy,
+  buildStrictTransportSecurity,
+} from "./src/lib/security/content-security-policy";
 
 function supabaseStorageHostname(): string {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,6 +54,22 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    const securityHeaders = [
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: buildPermissionsPolicy() },
+      { key: "Content-Security-Policy", value: buildContentSecurityPolicy() },
+    ];
+
+    const hsts = buildStrictTransportSecurity();
+    if (hsts) {
+      securityHeaders.push({
+        key: "Strict-Transport-Security",
+        value: hsts,
+      });
+    }
+
     return [
       {
         source: "/auth/callback/:path*",
@@ -63,11 +84,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/:path*",
-        headers: [
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-        ],
+        headers: securityHeaders,
       },
     ];
   },

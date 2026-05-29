@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import type { AuthError } from "@supabase/supabase-js";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
+import { isAllowedOAuthRedirectUrl } from "@/lib/security/oauth-redirect";
 
 export type GoogleOAuthResult = {
   url: string | null;
@@ -49,6 +51,11 @@ export async function signInWithPasswordAction(input: {
   leagueSlug?: string | null;
   postLoginRedirect?: string | null;
 }): Promise<SignInWithPasswordResult> {
+  const rateError = await enforceRateLimit("login");
+  if (rateError) {
+    return { ok: false, error: rateError };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: input.email.trim(),
@@ -91,8 +98,8 @@ export async function signInWithPasswordAction(input: {
  */
 export async function signInWithGoogleAction(redirectTo: string): Promise<GoogleOAuthResult> {
   const trimmed = redirectTo?.trim() ?? "";
-  if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) {
-    return { url: null, error: "URL de retorno inválida." };
+  if (!isAllowedOAuthRedirectUrl(trimmed)) {
+    return { url: null, error: "URL de retorno no permitida para OAuth." };
   }
 
   const supabase = await createSupabaseServerClient();
