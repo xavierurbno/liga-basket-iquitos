@@ -2,7 +2,12 @@
 
 import { db } from "@/lib/db/client";
 import { documentHistory } from "@/lib/db/schema";
-import { desc, eq, isNull } from "drizzle-orm";
+import { desc } from "drizzle-orm";
+import {
+  assertDocumentEmissionAllowed,
+  buildDocumentHistoryWhere,
+  resolveDocumentHistoryLeagueId,
+} from "@/lib/auth/document-emission-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
 
@@ -18,11 +23,12 @@ export async function registrarEmisionDocumento(
   const auth = await requireAuth([...DOCUMENT_HISTORY_ROLES]);
   if (auth.denied) return { ok: false, error: auth.error };
 
+  const scope = await assertDocumentEmissionAllowed(auth.context, data);
+  if (!scope.ok) return { ok: false, error: scope.error };
+
   try {
     const { type, entityId, shortIdentifier } = data;
     const snapshot = data;
-    const leagueId =
-      data.leagueId?.trim() || auth.context.leagueId?.trim() || null;
 
     const [row] = await db
       .insert(documentHistory)
@@ -31,7 +37,7 @@ export async function registrarEmisionDocumento(
         entityId,
         shortIdentifier,
         snapshot,
-        leagueId,
+        leagueId: scope.leagueId,
       })
       .returning({
         correlative: documentHistory.correlative,
@@ -53,20 +59,18 @@ export async function obtenerUltimasEmisiones(filterLeagueId?: string | null) {
   const auth = await requireAuth([...DOCUMENT_HISTORY_ROLES]);
   if (auth.denied) return { ok: false as const, error: auth.error };
 
-  const scopeLeagueId =
-    filterLeagueId?.trim() ||
-    (auth.context.role === "LEAGUE_ADMIN" ? auth.context.leagueId?.trim() : null) ||
-    (auth.context.role === "SUPER_ADMIN" ? auth.context.leagueId?.trim() : null) ||
-    null;
+  const leagueScope = resolveDocumentHistoryLeagueId(auth.context, filterLeagueId);
+  if ("error" in leagueScope) {
+    return { ok: false as const, error: leagueScope.error };
+  }
+
+  const whereResult = await buildDocumentHistoryWhere(auth.context, leagueScope.leagueId);
+  if ("error" in whereResult) {
+    return { ok: false as const, error: whereResult.error };
+  }
 
   try {
-    const whereClause = scopeLeagueId
-      ? eq(documentHistory.leagueId, scopeLeagueId)
-      : auth.context.role === "SUPER_ADMIN"
-        ? undefined
-        : isNull(documentHistory.leagueId);
-
-    const base = db
+    const rows = await db
       .select({
         id: documentHistory.id,
         type: documentHistory.type,
@@ -77,10 +81,9 @@ export async function obtenerUltimasEmisiones(filterLeagueId?: string | null) {
         leagueId: documentHistory.leagueId,
       })
       .from(documentHistory)
+      .where(whereResult)
       .orderBy(desc(documentHistory.createdAt))
       .limit(20);
-
-    const rows = whereClause ? await base.where(whereClause) : await base;
 
     return { ok: true as const, emisiones: rows };
   } catch (error) {

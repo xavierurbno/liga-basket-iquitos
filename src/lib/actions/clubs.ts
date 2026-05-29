@@ -8,11 +8,17 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db/client";
 import { galleryPhotos } from "@/lib/db/schema";
 import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
+import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { clubRepository } from "@/repositories/clubRepository";
 import type { ActionResult } from "@/lib/types/league";
 import { applyWatermark } from "@/lib/watermark";
 import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
-import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
+import {
+  buildGalleryStoragePath,
+  isStorageUuidSegment,
+  validateGalleryUploadFile,
+} from "@/lib/storage/storage-upload-guards";
 
 function textoIncluyeTenantNoEncontrado(e: unknown): boolean {
   const revisar = (s: string) =>
@@ -168,53 +174,46 @@ export async function crearClubComoPropietarioAction(formData: FormData) {
 /* ──────────────────────────────────────────────────────────────────────────
  * uploadClubPhotosAction
  * Server Action: sube múltiples fotos vinculadas a un club específico.
- * - SuperAdmins pueden subir fotos para cualquier club.
- * - Club-owners sólo para su propio club (validación por owner_id).
+ * - Staff (SUPER/LEAGUE_ADMIN): clubes de la liga operativa activa.
+ * - Delegado / propietario: solo su club.
  * ────────────────────────────────────────────────────────────────────────── */
 export async function uploadClubPhotosAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { success: false, error: "No autenticado." };
+    const auth = await requireAuth(["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"]);
+    if (auth.denied) {
+      return { success: false, error: auth.error };
     }
 
-    const isSuperAdmin = isDashboardSuperAdmin(user);
-
+    const user = auth.user;
     const clubId = (formData.get("clubId") as string | null)?.trim();
-    const isUuid = clubId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clubId);
 
-    if (!clubId || !isUuid) {
+    if (!clubId || !isStorageUuidSegment(clubId)) {
       return { success: false, error: "Debes seleccionar un club válido." };
     }
 
-    // Validar que el club existe
     const club = await clubRepository.findById(clubId);
     if (!club) {
       return { success: false, error: "Club no encontrado." };
     }
 
-    // Si no es SuperAdmin, verificar que sea el dueño del club
-    if (!isSuperAdmin && club.ownerId !== user.id) {
+    if (auth.context.role === "CLUB_DELEGATE") {
+      const ownsClub =
+        auth.context.clubId === clubId ||
+        (club.ownerId != null && club.ownerId === user.id);
+      if (!ownsClub) {
+        return {
+          success: false,
+          error: "No tienes permisos para subir fotos a este club.",
+        };
+      }
+    } else if (
+      !clubBelongsToOperationalLeague(club.leagueId, auth.context.leagueId, auth.context.role)
+    ) {
       return {
         success: false,
-        error: "No tienes permisos para subir fotos a este club.",
+        error: "Este club no pertenece a la liga activa seleccionada en el panel.",
       };
     }
 
@@ -229,7 +228,6 @@ export async function uploadClubPhotosAction(
       return { success: false, error: "No se seleccionaron imágenes." };
     }
 
-    // Cliente admin para bypass de RLS en Storage
     const adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -239,7 +237,8 @@ export async function uploadClubPhotosAction(
     const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
     const uploadResults = await mapInChunks(files, GALLERY_SERVER_PROCESS_CHUNK, async (file) => {
-      if (file.size === 0) return null;
+      const validationError = validateGalleryUploadFile(file);
+      if (validationError) throw new Error(validationError);
 
       const rawBuffer = Buffer.from(await file.arrayBuffer());
       const watermarkedBuffer = await applyWatermark(rawBuffer, {
@@ -247,7 +246,7 @@ export async function uploadClubPhotosAction(
       });
 
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-      const filePath = `gallery/${clubId}/${fileName}`;
+      const filePath = buildGalleryStoragePath(clubId, fileName);
 
       const { error: uploadError } = await adminClient.storage
         .from(bucket)

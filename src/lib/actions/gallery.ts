@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { db, galleryPhotos } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
@@ -10,14 +8,16 @@ import { ActionResult } from "@/lib/types/league";
 import { applyWatermark } from "@/lib/watermark";
 import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
 import { resolveLeagueIdForGalleryUpload } from "@/lib/gallery/resolve-gallery-league-id";
+import {
+  buildGalleryStoragePath,
+  validateGalleryUploadFile,
+} from "@/lib/storage/storage-upload-guards";
+import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
 import crypto from "crypto";
 
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
 
-/**
- * Cliente de Supabase con Service Role (bypass RLS)
- */
 function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,12 +27,9 @@ function getAdminClient() {
         autoRefreshToken: false,
         persistSession: false,
       },
-    }
+    },
   );
 }
-
-// Tipos MIME permitidos
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 /**
  * uploadPhotosAction
@@ -62,17 +59,15 @@ export const uploadPhotosAction = withAuth(
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
       const uploadResults = await mapInChunks(files, GALLERY_SERVER_PROCESS_CHUNK, async (file) => {
-        if (file.size === 0) return null;
-        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-          throw new Error(`Tipo no permitido: ${file.type}`);
-        }
+        const validationError = validateGalleryUploadFile(file);
+        if (validationError) throw new Error(validationError);
 
         const arrayBuffer = await file.arrayBuffer();
         const inputBuffer = Buffer.from(arrayBuffer);
         const processedBuffer = await applyWatermark(inputBuffer, { leagueId });
 
         const fileId = crypto.randomUUID();
-        const filePath = `gallery/${fileId}.jpg`;
+        const filePath = buildGalleryStoragePath(`${fileId}.jpg`);
 
         const { error: uploadError } = await adminSupabase.storage
           .from(bucket)
@@ -136,12 +131,22 @@ export const deletePhotoAction = withAuth(
         return { success: false, error: "La foto no existe." };
       }
 
-      // 2. Seguridad Robusta: Verificar permisos mediante app_metadata (context.clubId)
-      // Evitamos confiar en user_metadata que es editable por el cliente.
-      const isSuperAdmin = context.role === "SUPER_ADMIN" || context.role === "LEAGUE_ADMIN";
+      // 2. Permisos por rol + liga operativa
+      const isStaff = context.role === "SUPER_ADMIN" || context.role === "LEAGUE_ADMIN";
       const isClubOwner = context.clubId && photo.clubId === context.clubId;
-      
-      if (!isSuperAdmin && !isClubOwner) {
+
+      if (isStaff) {
+        if (
+          context.leagueId?.trim() &&
+          photo.leagueId &&
+          !clubBelongsToOperationalLeague(photo.leagueId, context.leagueId, context.role)
+        ) {
+          return {
+            success: false,
+            error: "No puedes eliminar fotos de otra liga.",
+          };
+        }
+      } else if (!isClubOwner) {
         return { success: false, error: "No tienes permisos para eliminar esta foto." };
       }
 
