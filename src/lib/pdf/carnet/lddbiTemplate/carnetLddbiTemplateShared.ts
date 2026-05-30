@@ -1,11 +1,7 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
-import {
-  LDDBI_FONT,
-  LDDBI_HEADER_LOGO_MM,
-  LDDBI_HEADER_MM,
-} from "@/lib/carnet/lddbiPremiumTheme";
+import { LDDBI_FONT, LDDBI_HEADER_MM } from "@/lib/carnet/lddbiPremiumTheme";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { CARNET_ALTO_MM, CARNET_ANCHO_MM, CARNET_MARGEN_MM } from "@/lib/pdf/carnetLayout";
 import { drawLogoCover, drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";

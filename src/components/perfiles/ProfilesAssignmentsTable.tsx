@@ -52,15 +52,6 @@ function roleLabel(role: UserRole): string {
   }
 }
 
-/** @deprecated Usar `canActorEditAssignmentRow` desde perfiles-league-scope. */
-export function canActorEditProfileRow(
-  actorRole: Role | undefined,
-  actorLeagueId: string | undefined,
-  row: ProfileAssignmentRow,
-): boolean {
-  return canActorEditAssignmentRow(actorRole, actorLeagueId, row);
-}
-
 type ProfilesAssignmentsTableProps = {
   rows: ProfileAssignmentRow[];
   canDelete: boolean;
@@ -97,7 +88,7 @@ export function ProfilesAssignmentsTable({
   const showActionsColumn = Boolean(canDelete || canEdit);
 
   function openEdit(row: ProfileAssignmentRow) {
-    if (!canActorEditProfileRow(actorRole, actorLeagueId ?? undefined, row)) return;
+    if (!canActorEditAssignmentRow(actorRole, actorLeagueId ?? undefined, row)) return;
     setEditInitial({
       userId: row.userId,
       leagueId: row.leagueId,
@@ -212,7 +203,7 @@ export function ProfilesAssignmentsTable({
               ) : (
                 rows.map((r) => {
                   const canEditRow = Boolean(
-                    canEdit && canActorEditProfileRow(actorRole, actorLeagueId ?? undefined, r),
+                    canEdit && canActorEditAssignmentRow(actorRole, actorLeagueId ?? undefined, r),
                   );
                   return (
                     <tr key={r.assignmentKey} className="transition hover:bg-blue-50/40">

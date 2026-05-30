@@ -386,6 +386,11 @@ export const leagueSettings = pgTable(
     carnetFederationDisplayName: text("carnet_federation_display_name"),
     carnetSportLabel: varchar("carnet_sport_label", { length: 40 }),
     carnetSportGraphicUrl: text("carnet_sport_graphic_url"),
+    socialFacebookUrl: text("social_facebook_url"),
+    socialInstagramUrl: text("social_instagram_url"),
+    socialYoutubeUrl: text("social_youtube_url"),
+    socialTiktokUrl: text("social_tiktok_url"),
+    socialWhatsappUrl: text("social_whatsapp_url"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({

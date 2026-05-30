@@ -7,17 +7,7 @@ export const LDDBI_TEMPLATE_PNG_HEIGHT_PX = 638;
 
 export const LDDBI_TEMPLATE_ASPECT_CSS = `${LDDBI_TEMPLATE_PNG_WIDTH_PX} / ${LDDBI_TEMPLATE_PNG_HEIGHT_PX}`;
 
-/**
- * PNG = diseño completo (cabecera, pie, fondo). El sistema solo superpone logos, textos y datos.
- */
-export const LDDBI_TEMPLATE_LABELS_IN_PNG = false;
-/** No dibujar franjas extra (cabecera azul / pie verde) encima del PNG. */
-export const LDDBI_TEMPLATE_DRAW_EXTRA_BANDS = false;
-
 export const LDDBI_TEMPLATE_GOLD_HEX = "#c9a227";
-export const LDDBI_TEMPLATE_GOLD_DARK_HEX = "#8a6d12";
-export const LDDBI_TEMPLATE_INK_HEX = "#1a2030";
-export const LDDBI_TEMPLATE_LABEL_MUTED_HEX = "#5c6570";
 export const LDDBI_TEMPLATE_WHITE_HEX = "#ffffff";
 
 export type LddbiTemplateAnversoCampo = {
@@ -216,7 +206,6 @@ export function buildLddbiTemplateAnversoCampos(input: {
   fechaNacimiento: string;
   clubName: string;
   categoriaNombre: string;
-  pageH?: number;
 }): LddbiTemplateAnversoCampo[] {
   const A = LDDBI_TEMPLATE.anverso;
 
@@ -249,33 +238,6 @@ export function buildLddbiTemplateAnversoCampos(input: {
     y += A.rowStepMm;
     return row;
   });
-}
-
-/** @deprecated Usar buildLddbiTemplateAnversoCampos */
-export function buildLddbiAnversoFieldRows(input: {
-  apellidos: string;
-  nombres: string;
-  documentNumber: string;
-  clubName: string;
-  categoriaNombre: string;
-  generoLabel?: string;
-}): { id: string; val: string; y: number; x: number; maxW: number }[] {
-  const [paterno = "", ...resto] = input.apellidos.trim().split(/\s+/);
-  const materno = resto.join(" ");
-  return buildLddbiTemplateAnversoCampos({
-    apellidoPaterno: paterno,
-    apellidoMaterno: materno,
-    nombres: input.nombres,
-    fechaNacimiento: "",
-    clubName: input.clubName,
-    categoriaNombre: input.categoriaNombre,
-  }).map((c) => ({
-    id: c.id,
-    val: c.val,
-    y: c.y,
-    x: LDDBI_TEMPLATE.anverso.valorX,
-    maxW: LDDBI_TEMPLATE.anverso.datosMaxW,
-  }));
 }
 
 export function isLddbiCarnetPreset(preset: string | null | undefined): boolean {

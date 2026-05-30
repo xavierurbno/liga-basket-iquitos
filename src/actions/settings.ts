@@ -11,6 +11,10 @@ import { CARNET_THEME_PRESETS, parseCarnetThemePreset } from "@/lib/carnet/carne
 import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
 import { revalidateLeagueBrandingPaths } from "@/lib/leagues/revalidate-portal-branding";
 import { leagueRepository } from "@/repositories/league.repository";
+import {
+  LEAGUE_SOCIAL_FORM_FIELDS,
+  normalizeLeagueSocialSettings,
+} from "@/lib/leagues/league-social-links";
 
 /**
  * Esquema de validación para las configuraciones de la liga.
@@ -54,6 +58,11 @@ const leagueSettingsSchema = z.object({
   carnetFederationDisplayName: z.string().max(200, "Nombre de federación demasiado largo").optional(),
   carnetSportLabel: z.string().max(40, "Etiqueta demasiado larga").optional(),
   carnetSportGraphicUrl: z.string().optional(),
+  socialFacebookUrl: z.string().max(500).optional(),
+  socialInstagramUrl: z.string().max(500).optional(),
+  socialYoutubeUrl: z.string().max(500).optional(),
+  socialTiktokUrl: z.string().max(500).optional(),
+  socialWhatsappUrl: z.string().max(500).optional(),
 });
 
 async function uploadLeagueCarnetAsset(
@@ -146,6 +155,11 @@ export const updateLeagueSettingsAction = withAuth(
       carnetFederationDisplayName: formData.get("carnetFederationDisplayName"),
       carnetSportLabel: formData.get("carnetSportLabel"),
       carnetSportGraphicUrl: (formData.get("currentCarnetSportGraphicUrl") as string) || "",
+      socialFacebookUrl: formData.get("socialFacebookUrl"),
+      socialInstagramUrl: formData.get("socialInstagramUrl"),
+      socialYoutubeUrl: formData.get("socialYoutubeUrl"),
+      socialTiktokUrl: formData.get("socialTiktokUrl"),
+      socialWhatsappUrl: formData.get("socialWhatsappUrl"),
     };
 
     // 2. Validación
@@ -238,6 +252,34 @@ export const updateLeagueSettingsAction = withAuth(
         "#1e3a5f",
       );
       data.portalAccentColor = normalizePortalHexColor(data.portalAccentColor, "#005CEE");
+
+      const socialErrors: Record<string, string[]> = {};
+      const normalizedSocial = normalizeLeagueSocialSettings({
+        socialFacebookUrl: String(rawData.socialFacebookUrl ?? ""),
+        socialInstagramUrl: String(rawData.socialInstagramUrl ?? ""),
+        socialYoutubeUrl: String(rawData.socialYoutubeUrl ?? ""),
+        socialTiktokUrl: String(rawData.socialTiktokUrl ?? ""),
+        socialWhatsappUrl: String(rawData.socialWhatsappUrl ?? ""),
+      });
+
+      for (const field of LEAGUE_SOCIAL_FORM_FIELDS) {
+        const raw = String(rawData[field.name] ?? "").trim();
+        if (!raw) continue;
+        const normalized = normalizedSocial[field.name];
+        if (!normalized) {
+          socialErrors[field.name] = [`${field.label}: enlace o número no válido.`];
+        }
+      }
+
+      if (Object.keys(socialErrors).length > 0) {
+        return {
+          success: false,
+          message: "Revisa los enlaces de redes sociales.",
+          errors: socialErrors,
+        };
+      }
+
+      Object.assign(data, normalizedSocial);
 
       // 5. Persistencia
       await settingsRepository.updateLeagueSettings(vLeagueId, data);

@@ -44,7 +44,6 @@ export function drawCarnetLddbiTemplateAnverso(
     fechaNacimiento: fmtFechaCarnetPeru(input.fechaNacimientoIso),
     clubName: input.clubName.trim().toUpperCase(),
     categoriaNombre: input.categoriaNombre.trim().toUpperCase(),
-    pageH,
   });
 
   campos.forEach((campo) => {

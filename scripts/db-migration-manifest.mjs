@@ -34,4 +34,5 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0025_league_delete_cascade_fkeys.sql",
   "supabase/migrations/0026_carnet_lddbi_template_preset.sql",
   "supabase/migrations/0027_activate_lddbi_template_png.sql",
+  "supabase/migrations/0028_league_social_links.sql",
 ];

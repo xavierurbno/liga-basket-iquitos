@@ -13,6 +13,8 @@ import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { PortalLeagueTheme } from "@/components/portal/PortalLeagueTheme";
 import { brandingToCssVars } from "@/lib/leagues/league-branding";
 import { resolveLoginHeroLogoUrl } from "@/lib/logos/public-league-logo";
+import { getOAuthAllowedHosts } from "@/lib/security/oauth-redirect";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +79,11 @@ export default async function LoginPage({ searchParams }: Props) {
     postLoginRedirect ?? (league?.slug ? leaguePortalHome(league.slug) : "/liga/");
   const themeStyle = league ? brandingToCssVars(league) : undefined;
 
+  const headerList = await headers();
+  const requestHost =
+    headerList.get("x-forwarded-host") ?? headerList.get("host") ?? undefined;
+  const oauthAllowedHosts = getOAuthAllowedHosts(requestHost);
+
   const content = (
     <div className="flex min-h-full flex-1 flex-col bg-[#F5F5F5]">
       <StaleSessionCleanup />
@@ -125,7 +132,11 @@ export default async function LoginPage({ searchParams }: Props) {
           </div>
 
           <div className="w-full max-w-md rounded-[2.5rem] border-none bg-white p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-4 duration-700">
-            <LoginForm initialLeagueSlug={league?.slug} postLoginRedirect={loginNext} />
+            <LoginForm
+              initialLeagueSlug={league?.slug}
+              postLoginRedirect={loginNext}
+              oauthAllowedHosts={oauthAllowedHosts}
+            />
           </div>
         </div>
       </div>

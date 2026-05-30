@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { Globe, LayoutDashboard, Search, ShieldCheck, Trophy } from "lucide-react";
+import { Search, ShieldCheck } from "lucide-react";
+import { PortalHeaderNavMenu } from "@/components/layout/PortalHeaderNavMenu";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 import { buildPortalLoginHref, leaguePortalHome } from "@/lib/portal/league-portal-paths";
-import { fetchPortalLeagueBranding } from "@/lib/portal/portal-league-cache";
+import { fetchPortalLeagueBranding, fetchPortalLeagueBySlug, resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 import { PROGRAM_LEAGUES_DIRECTORY_PATH } from "@/lib/portal/default-portal-league";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
+import { PortalSocialLinks } from "@/components/layout/PortalSocialLinks";
+import { buildLeagueSocialLinks, type LeagueSocialLink } from "@/lib/leagues/league-social-links";
+import { settingsRepository } from "@/repositories/settingsRepository";
 
 const navBtnClass =
   "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition hover:border-[#1e3a5f] hover:text-[#1e3a5f]";
@@ -67,6 +71,24 @@ export async function resolvePortalPanelHref(): Promise<string> {
   }
 }
 
+async function resolvePortalSocialLinks(leagueSlug?: string): Promise<LeagueSocialLink[]> {
+  try {
+    if (leagueSlug?.trim()) {
+      const league = await fetchPortalLeagueBySlug(leagueSlug.trim());
+      if (!league) return [];
+      const settings = await settingsRepository.getLeagueSettings(league.id);
+      return buildLeagueSocialLinks(settings);
+    }
+    const leagueId = await resolveDefaultPortalLeagueId();
+    if (!leagueId) return [];
+    const settings = await settingsRepository.getLeagueSettings(leagueId);
+    return buildLeagueSocialLinks(settings);
+  } catch (e) {
+    console.warn("[portal-header] resolvePortalSocialLinks:", e);
+    return [];
+  }
+}
+
 /** Cabecera pública (presentación); el `panelHref` debe obtenerse con `resolvePortalPanelHref`. */
 export function PortalSiteHeaderBar({
   variant = "portal",
@@ -75,6 +97,7 @@ export function PortalSiteHeaderBar({
   leagueSlug,
   leagueName,
   leagueLogoUrl,
+  socialLinks = [],
 }: {
   variant?: PortalSiteHeaderVariant;
   panelHref?: string;
@@ -83,6 +106,7 @@ export function PortalSiteHeaderBar({
   leagueSlug?: string;
   leagueName?: string;
   leagueLogoUrl?: string | null;
+  socialLinks?: LeagueSocialLink[];
 }) {
   const showGestiónLink =
     !hidePanelGestión && (variant === "busqueda365" || variant === "normativas");
@@ -97,9 +121,9 @@ export function PortalSiteHeaderBar({
     : panelHref;
 
   return (
-    <header className="w-full border-b border-slate-200 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full overflow-visible border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <div
-        className={`relative flex min-h-36 flex-wrap items-center justify-between gap-3 py-2.5 sm:py-3 ${PORTAL_SHELL_CLASS}`}
+        className={`relative z-50 flex min-h-36 flex-wrap items-center justify-between gap-3 overflow-visible py-2.5 sm:py-3 ${PORTAL_SHELL_CLASS}`}
       >
         <LeagueHeaderLogo
           size="hero"
@@ -111,7 +135,7 @@ export function PortalSiteHeaderBar({
           logoUrl={leagueLogoUrl ?? undefined}
           leagueSlug={leagueSlug}
         />
-        <nav className="relative z-20 flex shrink-0 flex-wrap items-center justify-end gap-2" aria-label="Navegación principal">
+        <nav className="relative z-20 flex shrink-0 flex-wrap items-center justify-end gap-2 overflow-visible" aria-label="Navegación principal">
           {showGestiónLink ? (
             <Link
               href={panelHref}
@@ -123,26 +147,16 @@ export function PortalSiteHeaderBar({
             </Link>
           ) : variant === "portal" ? (
             <>
-              <Link href={campeonatosHref} className={navBtnClass}>
-                <Trophy className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
-                Campeonatos
-              </Link>
+              <PortalSocialLinks links={socialLinks} />
               <Link href="/busqueda-365/" className={navBtnClass}>
                 <Search className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
                 Búsqueda 365
               </Link>
-              <Link
-                href={PROGRAM_LEAGUES_DIRECTORY_PATH}
-                className={navBtnClass}
-                title="Ver otras ligas del programa"
-              >
-                <Globe className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
-                Ligas
-              </Link>
-              <Link href={portalLoginHref} className={navBtnClass}>
-                <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
-                Iniciar sesión
-              </Link>
+              <PortalHeaderNavMenu
+                intranetHref={portalLoginHref}
+                ligasHref={PROGRAM_LEAGUES_DIRECTORY_PATH}
+                campeonatosHref={campeonatosHref}
+              />
             </>
           ) : null}
         </nav>
@@ -170,6 +184,7 @@ export async function PortalSiteHeader({
   leagueLogoUrl?: string | null;
 }) {
   const panelHref = await resolvePortalPanelHref();
+  const socialLinks = await resolvePortalSocialLinks(leagueSlug);
   let resolvedName = leagueName;
   let resolvedLogo = leagueLogoUrl;
 
@@ -189,6 +204,7 @@ export async function PortalSiteHeader({
       leagueSlug={leagueSlug}
       leagueName={resolvedName}
       leagueLogoUrl={resolvedLogo}
+      socialLinks={socialLinks}
     />
   );
 }

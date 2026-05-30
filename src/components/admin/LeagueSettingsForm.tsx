@@ -8,6 +8,7 @@ import {
   CARNET_THEME_PRESET_LABELS,
   parseCarnetThemePreset,
 } from "@/lib/carnet/carnetTheme";
+import { LEAGUE_SOCIAL_FORM_FIELDS } from "@/lib/leagues/league-social-links";
 import { LeagueSettings } from "@/lib/db/schema";
 
 interface Props {
@@ -287,6 +288,39 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 <div className="absolute top-2 right-2 px-2 py-1 bg-slate-900/5 backdrop-blur-sm rounded-lg text-[8px] font-black uppercase text-slate-400">Preview</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Sección 3b: Redes sociales */}
+        <div id="social-settings" className="scroll-mt-24 space-y-4 pt-2">
+          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <span>Redes sociales del portal</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </h4>
+          <p className="text-[10px] text-slate-500 ml-1">
+            Iconos en la cabecera pública (junto a Búsqueda 365). Deja vacío cualquier red que no uses.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {LEAGUE_SOCIAL_FORM_FIELDS.map((field) => (
+              <div key={field.name} className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">{field.label}</label>
+                <input
+                  type="text"
+                  name={field.name}
+                  defaultValue={
+                    (initialSettings?.[field.name as keyof typeof initialSettings] as string) || ""
+                  }
+                  placeholder={field.placeholder}
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 font-medium"
+                />
+                <p className="text-[10px] text-slate-400 ml-1">{field.hint}</p>
+                {(state as SettingsActionState).errors?.[field.name] && (
+                  <p className="text-[11px] text-red-500 font-bold ml-1">
+                    {(state as SettingsActionState).errors![field.name]![0]}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 

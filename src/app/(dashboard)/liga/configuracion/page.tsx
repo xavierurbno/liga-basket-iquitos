@@ -46,8 +46,9 @@ export default async function LigaConfiguracionPage() {
       <header>
         <h1 className="text-2xl font-black text-[#0f2040]">Marca e identidad</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Personaliza el portal público <strong>/l/{league.slug}/</strong>, la pantalla de login, los
-          documentos PDF y el <strong>carnet deportista CR80</strong> de <strong>{league.name}</strong>.
+          Personaliza el portal público <strong>/l/{league.slug}/</strong>, la pantalla de login, las
+          redes sociales, los documentos PDF y el <strong>carnet deportista CR80</strong> de{" "}
+          <strong>{league.name}</strong>.
         </p>
       </header>
       <CarnetConfigAlert

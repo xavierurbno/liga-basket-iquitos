@@ -9,10 +9,13 @@ import { FcGoogle } from "react-icons/fc";
 export function LoginForm({
   initialLeagueSlug,
   postLoginRedirect,
+  oauthAllowedHosts = [],
 }: {
   initialLeagueSlug?: string;
   /** Ruta interna tras login (p. ej. desde `?next=/liga/tesoreria`). Solo rutas que empiezan por `/`. */
   postLoginRedirect?: string | null;
+  /** Hosts permitidos inyectados desde el servidor (VERCEL_URL, SITE_URL, host actual). */
+  oauthAllowedHosts?: string[];
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,7 +72,11 @@ export function LoginForm({
 
     try {
       const origin = window.location.origin;
-      const callbackUrl = buildSafeOAuthCallbackUrl(origin, resolvedPostLogin);
+      const callbackUrl = buildSafeOAuthCallbackUrl(
+        origin,
+        resolvedPostLogin,
+        oauthAllowedHosts,
+      );
       if (!callbackUrl) {
         setError("Este dominio no está autorizado para iniciar sesión con Google.");
         setGoogleLoading(false);

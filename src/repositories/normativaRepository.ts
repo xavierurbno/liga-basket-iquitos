@@ -29,18 +29,4 @@ export const normativaRepository = {
     }
     return q;
   },
-
-  /** @deprecated Usar findPublicByLeagueId. Mantiene compatibilidad sin filtro de liga. */
-  async findPublicRecent(limit = 4): Promise<PublicNormativaListItem[]> {
-    return await db
-      .select({
-        id: normativas.id,
-        titulo: normativas.titulo,
-        urlArchivo: normativas.urlArchivo,
-      })
-      .from(normativas)
-      .where(eq(normativas.esPublico, true))
-      .orderBy(desc(normativas.createdAt))
-      .limit(limit);
-  },
 };

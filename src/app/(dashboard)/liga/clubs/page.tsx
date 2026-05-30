@@ -115,6 +115,11 @@ export default async function ClubsPage() {
       : null;
 
   if (listaClubs.length === 0) {
+    const leagueHint =
+      operationalLeagueId && leagueName
+        ? `Liga activa: ${leagueName}. Si acabas de crear datos en DEV, confirma que esta sea la liga correcta (selector en la barra superior).`
+        : "Selecciona la liga LDDBI en el selector de la barra superior para ver los clubes de prueba.";
+
     return (
       <div className="space-y-4">
         {canUseGlobalClubToolbar && (
@@ -127,6 +132,15 @@ export default async function ClubsPage() {
           <p className="max-w-md text-sm text-slate-500">
             Aún no hay clubes en esta liga. Puedes crear el primero con el botón superior.
           </p>
+          <p className="max-w-md text-xs text-amber-700">{leagueHint}</p>
+          {appRole === "SUPER_ADMIN" ? (
+            <Link
+              href="/super-admin/leagues/"
+              className="text-sm font-semibold text-[#005CEE] hover:underline"
+            >
+              Gestionar ligas →
+            </Link>
+          ) : null}
         </div>
       </div>
     );

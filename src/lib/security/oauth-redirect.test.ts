@@ -71,4 +71,13 @@ describe("oauth-redirect", () => {
     );
     assert.ok(url?.endsWith("next=%2Fliga%2F"));
   });
+
+  it("acepta host inyectado desde el servidor (extraAllowedHosts)", () => {
+    const url = buildSafeOAuthCallbackUrl(
+      "https://liga-basket-iquitos.vercel.app",
+      "/liga/",
+      ["liga-basket-iquitos.vercel.app"],
+    );
+    assert.ok(url?.includes("/auth/callback/"));
+  });
 });

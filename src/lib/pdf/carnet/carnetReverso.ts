@@ -131,7 +131,6 @@ export function drawCarnetReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInput): 
   }
 
   const metaX = qrX + qrSize + 3.5;
-  const metaW = pageW - metaX - margin;
   const code = shortValidationCode(input.validationUrl, input.playerId);
   let metaY = qrY + 2.2;
 

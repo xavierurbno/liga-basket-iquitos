@@ -87,15 +87,3 @@ export const resolvePortalLeagueContext = cache(
     }
   },
 );
-
-/** Solo UUID (compatibilidad con componentes existentes). */
-export const resolvePortalLeagueId = cache(
-  async (opts: {
-    pathSlug?: string;
-    querySlug?: string;
-    cookieSlug?: string;
-  }): Promise<string | undefined> => {
-    const row = await resolvePortalLeagueContext(opts);
-    return row?.leagueId;
-  },
-);
