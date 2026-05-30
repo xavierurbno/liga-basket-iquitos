@@ -1,3 +1,5 @@
+import { SponsorLogoImage } from "@/components/sponsors/SponsorLogoImage";
+import { SPONSOR_FEB_CATEGORY_LABEL_CLASS } from "@/components/sponsors/sponsorFebDisplay";
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { Sponsor } from "@/lib/db/schema";
@@ -72,33 +74,29 @@ export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: str
             if (!items || items.length === 0) return null;
 
             return (
-              <div key={catKey} className="space-y-6">
-                {/* Título de Categoría con líneas decorativas */}
-                <div className="flex items-center gap-6">
-                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-white/20 to-transparent" />
-                  <h2 className="text-[11px] font-black text-white uppercase tracking-[0.3em] whitespace-nowrap">
-                    {categoryLabels[catKey]}
-                  </h2>
-                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-white/20 to-transparent" />
+              <div key={catKey} className="space-y-5 md:space-y-6">
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-white/25 to-transparent" />
+                  <h2 className={SPONSOR_FEB_CATEGORY_LABEL_CLASS}>{categoryLabels[catKey]}</h2>
+                  <div className="h-px flex-1 bg-linear-to-r from-transparent via-white/25 to-transparent" />
                 </div>
 
-                {/* Grid de Logos a Color */}
-                <div className="flex flex-wrap items-center justify-center gap-8 md:gap-16">
+                <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-8 md:gap-x-14 md:gap-y-10">
                   {items.map((sponsor) => (
                     <a
                       key={sponsor.id}
                       href={sponsor.websiteUrl || "#"}
                       target={sponsor.websiteUrl ? "_blank" : undefined}
                       rel={sponsor.websiteUrl ? "noopener noreferrer" : undefined}
-                      className="group relative transition-all duration-300"
+                      className="group flex min-w-[5rem] items-center justify-center px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      title={sponsor.name}
                     >
-                      <div className="rounded-4xl border border-white/5 bg-white/3 p-6 transition-all duration-500 backdrop-blur-sm hover:border-white/10 hover:bg-white/7 group-hover:-translate-y-2">
-                        <img
-                          src={sponsor.logoUrl}
-                          alt={sponsor.name}
-                          className="h-16 md:h-24 w-auto object-contain mx-auto transition-all duration-700 group-hover:scale-110 filter drop-shadow-2xl"
-                        />
-                      </div>
+                      <SponsorLogoImage
+                        name={sponsor.name}
+                        logoUrl={sponsor.logoUrl}
+                        category={catKey}
+                        variant="footer"
+                      />
                     </a>
                   ))}
                 </div>

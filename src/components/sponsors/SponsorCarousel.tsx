@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { SponsorLogoImage } from "@/components/sponsors/SponsorLogoImage";
 import { useIsClient } from "@/hooks/useIsClient";
 
 export type SponsorCarouselItem = {
@@ -61,12 +62,12 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
       className="flex min-h-[180px] min-w-0 flex-col lg:h-full lg:min-h-0 lg:flex-1"
       aria-label="Socio patrocinador"
     >
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-white/15 bg-zinc-950 shadow-sm">
-        <p className="pointer-events-none shrink-0 pt-2 text-center text-[9px] font-bold uppercase tracking-[0.18em] text-[#005CEE]/90">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-black">
+        <p className="pointer-events-none shrink-0 border-b border-white/10 py-2.5 text-center text-[9px] font-black uppercase tracking-[0.22em] text-white/80">
           Socio patrocinador
         </p>
 
-        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-2 pt-1">
+        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-3 pt-3">
           {current ? (
             <>
               {isClient ? (
@@ -132,8 +133,10 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
             </>
           ) : (
             <div className="flex max-w-[168px] flex-col items-center text-center">
-              <div className="flex h-20 w-full items-center justify-center rounded-md border border-dashed border-white/20 bg-black/40">
-                <span className="text-[10px] font-medium text-white/45">Espacio disponible</span>
+              <div className="flex h-20 w-full items-center justify-center border border-dashed border-white/15">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-white/40">
+                  Espacio disponible
+                </span>
               </div>
               <p className="mt-2 text-[10px] leading-snug text-white/55">
                 Próximamente anunciaremos a nuestros socios patrocinadores.
@@ -153,7 +156,7 @@ function SponsorSlideBody({ sponsor }: { sponsor: SponsorCarouselItem }) {
         href={sponsor.websiteUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex w-full flex-col items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#005CEE] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className="flex w-full flex-col items-center outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
       >
         <SponsorLogoBlock name={sponsor.name} logoUrl={sponsor.logoUrl} />
       </Link>
@@ -167,21 +170,12 @@ function SponsorSlideBody({ sponsor }: { sponsor: SponsorCarouselItem }) {
 }
 
 function SponsorLogoBlock({ name, logoUrl }: { name: string; logoUrl: string }) {
-  // `<img>` evita bloqueos de `remotePatterns` (URLs firmadas, otro subdominio, SVG, etc.).
-  // Misma estrategia que `SponsorFooter`.
   return (
     <>
-      <div className="flex h-20 w-full items-center justify-center">
-        <img
-          src={logoUrl}
-          alt={name}
-          className="max-h-20 w-auto max-w-full object-contain object-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+      <div className="flex h-22 w-full items-center justify-center">
+        <SponsorLogoImage name={name} logoUrl={logoUrl} variant="carousel" />
       </div>
-      <span className="mt-2 line-clamp-2 text-center text-[10px] font-semibold uppercase tracking-wide text-white/90">
+      <span className="mt-2 line-clamp-2 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-white/85">
         {name}
       </span>
     </>

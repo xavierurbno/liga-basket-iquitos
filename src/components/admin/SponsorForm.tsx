@@ -76,7 +76,7 @@ export function SponsorForm({ leagues, sponsor, onSuccess }: SponsorFormProps) {
     <form
       ref={formRef}
       action={action}
-      className="space-y-5 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm"
+      className="space-y-5 rounded-4xl border border-slate-200 bg-white p-8 shadow-sm"
     >
       {sponsor && <input type="hidden" name="id" value={sponsor.id} />}
       {sponsor && <input type="hidden" name="currentLogoUrl" value={sponsor.logoUrl} />}
@@ -174,6 +174,9 @@ export function SponsorForm({ leagues, sponsor, onSuccess }: SponsorFormProps) {
         <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">
           Logo {!sponsor && <span className="text-red-500">*</span>}
         </label>
+        <p className="text-[11px] leading-snug text-slate-500 ml-1">
+          Portal y pie estilo FEB (fondo negro): PNG <strong>blanco</strong> con fondo transparente.
+        </p>
 
         {logoPreview ? (
           <div className="relative flex flex-col items-center gap-3 p-5 bg-slate-50 rounded-2xl border-2 border-[#005CEE]/20">
