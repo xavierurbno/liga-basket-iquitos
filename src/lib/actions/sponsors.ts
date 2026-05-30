@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { z } from "zod";
 import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
@@ -37,7 +37,7 @@ export const getSponsorsByLeagueAction = async (leagueId: string) => {
 export const upsertSponsorAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     let uploadedKey: string | null = null;
-    const supabase = await createSupabaseServerFromCookies();
+    const storageClient = getSupabaseAdmin();
 
     try {
       // SuperAdmin puede elegir la liga desde el formulario
@@ -73,7 +73,7 @@ export const upsertSponsorAction = withAuth(
         uploadedKey = `sponsors/${fileId}.${ext}`;
 
         const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await storageClient.storage
           .from(bucketName)
           .upload(uploadedKey, logoFile, {
             contentType: logoFile.type,
@@ -84,7 +84,7 @@ export const upsertSponsorAction = withAuth(
           throw new Error(`Error al subir logo: ${uploadError.message}`);
         }
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = storageClient.storage
           .from(bucketName)
           .getPublicUrl(uploadedKey);
 
@@ -125,7 +125,7 @@ export const upsertSponsorAction = withAuth(
       // ROLLBACK DE STORAGE
       if (uploadedKey) {
         const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
-        await supabase.storage.from(bucketName).remove([uploadedKey]);
+        await storageClient.storage.from(bucketName).remove([uploadedKey]);
       }
 
       return { success: false, error: error.message || "Error al procesar el patrocinador." };
@@ -136,7 +136,7 @@ export const upsertSponsorAction = withAuth(
 
 export const bulkUpsertSponsorsAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
-    const supabase = await createSupabaseServerFromCookies();
+    const storageClient = getSupabaseAdmin();
 
     const uploadedKeys: string[] = [];
 
@@ -167,7 +167,7 @@ export const bulkUpsertSponsorsAction = withAuth(
         const key = `sponsors/${fileId}.${ext}`;
         uploadedKeys.push(key);
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await storageClient.storage
           .from(bucketName)
           .upload(key, file, {
             contentType: file.type,
@@ -176,7 +176,7 @@ export const bulkUpsertSponsorsAction = withAuth(
 
         if (uploadError) throw new Error(`Error subiendo ${file.name}: ${uploadError.message}`);
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = storageClient.storage
           .from(bucketName)
           .getPublicUrl(key);
 
@@ -205,7 +205,7 @@ export const bulkUpsertSponsorsAction = withAuth(
       // Cleanup uploaded files on failure
       if (uploadedKeys.length > 0) {
         const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
-        await supabase.storage.from(bucketName).remove(uploadedKeys);
+        await storageClient.storage.from(bucketName).remove(uploadedKeys);
       }
 
       return { success: false, error: error.message || "Error en la subida masiva." };

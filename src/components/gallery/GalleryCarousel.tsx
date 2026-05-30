@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useIsClient } from "@/hooks/useIsClient";
+import { reactListKey } from "@/lib/react/listKey";
 
 type FebOrientation = "portrait" | "landscape";
 
@@ -100,6 +101,13 @@ export function GalleryCarousel({
 
   if (len === 0 || !currentPhoto) return null;
 
+  const slideKey = reactListKey(
+    currentPhoto.id,
+    currentIndex % len,
+    "gallery-slide",
+    currentPhoto.url,
+  );
+
   const fallbackCaption = "Acción de la jornada — LDDBI";
   const shellClass = isFeb
     ? "group relative w-full overflow-hidden rounded-sm border border-slate-300/90 bg-slate-950 shadow-sm"
@@ -141,7 +149,6 @@ export function GalleryCarousel({
         <div className="absolute inset-0 z-10 pt-9 pb-17 sm:pt-10 sm:pb-20">
           <div className="relative mx-auto h-full w-full min-h-0 max-w-full px-1.5 sm:px-3">
             <img
-              key={currentPhoto.id}
               src={currentPhoto.url}
               alt={currentPhoto.caption || fallbackCaption}
               onLoad={onFebForegroundLoad}
@@ -210,7 +217,7 @@ export function GalleryCarousel({
         {isClient ? (
           <AnimatePresence initial={false} custom={direction} mode="sync">
             <motion.div
-              key={currentPhoto.id}
+              key={slideKey}
               custom={direction}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

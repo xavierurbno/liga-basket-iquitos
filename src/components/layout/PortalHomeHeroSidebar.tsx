@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
 import { leaguePortalBusqueda365, leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
+import { reactListKey } from "@/lib/react/listKey";
 
 function ctaFallbackForLeague(leagueSlug?: string) {
   const slug = leagueSlug?.trim();
@@ -72,7 +73,7 @@ export async function PortalHomeHeroSidebar({
       {slots.map((slot, idx) =>
         slot.kind === "sponsor" ? (
           <a
-            key={slot.id}
+            key={reactListKey(slot.id, idx, "hero-sponsor", slot.logoUrl)}
             href={slot.websiteUrl || "#"}
             target={slot.websiteUrl ? "_blank" : undefined}
             rel={slot.websiteUrl ? "noopener noreferrer" : undefined}

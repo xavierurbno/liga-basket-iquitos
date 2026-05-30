@@ -164,7 +164,8 @@ export function MassiveSponsorUpload({ leagues }: MassiveSponsorUploadProps) {
       {/* ── Grid de Previsualización ── */}
       <AnimatePresence mode="popLayout">
         {pendingSponsors.length > 0 && (
-          <motion.div 
+          <motion.div
+            key="pending-sponsors-grid"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
@@ -204,7 +205,7 @@ export function MassiveSponsorUpload({ leagues }: MassiveSponsorUploadProps) {
                     <select
                       value={s.category}
                       onChange={(e) => updateSponsor(s.id, { category: e.target.value })}
-                      className="text-[10px] font-bold text-[#005CEE] bg-[#005CEE]/5 text-[#005CEE]"
+                      className="text-[10px] font-bold text-[#005CEE] bg-[#005CEE]/5"
                     >
                       {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
@@ -232,10 +233,11 @@ export function MassiveSponsorUpload({ leagues }: MassiveSponsorUploadProps) {
       )}
 
       {/* ── Feedback y Acción Final ── */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4">
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-100 w-full max-w-lg px-4">
         <AnimatePresence>
           {success && (
-            <motion.div 
+            <motion.div
+              key="bulk-upload-success"
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
@@ -250,7 +252,8 @@ export function MassiveSponsorUpload({ leagues }: MassiveSponsorUploadProps) {
           )}
 
           {error && (
-            <motion.div 
+            <motion.div
+              key="bulk-upload-error"
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
@@ -263,12 +266,13 @@ export function MassiveSponsorUpload({ leagues }: MassiveSponsorUploadProps) {
 
           {pendingSponsors.length > 0 && (
             <motion.button
+              key="bulk-upload-confirm"
               initial={{ opacity: 0, y: 50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 50, scale: 0.9 }}
               onClick={handleUpload}
               disabled={isPending}
-              className="w-full py-5 bg-[#005CEE] text-white rounded-[2rem] font-black text-base tracking-[0.2em] shadow-[0_20px_50px_-10px_rgba(0,92,238,0.4)] hover:bg-[#004FCC] hover:-translate-y-1 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:grayscale"
+              className="w-full py-5 bg-[#005CEE] text-white rounded-4xl font-black text-base tracking-[0.2em] shadow-[0_20px_50px_-10px_rgba(0,92,238,0.4)] hover:bg-[#004FCC] hover:-translate-y-1 transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:grayscale"
             >
               {isPending ? (
                 <>

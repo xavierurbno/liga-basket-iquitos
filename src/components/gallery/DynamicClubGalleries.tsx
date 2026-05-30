@@ -7,6 +7,7 @@ import {
   leaguePortalClubGallery,
   leaguePortalInstitutionalGallery,
 } from "@/lib/portal/league-portal-paths";
+import { reactListKey } from "@/lib/react/listKey";
 
 const GALLERY_MS = 12_000;
 
@@ -109,9 +110,9 @@ export async function DynamicClubGalleries({
           />
 
           {/* Tarjetas por Club */}
-          {clubsWithPhotos.map((club) => (
+          {clubsWithPhotos.map((club, clubIdx) => (
             <FebCard
-              key={club.clubId}
+              key={reactListKey(club.clubId, clubIdx, "club-gallery", club.clubName)}
               href={
                 leagueSlug
                   ? leaguePortalClubGallery(leagueSlug, club.clubId)

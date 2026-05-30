@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { getGeneralPhotos } from "@/services/galleryService";
 import { Globe } from "lucide-react";
+import { reactListKey } from "@/lib/react/listKey";
 
 /**
  * LddbiGallerySection — Server Component
@@ -45,7 +46,7 @@ export async function LddbiGallerySection() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {photos.map((photo, idx) => (
             <div
-              key={photo.id ?? idx}
+              key={reactListKey(photo.id, idx, "general-photo", photo.url)}
               className="group relative aspect-square overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <Image
@@ -57,7 +58,7 @@ export async function LddbiGallerySection() {
               />
               {/* Caption reveal on hover */}
               {photo.caption && (
-                <div className="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/75 to-transparent px-3 py-2.5 transition-transform duration-300 group-hover:translate-y-0">
+                <div className="absolute inset-x-0 bottom-0 translate-y-full bg-linear-to-t from-black/75 to-transparent px-3 py-2.5 transition-transform duration-300 group-hover:translate-y-0">
                   <p className="line-clamp-2 text-[10px] font-medium text-white/90">
                     {photo.caption}
                   </p>

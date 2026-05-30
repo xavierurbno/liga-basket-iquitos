@@ -4,6 +4,7 @@ import { deleteSponsorAction } from "@/lib/actions/sponsors";
 import { Sponsor } from "@/lib/types/sponsor";
 import { ExternalLink, Trash2, Building2 } from "lucide-react";
 import { useState, useTransition } from "react";
+import { reactListKey } from "@/lib/react/listKey";
 
 interface SponsorListProps {
   sponsors: Sponsor[];
@@ -89,9 +90,9 @@ export function SponsorList({ sponsors, leagueMap = {} }: SponsorListProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {items.map((s) => (
+                    {items.map((s, rowIdx) => (
                       <tr
-                        key={s.id}
+                        key={reactListKey(s.id, rowIdx, `${category}-sponsor`, s.logoUrl)}
                         className="group hover:bg-slate-50/80 transition-colors"
                       >
                         {/* Logo */}

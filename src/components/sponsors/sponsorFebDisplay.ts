@@ -32,7 +32,11 @@ export function sponsorFebLogoClass(category?: string): string {
 
 export function sponsorCarouselLogoClass(): string {
   return [
-    "max-h-[5.5rem] w-auto max-w-full object-contain object-center",
+    "object-contain object-center",
     "opacity-95 transition-opacity duration-300 hover:opacity-100",
   ].join(" ");
 }
+
+/** Logo institucional superior del módulo (a color, como FEB). */
+export const SPONSOR_CAROUSEL_HEADER_LOGO_CLASS =
+  "h-9 w-auto max-w-[5.5rem] object-contain object-center sm:h-10 sm:max-w-[6rem]";

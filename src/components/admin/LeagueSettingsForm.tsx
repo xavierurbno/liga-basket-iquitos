@@ -264,6 +264,9 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                   <div className="text-center">
                     <p className="text-xs font-bold text-slate-600">Sube tu logo institucional</p>
                     <p className="text-[10px] text-slate-400 mt-1 font-medium">PNG, JPG o SVG (Recomendado 400x400px)</p>
+                    <p className="text-[10px] text-[#005CEE]/90 mt-2 font-semibold">
+                      Aparece a color arriba del carrusel «Socio patrocinador» en la home del portal.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -443,6 +446,9 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                   className="h-14 object-contain rounded-lg border border-slate-100 bg-white p-1"
                 />
               )}
+              <p className="text-[10px] text-slate-400 ml-1">
+                Solo se usa en el carrusel si no hay logo de login. Carnet y PDF pueden seguir usándolo según la plantilla.
+              </p>
             </div>
           </div>
 

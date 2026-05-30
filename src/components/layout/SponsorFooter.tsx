@@ -3,6 +3,7 @@ import { SPONSOR_FEB_CATEGORY_LABEL_CLASS } from "@/components/sponsors/sponsorF
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { Sponsor } from "@/lib/db/schema";
+import { reactListKey } from "@/lib/react/listKey";
 import {
   readPortalLeagueIdFromEnv,
   resolveDefaultPortalLeagueId,
@@ -82,9 +83,9 @@ export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: str
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-8 md:gap-x-14 md:gap-y-10">
-                  {items.map((sponsor) => (
+                  {items.map((sponsor, sponsorIdx) => (
                     <a
-                      key={sponsor.id}
+                      key={reactListKey(sponsor.id, sponsorIdx, `${catKey}-sponsor`, sponsor.logoUrl)}
                       href={sponsor.websiteUrl || "#"}
                       target={sponsor.websiteUrl ? "_blank" : undefined}
                       rel={sponsor.websiteUrl ? "noopener noreferrer" : undefined}

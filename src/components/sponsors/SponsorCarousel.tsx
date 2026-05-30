@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SponsorLogoImage } from "@/components/sponsors/SponsorLogoImage";
+import { SponsorCarouselLogo } from "@/components/sponsors/SponsorCarouselLogo";
+import { SPONSOR_CAROUSEL_HEADER_LOGO_CLASS } from "@/components/sponsors/sponsorFebDisplay";
 import { useIsClient } from "@/hooks/useIsClient";
+import { reactListKey } from "@/lib/react/listKey";
 
 export type SponsorCarouselItem = {
   id: string;
@@ -14,10 +15,21 @@ export type SponsorCarouselItem = {
   websiteUrl: string | null;
 };
 
-const ACCENT = "#005CEE";
-const AUTO_MS = 5000;
+export type SponsorCarouselProps = {
+  sponsors: SponsorCarouselItem[];
+  /** Logo superior a color (federación o liga), estilo FEB. */
+  headerLogoUrl?: string | null;
+  headerLogoAlt?: string;
+};
 
-export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] }) {
+const AUTO_MS = 5000;
+const CROSSFADE_MS = 0.5;
+
+export function SponsorCarousel({
+  sponsors,
+  headerLogoUrl,
+  headerLogoAlt = "Logo de la liga",
+}: SponsorCarouselProps) {
   const isClient = useIsClient();
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
@@ -25,6 +37,10 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
 
   const count = sponsors.length;
   const current = count > 0 ? sponsors[index % count] : null;
+  const currentSlideKey =
+    current != null
+      ? reactListKey(current.id, index % count, "sponsor-slide", current.logoUrl)
+      : null;
 
   const paginate = useCallback(
     (dir: number) => {
@@ -32,7 +48,7 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
       setDirection(dir);
       setIndex((i) => (i + dir + count) % count);
     },
-    [count]
+    [count],
   );
 
   useEffect(() => {
@@ -41,21 +57,17 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
     return () => clearInterval(t);
   }, [isClient, count, paginate]);
 
-  const slideTransition = reduceMotion
+  const fadeTransition = reduceMotion
     ? { duration: 0.15 }
-    : { type: "tween" as const, ease: "easeInOut" as const, duration: 0.38 };
+    : { duration: CROSSFADE_MS, ease: "easeInOut" as const };
 
-  const slideVariants = reduceMotion
-    ? {
-        enter: { opacity: 0 },
-        center: { opacity: 1 },
-        exit: { opacity: 0 },
-      }
-    : {
-        enter: (dir: number) => ({ x: dir > 0 ? 28 : -28, opacity: 0 }),
-        center: { x: 0, opacity: 1 },
-        exit: (dir: number) => ({ x: dir < 0 ? 28 : -28, opacity: 0 }),
-      };
+  const fadeVariants = {
+    enter: { opacity: 0 },
+    center: { opacity: 1 },
+    exit: { opacity: 0 },
+  };
+
+  const headerSrc = headerLogoUrl?.trim() || null;
 
   return (
     <aside
@@ -63,73 +75,59 @@ export function SponsorCarousel({ sponsors }: { sponsors: SponsorCarouselItem[] 
       aria-label="Socio patrocinador"
     >
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-black">
-        <p className="pointer-events-none shrink-0 border-b border-white/10 py-2.5 text-center text-[9px] font-black uppercase tracking-[0.22em] text-white/80">
+        {headerSrc ? (
+          <div className="flex shrink-0 justify-center border-b border-white/10 px-3 pt-3 pb-2">
+            <img
+              src={headerSrc}
+              alt={headerLogoAlt}
+              className={SPONSOR_CAROUSEL_HEADER_LOGO_CLASS}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        ) : null}
+
+        <p className="pointer-events-none shrink-0 border-b border-white/10 py-2 text-center text-[9px] font-black uppercase tracking-[0.22em] text-white/80">
           Socio patrocinador
         </p>
 
-        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4 pb-3 pt-3">
+        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-3 pt-2">
           {current ? (
             <>
-              {isClient ? (
-                <AnimatePresence initial={false} custom={direction} mode="sync">
-                  <motion.div
-                    key={current.id}
-                    custom={direction}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={slideTransition}
-                    className="flex w-full max-w-[168px] flex-col items-center"
-                  >
-                    <SponsorSlideBody sponsor={current} />
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <div className="flex w-full max-w-[168px] flex-col items-center">
-                  <SponsorSlideBody sponsor={current} />
-                </div>
-              )}
+              <div className="relative flex w-full max-w-[168px] flex-1 flex-col items-center justify-center">
+                <div
+                  className="pointer-events-none absolute inset-y-4 left-0 z-10 w-6 bg-linear-to-r from-black via-black/80 to-transparent sm:w-8"
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute inset-y-4 right-0 z-10 w-6 bg-linear-to-l from-black via-black/80 to-transparent sm:w-8"
+                  aria-hidden
+                />
 
-              {count > 1 && (
-                <div className="mt-2 flex w-full shrink-0 items-center justify-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => paginate(-1)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-zinc-900 text-zinc-300 shadow-sm transition hover:border-[#005CEE]/50 hover:bg-zinc-800 hover:text-[#005CEE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE]"
-                    aria-label="Patrocinador anterior"
-                  >
-                    <ChevronLeft className="h-4 w-4" aria-hidden />
-                  </button>
-                  <div className="flex gap-1.5" role="tablist" aria-label="Seleccionar patrocinador">
-                    {sponsors.map((s, i) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={i === index}
-                        onClick={() => {
-                          setDirection(i > index ? 1 : -1);
-                          setIndex(i);
-                        }}
-                        className="h-2 w-2 rounded-full transition"
-                        style={{
-                          backgroundColor: i === index ? ACCENT : "rgba(255,255,255,0.25)",
-                        }}
-                        aria-label={`Ver ${s.name}`}
-                      />
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => paginate(1)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-zinc-900 text-zinc-300 shadow-sm transition hover:border-[#005CEE]/50 hover:bg-zinc-800 hover:text-[#005CEE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#005CEE]"
-                    aria-label="Patrocinador siguiente"
-                  >
-                    <ChevronRight className="h-4 w-4" aria-hidden />
-                  </button>
+                <div className="relative z-20 flex h-24 w-full items-center justify-center">
+                  {isClient ? (
+                    <AnimatePresence initial={false} custom={direction} mode="wait">
+                      <motion.div
+                        key={currentSlideKey!}
+                        custom={direction}
+                        variants={fadeVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={fadeTransition}
+                        className="absolute inset-0 flex items-center justify-center px-2"
+                      >
+                        <SponsorSlideBody sponsor={current} />
+                      </motion.div>
+                    </AnimatePresence>
+                  ) : (
+                    <div className="flex w-full items-center justify-center">
+                      <SponsorSlideBody sponsor={current} />
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </>
           ) : (
             <div className="flex max-w-[168px] flex-col items-center text-center">
@@ -172,9 +170,7 @@ function SponsorSlideBody({ sponsor }: { sponsor: SponsorCarouselItem }) {
 function SponsorLogoBlock({ name, logoUrl }: { name: string; logoUrl: string }) {
   return (
     <>
-      <div className="flex h-22 w-full items-center justify-center">
-        <SponsorLogoImage name={name} logoUrl={logoUrl} variant="carousel" />
-      </div>
+      <SponsorCarouselLogo name={name} logoUrl={logoUrl} />
       <span className="mt-2 line-clamp-2 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-white/85">
         {name}
       </span>

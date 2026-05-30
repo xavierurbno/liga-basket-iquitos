@@ -1,9 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { settingsRepository } from "@/repositories/settingsRepository";
+import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { revalidatePath } from "next/cache";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
@@ -66,7 +65,6 @@ const leagueSettingsSchema = z.object({
 });
 
 async function uploadLeagueCarnetAsset(
-  supabase: ReturnType<typeof createServerClient>,
   leagueId: string,
   file: File,
   assetName: string,
@@ -75,6 +73,7 @@ async function uploadLeagueCarnetAsset(
   const safeExt = ["png", "jpg", "jpeg", "webp"].includes(fileExt) ? fileExt : "png";
   const storagePath = `leagues/${leagueId}/carnet/${assetName}.${safeExt}`;
   const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+  const supabase = getSupabaseAdmin();
 
   const { error: uploadError } = await supabase.storage
     .from(bucketName)
@@ -111,18 +110,6 @@ export const updateLeagueSettingsAction = withAuth(
     context: AuthContext
   ): Promise<SettingsActionState> => {
     
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
-
     // 1. Preparar datos
     const leagueId = (formData.get("leagueId") as string) || context.leagueId;
     const loginLogoFile = formData.get("loginLogo") as File | null;
@@ -181,31 +168,32 @@ export const updateLeagueSettingsAction = withAuth(
         return { success: false, message: "Acceso denegado." };
       }
 
-      // 4. Procesar Logo de Marca Blanca
+      // 4. Assets de marca / carnet (Storage con service role; auth ya validada en withAuth)
+      const storageClient = getSupabaseAdmin();
+      const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+
       if (loginLogoFile && loginLogoFile.size > 0) {
         const fileExt = loginLogoFile.name.split(".").pop() || "png";
-        const fileName = `${vLeagueId}/white-label-login.${fileExt}`;
-        const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+        const storagePath = `leagues/${vLeagueId}/white-label-login.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await storageClient.storage
           .from(bucketName)
-          .upload(`leagues/${fileName}`, loginLogoFile, {
+          .upload(storagePath, loginLogoFile, {
             upsert: true,
             contentType: loginLogoFile.type,
           });
 
         if (uploadError) throw new Error(`Error subiendo logo: ${uploadError.message}`);
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = storageClient.storage
           .from(bucketName)
-          .getPublicUrl(`leagues/${fileName}`);
+          .getPublicUrl(storagePath);
 
         data.loginLogoUrl = publicUrl;
       }
 
       if (carnetFederationLogoFile && carnetFederationLogoFile.size > 0) {
         data.carnetFederationLogoUrl = await uploadLeagueCarnetAsset(
-          supabase,
           vLeagueId,
           carnetFederationLogoFile,
           "federation-logo",
@@ -214,7 +202,6 @@ export const updateLeagueSettingsAction = withAuth(
 
       if (carnetSportGraphicFile && carnetSportGraphicFile.size > 0) {
         data.carnetSportGraphicUrl = await uploadLeagueCarnetAsset(
-          supabase,
           vLeagueId,
           carnetSportGraphicFile,
           "sport-graphic",
@@ -223,7 +210,6 @@ export const updateLeagueSettingsAction = withAuth(
 
       if (presidentSignatureFile && presidentSignatureFile.size > 0) {
         data.presidentSignatureUrl = await uploadLeagueCarnetAsset(
-          supabase,
           vLeagueId,
           presidentSignatureFile,
           "president-signature",
@@ -232,7 +218,6 @@ export const updateLeagueSettingsAction = withAuth(
 
       if (secretarySignatureFile && secretarySignatureFile.size > 0) {
         data.secretarySignatureUrl = await uploadLeagueCarnetAsset(
-          supabase,
           vLeagueId,
           secretarySignatureFile,
           "secretary-signature",

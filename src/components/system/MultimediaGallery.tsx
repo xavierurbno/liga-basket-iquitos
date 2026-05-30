@@ -3,6 +3,7 @@ import { GalleryCarousel } from "@/components/gallery/GalleryCarousel";
 import { SponsorCarousel } from "@/components/sponsors/SponsorCarousel";
 import { PublicNormativasHomeWidget } from "@/components/normativas/PublicNormativasHomeWidget";
 import type { SponsorCarouselItem } from "@/components/sponsors/SponsorCarousel";
+import { reactListKey } from "@/lib/react/listKey";
 
 interface GalleryImage {
   id?: string;
@@ -24,13 +25,21 @@ const align = "px-4 sm:px-6 lg:px-8";
 export function FebRightColumn({
   sponsors,
   leagueSlug,
+  headerLogoUrl,
+  headerLogoAlt,
 }: {
   sponsors: SponsorCarouselItem[];
   leagueSlug?: string;
+  headerLogoUrl?: string | null;
+  headerLogoAlt?: string;
 }) {
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:col-span-1 lg:min-h-0">
-      <SponsorCarousel sponsors={sponsors} />
+      <SponsorCarousel
+        sponsors={sponsors}
+        headerLogoUrl={headerLogoUrl}
+        headerLogoAlt={headerLogoAlt}
+      />
       <PublicNormativasHomeWidget leagueSlug={leagueSlug} />
     </div>
   );
@@ -71,8 +80,8 @@ export function MultimediaGallery({
     );
   }
 
-  const carouselPhotos = images.slice(0, 8).map((img) => ({
-    id: img.id ?? img.url,
+  const carouselPhotos = images.slice(0, 8).map((img, idx) => ({
+    id: reactListKey(img.id, idx, "carousel", img.url),
     url: img.url,
     caption: img.caption,
   }));

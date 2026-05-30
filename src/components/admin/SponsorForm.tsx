@@ -175,7 +175,8 @@ export function SponsorForm({ leagues, sponsor, onSuccess }: SponsorFormProps) {
           Logo {!sponsor && <span className="text-red-500">*</span>}
         </label>
         <p className="text-[11px] leading-snug text-slate-500 ml-1">
-          Portal y pie estilo FEB (fondo negro): PNG <strong>blanco</strong> con fondo transparente.
+          Pie del portal (fondo negro): PNG <strong>blanco</strong> transparente. Carrusel: puede ser a
+          color o blanco; exporta horizontal o vertical con buen margen (sin rotar en Inkscape).
         </p>
 
         {logoPreview ? (
