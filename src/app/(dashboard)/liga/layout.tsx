@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { LigaOperationalNav } from "@/components/nav/LigaOperationalNav";
-import { MasterClockCounter } from "@/components/system/MasterClockCounter";
+import { OperationalAppHeader } from "@/components/layout/OperationalAppHeader";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { hasIntranetAccess, intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
 import type { Role } from "@/lib/auth/withAuth";
@@ -32,7 +31,7 @@ export default async function SystemLayout({
 
   const appRole = user.app_metadata?.role as Role | undefined;
   const intranetNavLabel = hasIntranetAccess(appRole) ? intranetPortalNavLabel(appRole) : null;
-  const opCtx = await getLigaOperationalContext();
+  await getLigaOperationalContext();
 
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
@@ -46,22 +45,10 @@ export default async function SystemLayout({
           className="pointer-events-none absolute inset-0 bg-radial-[circle_at_bottom_left] from-blue-200/50 to-transparent to-45%"
         />
       </div>
-      <header className="sticky top-0 z-20 border-b border-[#BFDBFE] bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-end gap-3 text-xs text-slate-500">
-            <MasterClockCounter />
-          </div>
-          <LigaOperationalNav
-            userEmail={user.email ?? null}
-            intranetNavLabel={intranetNavLabel}
-            role={opCtx.role}
-            leagues={opCtx.leagues.map((l) => ({ id: l.id, name: l.name }))}
-            activeLeagueId={opCtx.leagueId}
-            activeLeagueName={opCtx.leagueName}
-            activeLeagueSlug={opCtx.activeLeagueSlug}
-          />
-        </div>
-      </header>
+      <OperationalAppHeader
+        userEmail={user.email ?? null}
+        intranetNavLabel={intranetNavLabel}
+      />
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-10">{children}</main>
     </div>
   );

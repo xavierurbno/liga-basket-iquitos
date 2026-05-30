@@ -28,16 +28,7 @@ export default async function LeaguesAdminPage() {
 
   return (
     <div className="space-y-10 pb-20">
-      <header className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tighter text-slate-900 sm:text-5xl">
-            Control de <span className="italic text-blue-600">Ligas</span>
-          </h1>
-          <p className="max-w-2xl font-semibold leading-snug text-slate-500">
-            Crea ligas con el asistente, abre la ficha de cada una y copia el enlace público.
-          </p>
-        </div>
-
+      <header className="flex flex-col items-end gap-4 sm:flex-row sm:justify-end">
         <div className="flex flex-col items-center gap-4 sm:flex-row">
           <div className="flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />

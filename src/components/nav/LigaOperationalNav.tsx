@@ -12,11 +12,16 @@ const navBtn =
 const navBtnActive =
   "inline-flex items-center justify-center rounded-xl border border-[#005CEE] bg-[#005CEE] px-3 py-2 text-xs font-bold tracking-wide text-white shadow-[0_10px_20px_-10px_rgba(0,92,238,0.7)]";
 
-function isLigaOperativoPath(pathname: string) {
-  return pathname === "/liga" || pathname === "/liga/" || pathname.startsWith("/liga/");
+function isPanelGestionPrimary(pathname: string) {
+  return (
+    pathname === "/liga" ||
+    pathname === "/liga/" ||
+    pathname.startsWith("/liga/") ||
+    pathname.startsWith("/super-admin")
+  );
 }
 
-/** Barra global de `/liga/*`: logo, panel operativo y cuenta. */
+/** Barra global de `/liga/*` y módulos de plataforma: logo, panel operativo y cuenta. */
 export function LigaOperationalNav({
   userEmail,
   intranetNavLabel,
@@ -41,7 +46,7 @@ export function LigaOperationalNav({
         {intranetNavLabel ? (
           <Link
             href="/liga/"
-            className={isLigaOperativoPath(pathname) ? navBtnActive : navBtn}
+            className={isPanelGestionPrimary(pathname) ? navBtnActive : navBtn}
             title="Panel operativo — gestión de la liga"
           >
             <ShieldCheck className="mr-1.5 inline h-3.5 w-3.5 shrink-0" aria-hidden />
