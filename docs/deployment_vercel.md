@@ -30,7 +30,7 @@ Copia desde `.env.example` y rellena en **Project Settings → Environment Varia
 - `SYSTEM_OWNER_EMAILS` — correos con permiso para crear clubes (comas)
 - Buckets: `NEXT_PUBLIC_BUCKET_ASSETS`, `NEXT_PUBLIC_BUCKET_PLAYERS`, `NEXT_PUBLIC_BUCKET_GALLERY`, `NEXT_PUBLIC_BUCKET_RECEIPTS`
 
-Verificación: `npm run env:phase3:verify` — detalle en `docs/phase3_environment.md`.
+Verificación: `npm run env:verify` — detalle en `docs/phase3_environment.md` y `docs/environments-dev-prod.md`.
 
 ### Supabase Edge Functions (no en Vercel)
 

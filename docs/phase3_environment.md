@@ -1,7 +1,10 @@
 # Fase 3 — Variables de entorno y Auth (Vercel + Supabase)
 
-Proyecto Supabase: `jfgnwtkmqayzhlwfxidz`  
-Dashboard Auth: https://supabase.com/dashboard/project/jfgnwtkmqayzhlwfxidz/auth/url-configuration
+> **Dos proyectos Supabase:** ver `docs/environments-dev-prod.md`  
+> DEV `txmnlszmumayyrisqeby` · PROD `jfgnwtkmqayzhlwfxidz`
+
+Proyecto Supabase PROD: `jfgnwtkmqayzhlwfxidz`  
+Dashboard Auth PROD: https://supabase.com/dashboard/project/jfgnwtkmqayzhlwfxidz/auth/url-configuration
 
 ## 1. Vercel — comprobar / añadir
 

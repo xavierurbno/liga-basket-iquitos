@@ -1,0 +1,37 @@
+/**
+ * Orden de migraciones SQL para bootstrap de BD vacía (DEV).
+ * Idempotentes cuando el SQL lo permite; errores duplicate_* se ignoran en apply-all.
+ */
+export const MIGRATION_SQL_ORDER = [
+  "supabase/migrations/0001_shocking_enchantress.sql",
+  "supabase/migrations/0002_fts.sql",
+  "supabase/migrations/0003_gigantic_cerise.sql",
+  "supabase/migrations/0004_woozy_demogoblin.sql",
+  "supabase/migrations/0005_ambitious_proemial_gods.sql",
+  "supabase/migrations/0006_purple_stephen_strange.sql",
+  "supabase/migrations/0006_league_settings_fix.sql",
+  "supabase/migrations/0007_leagues_performance_idx.sql",
+  "supabase/migrations/0008_create_sponsors_table.sql",
+  "supabase/migrations/0009_clubs_authenticated_select_rls.sql",
+  "supabase/migrations/0010_normativa_documents.sql",
+  "supabase/migrations/0011_normativas_table.sql",
+  "supabase/migrations/0012_treasury_operation_code.sql",
+  "supabase/migrations/0001_add_transactions_tesoreria.sql",
+  "supabase/migrations/002_club_members_rls.sql",
+  "supabase/migrations/003_the_lock_league_settings.sql",
+  "supabase/migrations/0013_tournaments_module.sql",
+  "supabase/migrations/0014_tournament_format_groups.sql",
+  "supabase/migrations/0015_tournament_groups_playoffs.sql",
+  "supabase/migrations/0016_tournament_phase_d.sql",
+  "supabase/migrations/0017_rls_operational_league.sql",
+  "supabase/migrations/0018_gallery_photos_league_backfill.sql",
+  "supabase/migrations/0019_league_portal_branding_colors.sql",
+  "supabase/migrations/0020_normativas_and_docs_per_league.sql",
+  "supabase/migrations/0021_league_carnet_settings.sql",
+  "supabase/migrations/0022_carnet_theme_preset.sql",
+  "supabase/migrations/0023_activate_lddbi_carnet_iquitos.sql",
+  "supabase/migrations/0024_example_bar_sport_other_leagues.sql",
+  "supabase/migrations/0025_league_delete_cascade_fkeys.sql",
+  "supabase/migrations/0026_carnet_lddbi_template_preset.sql",
+  "supabase/migrations/0027_activate_lddbi_template_png.sql",
+];

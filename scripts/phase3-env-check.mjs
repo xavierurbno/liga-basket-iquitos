@@ -14,6 +14,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const strict = process.argv.includes("--strict");
 
+/** @param {string} url */
+function refFromSupabaseUrl(url) {
+  if (!url?.trim()) return "";
+  const match = url.trim().match(/https:\/\/([a-z0-9]+)\.supabase\.co/i);
+  return match?.[1]?.toLowerCase() ?? "";
+}
+
+const PROD_REFS = new Set(["jfgnwtkmqayzhlwfxidz"]);
+const DEV_REFS = new Set(["txmnlszmumayyrisqeby"]);
+
 function loadEnvFile(filename) {
   const path = join(root, filename);
   if (!existsSync(path)) return;
@@ -51,10 +61,14 @@ const REQUIRED = [
 ];
 
 const RECOMMENDED = [
+  "APP_ENV",
+  "SUPABASE_PROJECT_REF",
   "DATABASE_POOL_MAX",
+  "DATABASE_URL_DIRECT",
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_APP_URL",
   "SYSTEM_OWNER_EMAILS",
+  "VALIDATION_TOKEN_SECRET",
 ];
 
 const OPTIONAL = [
@@ -105,6 +119,32 @@ if (supabaseUrl) {
   if (!supabaseUrl.includes("supabase.co")) {
     warnings.push("NEXT_PUBLIC_SUPABASE_URL no parece un host Supabase.");
   }
+}
+
+const urlRef = refFromSupabaseUrl(supabaseUrl ?? "");
+const envRef = process.env.SUPABASE_PROJECT_REF?.trim().toLowerCase() ?? "";
+const appEnv = process.env.APP_ENV?.trim() || "development";
+
+if (urlRef) {
+  console.log(`  → Supabase ref (URL): ${urlRef}`);
+}
+if (envRef) {
+  console.log(`  → SUPABASE_PROJECT_REF: ${envRef}`);
+  if (urlRef && envRef !== urlRef) {
+    errors.push(
+      `SUPABASE_PROJECT_REF (${envRef}) no coincide con NEXT_PUBLIC_SUPABASE_URL (${urlRef}).`,
+    );
+  }
+}
+
+if (appEnv === "development" && urlRef && PROD_REFS.has(urlRef)) {
+  errors.push(
+    "APP_ENV=development pero NEXT_PUBLIC_SUPABASE_URL apunta a PRODUCCIÓN (jfgnwtkmqayzhlwfxidz). Usa DEV (txmnlszmumayyrisqeby) en .env.local.",
+  );
+}
+
+if (appEnv === "development" && urlRef && DEV_REFS.has(urlRef)) {
+  console.log("  → Entorno local apunta a Supabase DEV ✓");
 }
 
 const dbUrl = process.env.DATABASE_URL?.trim() ?? "";
