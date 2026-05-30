@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { extractClubIdFromActionArgs } from "./extract-club-id-from-args.ts";
+import { extractClubIdFromActionArgs } from "./extract-club-id-from-args";
 
 describe("extract-club-id-from-args", () => {
   it("extrae clubId de FormData", () => {

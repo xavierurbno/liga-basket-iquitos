@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { logSecurityEvent } from "./security-log.ts";
+import { logSecurityEvent } from "./security-log";
 
 describe("security-log", () => {
   it("no lanza al registrar evento estructurado", () => {

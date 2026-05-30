@@ -4,7 +4,7 @@ import {
   buildSafeOAuthCallbackUrl,
   isAllowedOAuthRedirectUrl,
   isLocalDevHost,
-} from "./oauth-redirect.ts";
+} from "./oauth-redirect";
 
 describe("oauth-redirect", () => {
   const prev: Record<string, string | undefined> = {};

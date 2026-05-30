@@ -1,4 +1,4 @@
-import { logSecurityEvent } from "../observability/security-log.ts";
+import { logSecurityEvent } from "../observability/security-log";
 import { clubRepository } from "@/repositories/clubRepository";
 import { AUTH_ERRORS } from "@/lib/auth/auth-errors";
 import { checkDelegateClubScope } from "@/lib/auth/delegate-club-scope";

@@ -4,7 +4,7 @@ import {
   checkRateLimit,
   resetRateLimitStoreForTests,
   RATE_LIMITS,
-} from "./rate-limit.ts";
+} from "./rate-limit";
 
 describe("rate-limit", () => {
   beforeEach(() => {

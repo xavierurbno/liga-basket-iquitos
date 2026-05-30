@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { AUTH_ERRORS } from "./auth-errors.ts";
-import { checkDelegateClubScope } from "./delegate-club-scope.ts";
-import type { AuthContext } from "./withAuth.ts";
+import { AUTH_ERRORS } from "./auth-errors";
+import { checkDelegateClubScope } from "./delegate-club-scope";
+import type { AuthContext } from "./withAuth";
 
 const CLUB_A = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const CLUB_B = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";

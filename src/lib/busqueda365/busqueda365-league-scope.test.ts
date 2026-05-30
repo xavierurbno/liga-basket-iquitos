@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isValidUuid } from "../db/public-read-guards.ts";
-import { busqueda365CategoriesCacheTag } from "./busqueda365-cache.ts";
+import { isValidUuid } from "../db/public-read-guards";
+import { busqueda365CategoriesCacheTag } from "./busqueda365-cache";
 
 const LEAGUE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 

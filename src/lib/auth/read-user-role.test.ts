@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readUserRole, canUploadNormativaDoc } from "./read-user-role.ts";
+import { readUserRole, canUploadNormativaDoc } from "./read-user-role";
 
 describe("read-user-role", () => {
   it("lee rol solo desde app_metadata", () => {

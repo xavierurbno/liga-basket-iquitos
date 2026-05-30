@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { resolveLegacyRouteRedirectFromPath } from "./legacy-route-redirects.ts";
+import { resolveLegacyRouteRedirectFromPath } from "./legacy-route-redirects";
 
 describe("legacy-route-redirects", () => {
   it("redirige /liga/clubes a /liga/clubs", () => {

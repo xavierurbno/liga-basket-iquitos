@@ -1,7 +1,7 @@
-import { logSecurityEvent } from "../observability/security-log.ts";
-import { AUTH_ERRORS } from "./auth-errors.ts";
-import { extractClubIdFromActionArgs } from "./extract-club-id-from-args.ts";
-import type { AuthContext } from "./withAuth.ts";
+import { logSecurityEvent } from "../observability/security-log";
+import { AUTH_ERRORS } from "./auth-errors";
+import { extractClubIdFromActionArgs } from "./extract-club-id-from-args";
+import type { AuthContext } from "./withAuth";
 
 /** Aislamiento de delegado por club (sin I/O). */
 export function checkDelegateClubScope(

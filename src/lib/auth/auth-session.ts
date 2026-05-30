@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { AUTH_ERRORS } from "@/lib/auth/auth-errors";
-import { logSecurityEvent } from "../observability/security-log.ts";
+import { logSecurityEvent } from "../observability/security-log";
 import { evaluateActionTenantScope } from "@/lib/auth/assert-action-scope";
 import { readUserRole } from "@/lib/auth/read-user-role";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";

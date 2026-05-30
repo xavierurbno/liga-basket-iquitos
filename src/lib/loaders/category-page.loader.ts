@@ -7,7 +7,7 @@ export async function loadCategoryDetailPage(clubId: string, categoryId: string)
   if (!club) return null;
 
   const category = await categoryRepository.findByIdAndClub(categoryId, clubId);
-  if (!category) return { club, category: null as const, listaJugadores: [] };
+  if (!category) return { club, category: null, listaJugadores: [] };
 
   const listaJugadores = await playerRepository.findRosterByCategory(clubId, categoryId);
   return { club, category, listaJugadores };
@@ -18,7 +18,7 @@ export async function loadFichaCategoryPage(clubId: string, categoryId: string) 
   if (!club) return null;
 
   const category = await categoryRepository.findFichaStaffByIdAndClub(categoryId, clubId);
-  if (!category) return { club, category: null as const, listaJugadores: [] };
+  if (!category) return { club, category: null, listaJugadores: [] };
 
   const listaJugadores = await playerRepository.findForFichaByCategory(clubId, categoryId);
   return { club, category, listaJugadores };
@@ -28,7 +28,7 @@ export async function loadNewPlayerPage(clubId: string, categoryId: string) {
   const club = await clubRepository.findNameById(clubId);
   if (!club) return null;
   const category = await categoryRepository.findNameByIdAndClub(categoryId, clubId);
-  if (!category) return { club, category: null as const };
+  if (!category) return { club, category: null };
   return { club, category };
 }
 
@@ -41,7 +41,7 @@ export async function loadCarnetPage(
   if (!club) return null;
 
   const category = await categoryRepository.findNameByIdAndClub(categoryId, clubId);
-  if (!category) return { club, category: null as const, jugador: null as const };
+  if (!category) return { club, category: null, jugador: null };
 
   const jugador = await playerRepository.findForCarnet(playerId, clubId, categoryId);
   return { club, category, jugador };

@@ -4,7 +4,7 @@ import {
   buildLeagueSocialLinks,
   normalizeSocialNetworkUrl,
   normalizeWhatsappUrl,
-} from "./league-social-links.ts";
+} from "./league-social-links";
 
 describe("league-social-links", () => {
   it("normaliza WhatsApp desde número peruano", () => {

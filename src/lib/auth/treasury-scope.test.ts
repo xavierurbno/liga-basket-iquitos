@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { assertClubScopeForRead } from "./treasury-scope.ts";
+import { assertClubScopeForRead } from "./treasury-scope";
 
 describe("assertClubScopeForRead", () => {
   it("readonly no puede leer club fuera de su lista", () => {

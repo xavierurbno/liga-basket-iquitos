@@ -5,7 +5,7 @@ import {
   sumSideQuarters,
   validateQuarterScores,
   formatQuarterLine,
-} from "./score-quarters.ts";
+} from "./score-quarters";
 
 describe("score-quarters", () => {
   it("suma cuartos y tiempo extra", () => {

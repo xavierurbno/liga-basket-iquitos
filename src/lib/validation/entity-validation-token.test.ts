@@ -4,7 +4,7 @@ import {
   createEntityValidationToken,
   isLegacyValidationUuid,
   verifyEntityValidationToken,
-} from "./entity-validation-token.ts";
+} from "./entity-validation-token";
 
 const PLAYER_ID = "a1b2c3d4-e5f6-4789-a012-3456789abcde";
 

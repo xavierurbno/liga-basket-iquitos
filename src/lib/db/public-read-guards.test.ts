@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isValidUuid, sanitizeTsQueryInput } from "./public-read-guards.ts";
+import { isValidUuid, sanitizeTsQueryInput } from "./public-read-guards";
 
 describe("public-read-guards", () => {
   it("valida UUID v4", () => {

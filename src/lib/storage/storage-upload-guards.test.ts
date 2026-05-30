@@ -4,7 +4,7 @@ import {
   buildGalleryStoragePath,
   isStorageUuidSegment,
   validateGalleryUploadFile,
-} from "./storage-upload-guards.ts";
+} from "./storage-upload-guards";
 
 describe("storage-upload-guards", () => {
   it("rechaza MIME no permitido", () => {

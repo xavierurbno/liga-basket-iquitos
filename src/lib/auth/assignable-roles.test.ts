@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { assertActorMayAssignRole } from "./assignable-roles.ts";
+import { assertActorMayAssignRole } from "./assignable-roles";
 
 describe("assignable-roles", () => {
   it("bloquea SUPER_ADMIN para no super admins", () => {

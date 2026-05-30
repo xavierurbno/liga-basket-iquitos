@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { leaguePortalTournament } from "../portal/league-portal-paths.ts";
-import { ACTIVE_LEAGUE_SLUG_COOKIE } from "../portal/active-league-cookie.ts";
+import { leaguePortalTournament } from "../portal/league-portal-paths";
+import { ACTIVE_LEAGUE_SLUG_COOKIE } from "../portal/active-league-cookie";
 
 export type LegacyRedirect = {
   pathname: string;
