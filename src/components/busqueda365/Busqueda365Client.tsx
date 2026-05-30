@@ -36,9 +36,12 @@ type ModalPlayer = {
 
 export function Busqueda365Client({
   leagueId,
+  leagueDisplayName,
   showQuickStatusEdit = false,
 }: {
   leagueId: string;
+  /** Nombre de la liga para mensajes (multi-liga; evita copy «global»). */
+  leagueDisplayName?: string;
   showQuickStatusEdit?: boolean;
 }) {
   const [categorias, setCategorias] = useState<Busqueda365CategoriaOpcion[]>([]);
@@ -175,7 +178,9 @@ export function Busqueda365Client({
               {cargandoCategorias
                 ? "Cargando categorías…"
                 : categorias.length === 0
-                  ? "No hay categorías registradas"
+                  ? leagueDisplayName
+                    ? `Sin categorías en ${leagueDisplayName}`
+                    : "No hay categorías en esta liga"
                   : "Selecciona una categoría…"}
             </option>
             {categorias.map((c) => (

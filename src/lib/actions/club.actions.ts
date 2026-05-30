@@ -6,7 +6,7 @@ import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import { clubRepository } from "@/repositories/clubRepository";
 import { updateClubService } from "@/services/clubService";
 import type { ActionResult } from "@/lib/types/league";
-import { createClubAsSystemAction } from "@/lib/actions/system-dashboard";
+import { createClubAsSystemAction } from "@/lib/actions/clubs.actions";
 
 export { createClubAsSystemAction };
 

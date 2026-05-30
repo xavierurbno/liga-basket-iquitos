@@ -20,6 +20,7 @@ import {
   ACTIVE_LEAGUE_SLUG_COOKIE,
   activeLeagueSlugCookieOptions,
 } from "@/lib/portal/active-league-cookie";
+import { resolveLegacyRouteRedirect } from "@/lib/routing/legacy-route-redirects";
 
 /** Alineado con `trailingSlash: true` en next.config: comparar rutas sin barra final redundante. */
 function pathnameWithoutTrailingSlash(path: string): string {
@@ -140,22 +141,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
-  if (
-    pathnameCanon === "/liga/busqueda-365" ||
-    pathname.startsWith("/liga/busqueda-365/")
-  ) {
+  const legacyRedirect = resolveLegacyRouteRedirect(request);
+  if (legacyRedirect) {
     const url = request.nextUrl.clone();
-    const slugFromCookie = request.cookies.get(ACTIVE_LEAGUE_SLUG_COOKIE)?.value?.trim();
-    url.pathname = slugFromCookie
-      ? `/l/${slugFromCookie}/busqueda-365/`
-      : "/busqueda-365/";
-    return NextResponse.redirect(url);
-  }
-
-  if (pathnameCanon === "/dashboard/normativas" || pathname.startsWith("/dashboard/normativas/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/normativas/";
-    return NextResponse.redirect(url);
+    url.pathname = legacyRedirect.pathname;
+    return NextResponse.redirect(url, legacyRedirect.permanent ? 308 : 307);
   }
 
   const cookieHandlers = createSupabaseCookieHandlers(request, () =>

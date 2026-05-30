@@ -73,6 +73,7 @@ export default async function LeagueBusqueda365Page({ params }: PageProps) {
           </div>
           <Busqueda365Client
             leagueId={league.id}
+            leagueDisplayName={league.name}
             showQuickStatusEdit={showQuickStatusEdit}
           />
         </div>
