@@ -1,5 +1,6 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
+import { VALOR_LINE_HEIGHT_FACTOR } from "@/lib/carnet/lddbiTemplateAnversoLayout";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
 import { LDDBI_FONT, LDDBI_HEADER_MM } from "@/lib/carnet/lddbiPremiumTheme";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
@@ -13,7 +14,8 @@ const GOLD: [number, number, number] = [201, 162, 39];
 /** Dorado reservado al PNG (etiquetas); valores del sistema van en blanco. */
 export const LDDBI_TEMPLATE_GOLD_RGB: [number, number, number] = [212, 175, 55];
 export const LDDBI_TEMPLATE_WHITE_RGB: [number, number, number] = [255, 255, 255];
-export const LDDBI_TEMPLATE_VALOR_FONT_PT = 5.6;
+/** Alineado con `LDDBI_TEMPLATE.anverso.valorFontPt` (valores sueltos sin línea de etiqueta). */
+export const LDDBI_TEMPLATE_VALOR_FONT_PT = LDDBI_TEMPLATE.anverso.valorFontPt;
 
 export type LddbiTemplateValorStyle = "gold-bold" | "white";
 
@@ -97,8 +99,8 @@ export function drawLddbiTemplateValor(
 }
 
 /**
- * Maquetación en 3 columnas: etiqueta (10pt bold dorado) | «:» | valor (11pt bold blanco).
- * Helvetica no expone semibold/medium; el peso real es bold con jerarquía por tamaño/color.
+ * Maquetación en 3 columnas: etiqueta (7.5pt dorado) | «:» | valor (8.5pt blanco).
+ * Calibrado para CR80 / Zebra ZC300 @ 300 DPI.
  */
 export function drawLddbiTemplateCampoLinea(
   doc: JsPDFDoc,
@@ -110,7 +112,7 @@ export function drawLddbiTemplateCampoLinea(
   y: number,
   valorMaxW: number,
   valorFontPt = LDDBI_TEMPLATE.anverso.valorFontPt,
-) {
+): number {
   const A = LDDBI_TEMPLATE.anverso;
   const colonCx = colonX + A.colonCharBoxMm / 2;
 
@@ -123,9 +125,11 @@ export function drawLddbiTemplateCampoLinea(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(valorFontPt);
   doc.setTextColor(255, 255, 255);
+  doc.setLineHeightFactor(VALOR_LINE_HEIGHT_FACTOR);
   const lines = doc.splitTextToSize((valor || "—").toUpperCase(), valorMaxW);
   doc.text(lines, valorX, y);
   doc.setTextColor(0);
+  return Array.isArray(lines) ? Math.max(1, lines.length) : 1;
 }
 
 /** Etiqueta y valor en blanco negrita (fila CARNET NÚMERO). */

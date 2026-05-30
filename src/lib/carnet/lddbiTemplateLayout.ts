@@ -1,3 +1,7 @@
+import {
+  createLddbiTemplateMeasureDoc,
+  layoutLddbiTemplateAnversoCampos,
+} from "@/lib/carnet/lddbiTemplateAnversoLayout";
 import { CARNET_ALTO_MM, CARNET_ANCHO_MM, CARNET_MARGEN_MM } from "@/lib/pdf/carnetLayout";
 import { LDDBI_HEADER_MM, LDDBI_HEADER_LOGO_MM } from "@/lib/carnet/lddbiPremiumTheme";
 
@@ -29,12 +33,12 @@ const LDDBI_TEMPLATE_DATOS_FOTO_GAP_MM = 3.2;
 /**
  * Columna 1: ancho fijo para la etiqueta más larga del set actual.
  * Set: «APELLIDO P.», «APELLIDO M.», «NOMBRES», «F. DE NAC.», «CLUB», «CATEGORÍA».
- * 10pt bold Helvetica · «APELLIDO M.» (11 chars) ≈ 22 mm. Se reserva 23 mm.
+ * 7.5pt bold Helvetica · «APELLIDO M.» (11 chars) ≈ 17 mm. Se reserva 23 mm.
  */
 const LDDBI_TEMPLATE_LABEL_TAB_STOP_MM = 23;
 /** Tab 1: hueco etiqueta → «:» (despega el carácter de la etiqueta). */
 const LDDBI_TEMPLATE_TAB_LABEL_COLON_MM = 2.6;
-/** Casilla del carácter «:» (columna 2, dimensionada para 10pt). */
+/** Casilla del carácter «:» (columna 2, dimensionada para ~7.5–8.5pt). */
 const LDDBI_TEMPLATE_COLON_CHAR_BOX_MM = 1.5;
 /** Tab 2: hueco «:» → valor (margen común de datos). */
 const LDDBI_TEMPLATE_TAB_COLON_VALOR_MM = 2;
@@ -52,9 +56,23 @@ const LDDBI_TEMPLATE_DATOS_VALOR_X_MM =
 const LDDBI_TEMPLATE_REV_QR_SIZE_MM = 10.8;
 const LDDBI_TEMPLATE_REV_QR_X_MM =
   CARNET_ANCHO_MM - CARNET_MARGEN_MM - LDDBI_TEMPLATE_REV_QR_SIZE_MM;
+/** Sube el QR respecto al borde inferior (la vigencia no se mueve). */
+const LDDBI_TEMPLATE_REV_QR_LIFT_MM = 2.5;
 const LDDBI_TEMPLATE_REV_QR_Y_MM =
-  CARNET_ALTO_MM - CARNET_MARGEN_MM - LDDBI_TEMPLATE_REV_QR_SIZE_MM;
-const LDDBI_TEMPLATE_REV_PIE_VIGENCIA_Y_MM = CARNET_ALTO_MM - CARNET_MARGEN_MM - 2;
+  CARNET_ALTO_MM -
+  CARNET_MARGEN_MM -
+  LDDBI_TEMPLATE_REV_QR_SIZE_MM -
+  LDDBI_TEMPLATE_REV_QR_LIFT_MM;
+/** Esquina inferior izquierda: baseline cerca del borde, sin solapar firmas ni QR. */
+const LDDBI_TEMPLATE_REV_PIE_VIGENCIA_Y_MM = CARNET_ALTO_MM - CARNET_MARGEN_MM - 1.2;
+const LDDBI_TEMPLATE_REV_PIE_VIGENCIA_MAX_W_MM =
+  LDDBI_TEMPLATE_REV_QR_X_MM - CARNET_MARGEN_MM - 2.5;
+/** Ancho útil para las dos columnas de firmas (sin invadir el QR). */
+const LDDBI_TEMPLATE_REV_FIRMAS_ZONE_W_MM =
+  LDDBI_TEMPLATE_REV_QR_X_MM - CARNET_MARGEN_MM - 2;
+const LDDBI_TEMPLATE_REV_FIRMAS_GAP_MM = 5;
+const LDDBI_TEMPLATE_REV_FIRMA_COL_W_MM =
+  (LDDBI_TEMPLATE_REV_FIRMAS_ZONE_W_MM - LDDBI_TEMPLATE_REV_FIRMAS_GAP_MM) / 2;
 
 export const LDDBI_TEMPLATE = {
   pageW: CARNET_ANCHO_MM,
@@ -89,21 +107,20 @@ export const LDDBI_TEMPLATE = {
       LDDBI_TEMPLATE_DATOS_VALOR_X_MM -
       LDDBI_TEMPLATE_DATOS_FOTO_GAP_MM,
     /**
-     * 6 filas (apellido P. + M. + 4 más) → step tighter para no invadir la zona
-     * inferior. 5.5 mm da ~2.8 mm de aire interlínea con cap de 11pt bold.
+     * 6 filas (apellido P. + M. + 4 más). 4.8 mm ≈ cap 8.5pt bold + aire (CR80 / Zebra ZC300 @ 300 DPI).
      */
-    rowStepMm: 5.5,
-    /** Tipografía PDF anverso (Helvetica no tiene semibold; bold + tamaño/color). */
-    labelFontPt: 10,
-    valorFontPt: 11,
-    /**
-     * DNI bajo la foto, sin etiqueta. 10pt bold mantiene la jerarquía:
-     * los datos del jugador (11pt) son el hero, el DNI queda en segundo plano.
-     */
-    dniFontPt: 10,
-    labelFontHeightMm: 2.5,
-    valorFontHeightMm: 2.8,
-    previewCapHeightMm: 2.8,
+    rowStepMm: 4.8,
+    /** Aire extra cuando el valor del campo ocupa más de una línea. */
+    rowMultiLinePadMm: 0.4,
+    /** Tipografía anverso — impresión ZC300 (dye-sub); jerarquía por tamaño + dorado/blanco. */
+    labelFontPt: 7.5,
+    valorFontPt: 8.5,
+    /** DNI bajo la foto (solo número en PDF; mín. 8pt para lectura en tarjeta). */
+    dniFontPt: 8,
+    labelFontHeightMm: 2.1,
+    valorFontHeightMm: 2.35,
+    dniFontHeightMm: 2.2,
+    previewCapHeightMm: 2.35,
     /** Marco foto (drawLddbiFotoConMarco): borde accent ~1,1 mm fuera del recuadro blanco. */
     fotoBorderMm: 1.1,
     foto: {
@@ -116,9 +133,9 @@ export const LDDBI_TEMPLATE = {
     /** DNI bajo la foto: solo el número, sin etiqueta. */
     fotoIdentificacion: {
       offsetBelowFotoMm: 2.4,
-      lineGapMm: 2.2,
+      lineGapMm: 2.0,
       /** Distancia del borde inferior de la foto al baseline del DNI. */
-      dniYOffsetMm: 4.8,
+      dniYOffsetMm: 4.4,
     },
   },
   reverso: {
@@ -132,36 +149,42 @@ export const LDDBI_TEMPLATE = {
       size: LDDBI_TEMPLATE_REV_QR_SIZE_MM,
     },
     /**
-     * Cuerpo legal a 8pt con interlineado 1.4 (~4 mm). Ligera reducción vs 9.5pt
-     * para que las 5 líneas no choquen con el bloque de firmas y respiren bien.
+     * Cuerpo legal — 7pt normal (CR80 / ZC300 @ 300 DPI; mín. legible ~7pt).
+     * Interlineado 1.35 ≈ 3.6 mm entre líneas centradas.
      */
     legal: {
       offsetBelowHeaderMm: 3.5,
       y: LDDBI_HEADER_MM + 3.5,
-      /** Casi todo el ancho útil de la tarjeta menos los márgenes. */
       maxW: 81,
-      fontSizePt: 8,
-      /** 8pt × 1.4 ≈ 11.2pt → 4 mm. */
-      lineHeightMm: 4,
+      fontSizePt: 7,
+      lineHeightMm: 3.6,
+      previewFontHeightMm: 2,
     },
     /**
-     * Firmas: cuerpo más pequeño que el legal central para mantener jerarquía
-     * (nombre 75 % del legal · cargo 83 % del nombre). Ancho 30 mm × 2 + gap 4
-     * para no invadir el área del QR derecho.
+     * Dos columnas de firma (ancho auto hasta el QR). Nombre 7pt con salto de línea;
+     * vigencia más pequeña abajo para no competir con los nombres.
      */
     firmas: {
-      y: 36,
-      w: 30,
-      gap: 4,
-      nombreFontPt: 6,
-      cargoFontPt: 5,
-      gapNombreCargoMm: 2.2,
+      /** ~2.5 mm más arriba que antes; vigencia sin cambio. */
+      y: 31.5,
+      x: CARNET_MARGEN_MM,
+      w: LDDBI_TEMPLATE_REV_FIRMA_COL_W_MM,
+      gap: LDDBI_TEMPLATE_REV_FIRMAS_GAP_MM,
+      zoneW: LDDBI_TEMPLATE_REV_FIRMAS_ZONE_W_MM,
+      nombreFontPt: 7,
+      cargoFontPt: 6,
+      nombreLineHeightMm: 2.35,
+      gapNombreCargoMm: 1.4,
+      nombreFontHeightMm: 1.95,
+      cargoFontHeightMm: 1.75,
     },
-    /** Vigencia: pie izquierdo, tamaño original (compacto). */
+    /** Vigencia: pie inferior izquierdo, 6pt normal (jerarquía por debajo de firmantes). */
     pieVigencia: {
       x: CARNET_MARGEN_MM,
       y: LDDBI_TEMPLATE_REV_PIE_VIGENCIA_Y_MM,
-      fontSizePt: 4,
+      maxW: LDDBI_TEMPLATE_REV_PIE_VIGENCIA_MAX_W_MM,
+      fontSizePt: 6,
+      fontHeightMm: 1.75,
     },
   },
 } as const;
@@ -194,28 +217,31 @@ export function lddbiTemplateDatosFirstRowYMm(): number {
   return A.headerMm + A.datosGapBelowHeaderMm + A.labelFontHeightMm;
 }
 
-/**
- * Filas de datos del anverso (6 filas: APELLIDO P., APELLIDO M., NOMBRES,
- * F. DE NAC., CLUB, CATEGORÍA). Los apellidos van en filas separadas para
- * dar buena legibilidad sin desbordar la columna estrecha junto a la foto.
- */
-export function buildLddbiTemplateAnversoCampos(input: {
+export type LddbiTemplateAnversoFieldInput = {
   apellidoPaterno: string;
   apellidoMaterno: string;
   nombres: string;
   fechaNacimiento: string;
   clubName: string;
   categoriaNombre: string;
-}): LddbiTemplateAnversoCampo[] {
-  const A = LDDBI_TEMPLATE.anverso;
+};
 
-  const defs: {
-    id: string;
-    etiqueta: string;
-    val: string;
-    destacado?: boolean;
-    blancoBold?: boolean;
-  }[] = [
+export type LddbiTemplateAnversoFieldDef = {
+  id: string;
+  etiqueta: string;
+  val: string;
+  destacado?: boolean;
+  blancoBold?: boolean;
+};
+
+/**
+ * Definición de las 6 filas del anverso (sin posición Y).
+ * APELLIDO P. y M. en filas separadas para legibilidad en columna estrecha.
+ */
+export function lddbiTemplateAnversoFieldDefs(
+  input: LddbiTemplateAnversoFieldInput,
+): LddbiTemplateAnversoFieldDef[] {
+  return [
     { id: "apellidoP", etiqueta: "APELLIDO P.", val: input.apellidoPaterno },
     { id: "apellidoM", etiqueta: "APELLIDO M.", val: input.apellidoMaterno },
     { id: "nombres", etiqueta: "NOMBRES", val: input.nombres },
@@ -223,21 +249,16 @@ export function buildLddbiTemplateAnversoCampos(input: {
     { id: "club", etiqueta: "CLUB", val: input.clubName },
     { id: "categoria", etiqueta: "CATEGORÍA", val: input.categoriaNombre },
   ];
+}
 
-  let y = lddbiTemplateDatosFirstRowYMm();
-
-  return defs.map((d) => {
-    const row: LddbiTemplateAnversoCampo = {
-      id: d.id,
-      etiqueta: d.etiqueta,
-      val: d.val,
-      y,
-      destacado: d.destacado,
-      blancoBold: d.blancoBold,
-    };
-    y += A.rowStepMm;
-    return row;
-  });
+/**
+ * Filas con Y fijo (legacy). Preferir `layoutLddbiTemplateAnversoCampos` para PDF/preview.
+ */
+export function buildLddbiTemplateAnversoCampos(
+  input: LddbiTemplateAnversoFieldInput,
+): LddbiTemplateAnversoCampo[] {
+  const doc = createLddbiTemplateMeasureDoc();
+  return layoutLddbiTemplateAnversoCampos(doc, input);
 }
 
 export function isLddbiCarnetPreset(preset: string | null | undefined): boolean {

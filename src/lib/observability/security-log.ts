@@ -70,7 +70,9 @@ async function emitToSentry(event: SecurityEvent, level: "warn" | "error") {
   if (!dsn) return;
 
   try {
-    const Sentry = await import("@sentry/nextjs");
+    // Paquete opcional (@sentry/nextjs no está en package.json por defecto).
+    const sentryModuleId = ["@sentry", "nextjs"].join("/");
+    const Sentry = await import(/* webpackIgnore: true */ sentryModuleId);
     Sentry.captureMessage(event.message, {
       level: level === "error" ? "error" : "warning",
       tags: {

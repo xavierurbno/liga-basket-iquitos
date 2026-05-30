@@ -6,7 +6,11 @@ import { splitApellidosParaCarnet } from "@/lib/carnet/carnetInstitucionalText";
 import { CARNET_THEME_PRESET_LABELS } from "@/lib/carnet/carnetTheme";
 import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
 import {
-  buildLddbiTemplateAnversoCampos,
+  createLddbiTemplateMeasureDoc,
+  layoutLddbiTemplateAnversoCampos,
+  VALOR_LINE_HEIGHT_FACTOR,
+} from "@/lib/carnet/lddbiTemplateAnversoLayout";
+import {
   LDDBI_TEMPLATE,
   LDDBI_TEMPLATE_ASPECT_CSS,
   LDDBI_TEMPLATE_GOLD_HEX,
@@ -97,20 +101,31 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
     };
   }, [props.validationUrl]);
 
-  const campos = buildLddbiTemplateAnversoCampos({
-    apellidoPaterno: apellidoPaterno.toUpperCase(),
-    apellidoMaterno: apellidoMaterno.toUpperCase(),
-    nombres: props.name.trim().toUpperCase(),
-    fechaNacimiento: props.fechaNacimientoLabel,
-    clubName: props.clubName.trim().toUpperCase(),
-    categoriaNombre: props.categoriaNombre.trim().toUpperCase(),
-  });
+  const campos = useMemo(() => {
+    const doc = createLddbiTemplateMeasureDoc();
+    return layoutLddbiTemplateAnversoCampos(doc, {
+      apellidoPaterno: apellidoPaterno.toUpperCase(),
+      apellidoMaterno: apellidoMaterno.toUpperCase(),
+      nombres: props.name.trim().toUpperCase(),
+      fechaNacimiento: props.fechaNacimientoLabel,
+      clubName: props.clubName.trim().toUpperCase(),
+      categoriaNombre: props.categoriaNombre.trim().toUpperCase(),
+    });
+  }, [
+    apellidoPaterno,
+    apellidoMaterno,
+    props.name,
+    props.fechaNacimientoLabel,
+    props.clubName,
+    props.categoriaNombre,
+  ]);
   const idFoto = A.fotoIdentificacion;
 
   const fotoY = lddbiTemplateFotoY();
   const fotoFrameTop = lddbiTemplateFotoFrameTopMm();
   const labelFont = previewFontSizeCqw(A.labelFontHeightMm);
   const valorFont = previewFontSizeCqw(A.valorFontHeightMm);
+  const dniFont = previewFontSizeCqw(A.dniFontHeightMm);
   const presetLabel = CARNET_THEME_PRESET_LABELS.lddbi_template;
 
   const templateBg =
@@ -162,7 +177,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
 
       <div className="mx-auto w-full max-w-[520px] rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-lg">
         <div
-          className="relative w-full [container-type:inline-size]"
+          className="@container relative w-full"
           style={{ aspectRatio: LDDBI_TEMPLATE_ASPECT_CSS }}
         >
           {!templateError && (
@@ -252,8 +267,8 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
               return (
                 <div
                   key={campo.id}
-                  className="absolute inset-x-0 uppercase leading-none"
-                  style={{ top: rowTop, height: 0 }}
+                  className="absolute inset-x-0 uppercase"
+                  style={{ top: rowTop, minHeight: mmH(campo.rowAdvanceMm) }}
                 >
                   <span
                     className="absolute font-bold"
@@ -281,12 +296,13 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                     :
                   </span>
                   <span
-                    className="absolute truncate font-bold"
+                    className="absolute font-bold whitespace-normal wrap-break-word"
                     style={{
                       left: mmX(A.valorX),
                       top: 0,
                       maxWidth: mmW(A.datosMaxW),
                       fontSize: valorFont,
+                      lineHeight: VALOR_LINE_HEIGHT_FACTOR,
                       color: LDDBI_TEMPLATE_WHITE_HEX,
                       textShadow: "0 0.5px 1px rgba(0,0,0,0.45)",
                     }}
@@ -358,7 +374,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                 className="min-w-0 truncate font-bold"
                 style={{
                   marginLeft: mmW(A.tabColonValorMm),
-                  fontSize: valorFont,
+                  fontSize: dniFont,
                   color: LDDBI_TEMPLATE_WHITE_HEX,
                   textShadow: "0 0.5px 1px rgba(0,0,0,0.45)",
                 }}
@@ -427,13 +443,14 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
               </div>
 
               <p
-                className="absolute text-center font-normal leading-relaxed"
+                className="absolute text-center font-normal"
                 style={{
                   left: "50%",
                   transform: "translateX(-50%)",
                   top: mmY(R.legal.y),
                   width: mmW(R.legal.maxW),
-                  fontSize: previewFontSizeCqw(ptToMm(R.legal.fontSizePt)),
+                  fontSize: previewFontSizeCqw(R.legal.previewFontHeightMm),
+                  lineHeight: 1.35,
                   color: "rgba(248,252,255,0.95)",
                   textShadow: "0 0.5px 1px rgba(0,0,0,0.35)",
                 }}
@@ -441,55 +458,56 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                 {props.authorizationText}
               </p>
 
-              <div
-                className="absolute grid grid-cols-2 gap-1"
-                style={{
-                  left: mmX(A.margenMm),
-                  top: mmY(R.firmas.y),
-                  width: mmW(81),
-                }}
-              >
-                {(
-                  [
-                    ["PRESIDENTE", props.presidentDisplayName, props.presidentSignatureUrl],
-                    ["SECRETARIO", props.secretaryDisplayName, props.secretarySignatureUrl],
-                  ] as const
-                ).map(([cargo, nombre, firma]) => (
-                  <div key={cargo} className="text-center">
-                    {firma ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={firma} alt="" className="mx-auto h-6 max-w-full object-contain" />
-                    ) : null}
-                    <div className="mt-1 border-b border-dotted border-white/50" />
-                    <p
-                      className="mt-0.5 font-bold uppercase"
-                      style={{
-                        fontSize: previewFontSizeCqw(1.35),
-                        color: LDDBI_TEMPLATE_WHITE_HEX,
-                      }}
-                    >
-                      {nombre || "—"}
-                    </p>
-                    <p
-                      className="uppercase"
-                      style={{
-                        fontSize: previewFontSizeCqw(1.15),
-                        color: "rgba(220,228,238,0.95)",
-                      }}
-                    >
-                      {cargo}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              {(
+                [
+                  ["PRESIDENTE", props.presidentDisplayName, props.presidentSignatureUrl, 0],
+                  ["SECRETARIO", props.secretaryDisplayName, props.secretarySignatureUrl, 1],
+                ] as const
+              ).map(([cargo, nombre, firma, col]) => (
+                <div
+                  key={cargo}
+                  className="absolute text-center"
+                  style={{
+                    left: mmX(R.firmas.x + col * (R.firmas.w + R.firmas.gap)),
+                    top: mmY(R.firmas.y),
+                    width: mmW(R.firmas.w),
+                  }}
+                >
+                  {firma ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={firma} alt="" className="mx-auto h-6 max-w-full object-contain" />
+                  ) : null}
+                  <div className="mt-1 border-b border-dotted border-white/50" />
+                  <p
+                    className="mt-0.5 font-bold wrap-break-word uppercase leading-tight"
+                    style={{
+                      fontSize: previewFontSizeCqw(R.firmas.nombreFontHeightMm),
+                      color: LDDBI_TEMPLATE_WHITE_HEX,
+                    }}
+                  >
+                    {(nombre || "—").toUpperCase()}
+                  </p>
+                  <p
+                    className="mt-0.5 uppercase leading-none"
+                    style={{
+                      fontSize: previewFontSizeCqw(R.firmas.cargoFontHeightMm),
+                      color: "rgba(220,228,238,0.95)",
+                    }}
+                  >
+                    {cargo}
+                  </p>
+                </div>
+              ))}
 
               <p
-                className="absolute font-bold uppercase"
+                className="absolute wrap-break-word font-normal uppercase leading-tight"
                 style={{
                   left: mmX(R.pieVigencia.x),
-                  top: mmY(R.pieVigencia.y),
-                  fontSize: previewFontSizeCqw(1.45),
-                  color: LDDBI_TEMPLATE_WHITE_HEX,
+                  top: previewTopFromBaselineMm(R.pieVigencia.y, R.pieVigencia.fontHeightMm),
+                  maxWidth: mmW(R.pieVigencia.maxW),
+                  fontSize: previewFontSizeCqw(R.pieVigencia.fontHeightMm),
+                  color: "rgba(235,242,252,0.92)",
+                  textShadow: "0 0.5px 1px rgba(0,0,0,0.35)",
                 }}
               >
                 VIGENCIA HASTA: {props.vigenciaLabel.toUpperCase()}

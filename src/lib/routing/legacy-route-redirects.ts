@@ -52,7 +52,7 @@ export function resolveLegacyRouteRedirectFromPath(
 }
 
 export function resolveLegacyRouteRedirect(request: NextRequest): LegacyRedirect | null {
-  return resolveLegacyRouteRedirectFromPath(pathname, {
+  return resolveLegacyRouteRedirectFromPath(request.nextUrl.pathname, {
     activeLeagueSlug: request.cookies.get(ACTIVE_LEAGUE_SLUG_COOKIE)?.value,
   });
 }

@@ -1,7 +1,6 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
-import { CARNET_MARGEN_MM } from "@/lib/pdf/carnetLayout";
 import { drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
 import {
   drawLddbiTemplateEncabezadoAnverso,
@@ -26,18 +25,20 @@ function drawFirmaTemplate(
   if (firma?.startsWith("data:image")) {
     drawLogoFit(doc, firma, x, y, w, 6.5);
   }
-  // Nombre del directivo: 9pt bold blanco puro para no perderse bajo la firma.
+  const nombreUpper = (nombre.trim() || "—").toUpperCase();
   doc.setFont("helvetica", "bold");
   doc.setFontSize(L.firmas.nombreFontPt);
   doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
-  doc.text((nombre.trim() || "—").toUpperCase(), x + w / 2, lineY + 3, {
-    align: "center",
-  });
-  // Cargo: 7pt normal, ligeramente atenuado.
+  const nombreLines = doc.splitTextToSize(nombreUpper, w);
+  let nombreY = lineY + 3;
+  for (const line of nombreLines) {
+    doc.text(line, x + w / 2, nombreY, { align: "center" });
+    nombreY += L.firmas.nombreLineHeightMm;
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.firmas.cargoFontPt);
   doc.setTextColor(220, 228, 238);
-  doc.text(cargo, x + w / 2, lineY + 3 + L.firmas.gapNombreCargoMm, {
+  doc.text(cargo, x + w / 2, nombreY + L.firmas.gapNombreCargoMm, {
     align: "center",
   });
   doc.setTextColor(0);
@@ -49,7 +50,6 @@ export function drawCarnetLddbiTemplateReverso(
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const m = CARNET_MARGEN_MM;
   const L = LDDBI_TEMPLATE.reverso;
   const primary = input.theme.primaryRgb;
 
@@ -65,7 +65,7 @@ export function drawCarnetLddbiTemplateReverso(
 
   drawLddbiTemplateEncabezadoAnverso(doc, input);
 
-  // Párrafo legal: 9.5pt normal, interlineado 1.4 (4.7 mm), centrado.
+  // Párrafo legal: 7pt, interlineado ~3.6 mm, centrado.
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.legal.fontSizePt);
   doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
@@ -75,13 +75,13 @@ export function drawCarnetLddbiTemplateReverso(
     doc.text(line, pageW / 2, L.legal.y + i * lineH, { align: "center" });
   });
 
-  // Firmas: bloque inferior. Ancho 30 mm cada una (no choca con QR derecho).
   const firmasY = L.firmas.y;
   const firmaW = L.firmas.w;
   const gap = L.firmas.gap;
+  const firmasX = L.firmas.x;
   drawFirmaTemplate(
     doc,
-    m,
+    firmasX,
     firmasY,
     firmaW,
     input.presidentSignaturePngDataUrl,
@@ -90,7 +90,7 @@ export function drawCarnetLddbiTemplateReverso(
   );
   drawFirmaTemplate(
     doc,
-    m + firmaW + gap,
+    firmasX + firmaW + gap,
     firmasY,
     firmaW,
     input.secretarySignaturePngDataUrl,
@@ -98,16 +98,12 @@ export function drawCarnetLddbiTemplateReverso(
     "SECRETARIO",
   );
 
-  // Vigencia: pie izquierdo, tamaño original compacto. Alineación left por defecto.
-  doc.setFont("helvetica", "bold");
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(L.pieVigencia.fontSizePt);
   doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
-  doc.text(
-    `VIGENCIA HASTA: ${input.vigenciaLabel.trim().toUpperCase()}`,
-    L.pieVigencia.x,
-    L.pieVigencia.y,
-    { align: "left" },
-  );
+  const vigenciaText = `VIGENCIA HASTA: ${input.vigenciaLabel.trim().toUpperCase()}`;
+  const vigenciaLines = doc.splitTextToSize(vigenciaText, L.pieVigencia.maxW);
+  doc.text(vigenciaLines, L.pieVigencia.x, L.pieVigencia.y, { align: "left" });
 
   const { x: qx, y: qy, size: qs } = L.qr;
   if (input.validationQrPngDataUrl?.startsWith("data:image")) {

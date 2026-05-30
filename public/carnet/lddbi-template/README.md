@@ -32,6 +32,24 @@ Coloca aquí el mockup oficial (sin datos variables del jugador):
 
 Si algo se desalinea, edita coordenadas en `src/lib/carnet/lddbiTemplateLayout.ts`.
 
+### Tipografía anverso (Zebra ZC300, 300 DPI)
+
+| Elemento | pt (PDF) |
+|----------|----------|
+| Etiquetas doradas | 7.5 |
+| Valores blancos | 8.5 |
+| DNI bajo foto | 8.0 |
+| Paso entre filas | 4.8 mm |
+
+### Tipografía reverso (Zebra ZC300, 300 DPI)
+
+| Elemento | pt (PDF) | Notas |
+|----------|----------|--------|
+| Texto legal central | 7.0 | Interlineado ~3.6 mm |
+| Nombre firmante | 7.0 | Bold; salto de línea dentro de su columna |
+| Cargo (PRESIDENTE / SECRETARIO) | 6.0 | Normal atenuado |
+| Vigencia (esquina inf. izquierda) | 6.0 | Normal; más pequeña que los nombres |
+
 ## Convivencia con `lddbi_bold`
 
 - **`lddbi_bold`**: diseño degradado (sin cambios).

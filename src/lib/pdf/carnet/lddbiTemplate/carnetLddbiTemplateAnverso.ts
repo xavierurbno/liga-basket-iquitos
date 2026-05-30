@@ -1,9 +1,6 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
-import {
-  buildLddbiTemplateAnversoCampos,
-  LDDBI_TEMPLATE,
-  lddbiTemplateFotoY,
-} from "@/lib/carnet/lddbiTemplateLayout";
+import { layoutLddbiTemplateAnversoCampos } from "@/lib/carnet/lddbiTemplateAnversoLayout";
+import { LDDBI_TEMPLATE, lddbiTemplateFotoY } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { fmtFechaCarnetPeru } from "@/lib/pdf/carnet/carnetPdfShared";
 import { drawLddbiFotoConMarco } from "@/lib/pdf/carnet/lddbi/carnetLddbiShared";
@@ -37,7 +34,7 @@ export function drawCarnetLddbiTemplateAnverso(
 
   drawLddbiTemplateEncabezadoAnverso(doc, input);
 
-  const campos = buildLddbiTemplateAnversoCampos({
+  const campos = layoutLddbiTemplateAnversoCampos(doc, {
     apellidoPaterno: input.apellidoPaterno.trim().toUpperCase(),
     apellidoMaterno: input.apellidoMaterno.trim().toUpperCase(),
     nombres: input.name.trim().toUpperCase(),
