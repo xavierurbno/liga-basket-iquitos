@@ -10,7 +10,12 @@ import { join } from "node:path";
 import { loadAppEnv } from "./load-env.mjs";
 import { assertSafeMigrationTarget } from "./assert-db-target.mjs";
 import { MIGRATION_SQL_ORDER } from "./db-migration-manifest.mjs";
-import { connectPostgres, isBenignMigrationError } from "./connect-postgres.mjs";
+import {
+  connectPostgres,
+  isBenignMigrationError,
+  shouldSkipAuthStubStatement,
+  splitMigrationStatements,
+} from "./connect-postgres.mjs";
 
 const target = process.argv[2] === "production" ? "production" : "development";
 const { root } = loadAppEnv(target);
@@ -34,17 +39,31 @@ async function main() {
       }
 
       console.log(`\n→ ${relativePath}`);
-      try {
-        await sql.unsafe(body);
-        applied += 1;
-        console.log("  ✓ OK");
-      } catch (err) {
-        if (isBenignMigrationError(err)) {
+      const statements = splitMigrationStatements(body);
+      let fileOk = true;
+
+      for (const statement of statements) {
+        if (shouldSkipAuthStubStatement(statement)) {
           skipped += 1;
-          console.log(`  ○ omitido (ya aplicado): ${err.message?.slice(0, 80)}`);
-        } else {
-          throw err;
+          continue;
         }
+        try {
+          await sql.unsafe(statement);
+        } catch (err) {
+          if (isBenignMigrationError(err)) {
+            skipped += 1;
+          } else {
+            fileOk = false;
+            throw err;
+          }
+        }
+      }
+
+      if (fileOk) {
+        applied += 1;
+        console.log(`  ✓ OK (${statements.length} sentencias)`);
+      } else {
+        console.log(`  ○ parcial (${statements.length} sentencias)`);
       }
     }
 

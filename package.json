@@ -18,6 +18,7 @@
     "db:migrate:dev": "node scripts/db-migrate.mjs development",
     "db:migrate:prod": "node scripts/db-migrate.mjs production",
     "db:bootstrap:dev": "node scripts/db-apply-all.mjs development",
+    "db:reset:dev": "node scripts/db-reset-public.mjs",
     "db:bootstrap:prod": "node scripts/db-apply-all.mjs production",
     "db:verify:dev": "node scripts/db-verify.mjs development",
     "db:verify:prod": "node scripts/db-verify.mjs production",
