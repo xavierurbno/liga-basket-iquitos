@@ -2,10 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * Cliente Supabase para Server Components, Server Actions y layouts.
- * Escribe cookies de sesión en el almacén de Next (necesario en Vercel/producción).
+ * Cliente Supabase SSR con cookies de Next (Server Actions, RSC, layouts).
+ * Nombre canónico Fase 2; `createSupabaseServerClient` se mantiene como alias.
  */
-export async function createSupabaseServerClient() {
+export async function createSupabaseServerFromCookies() {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -29,3 +29,6 @@ export async function createSupabaseServerClient() {
     },
   );
 }
+
+/** @deprecated Usar `createSupabaseServerFromCookies`. */
+export const createSupabaseServerClient = createSupabaseServerFromCookies;

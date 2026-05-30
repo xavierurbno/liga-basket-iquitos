@@ -27,17 +27,13 @@ function emailsFromEnv(key: string): Set<string> {
   );
 }
 
-export type TreasuryAccess =
-  | {
-      kind: "full";
-      /** null = todas las organizaciones / clubes */
-      clubIds: null;
-    }
-  | {
-      kind: "readonly";
-      clubIds: string[];
-    }
-  | { kind: "none" };
+import {
+  assertClubScopeForRead,
+  type TreasuryAccess,
+} from "@/lib/auth/treasury-scope";
+
+export type { TreasuryAccess } from "@/lib/auth/treasury-scope";
+export { assertClubScopeForRead } from "@/lib/auth/treasury-scope";
 
 /**
  * Resuelve permisos de Tesorería en el dashboard de liga.
@@ -77,22 +73,6 @@ export async function resolveTreasuryAccess(
     return { kind: "readonly", clubIds: [...managerClubIds] };
   }
   return { kind: "none" };
-}
-
-export function assertClubScopeForRead(
-  access: TreasuryAccess,
-  filterClubId: string | null
-): { clubIds: string[] | null } {
-  if (access.kind === "none") return { clubIds: [] };
-  if (access.kind === "full") {
-    if (filterClubId) return { clubIds: [filterClubId] };
-    return { clubIds: null };
-  }
-  if (filterClubId && !access.clubIds.includes(filterClubId)) {
-    return { clubIds: [] };
-  }
-  if (filterClubId) return { clubIds: [filterClubId] };
-  return { clubIds: access.clubIds };
 }
 
 export async function assertClubExists(clubId: string): Promise<boolean> {

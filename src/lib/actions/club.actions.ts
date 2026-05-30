@@ -1,16 +1,14 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import { clubRepository } from "@/repositories/clubRepository";
 import { updateClubService } from "@/services/clubService";
 import type { ActionResult } from "@/lib/types/league";
-import { crearClubSistemaAction } from "@/lib/actions/system-dashboard";
+import { createClubAsSystemAction } from "@/lib/actions/system-dashboard";
 
-/** Creación de club (intranet staff): alias del action existente en `system-dashboard`. */
-export const createClubAction = crearClubSistemaAction;
+export { createClubAsSystemAction };
 
 function asText(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";
@@ -47,17 +45,7 @@ export const updateClubAction = withAuth(
       }
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      },
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     return updateClubService(formData, clubId, supabase, existing);
   },

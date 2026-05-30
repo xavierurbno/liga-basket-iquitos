@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { categories, clubs } from "@/lib/db/schema";
+import { loadNewPlayerPage } from "@/lib/loaders/category-page.loader";
 import { CrearJugadorCategoriaForm } from "@/components/system/CrearJugadorCategoriaForm";
 
 export default async function NuevoJugadorCategoriaPage({
@@ -11,17 +9,9 @@ export default async function NuevoJugadorCategoriaPage({
   params: Promise<{ clubId: string; categoryId: string }>;
 }) {
   const { clubId, categoryId } = await params;
-  const [club] = await db
-    .select({ id: clubs.id, name: clubs.name })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-  const [category] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.clubId, clubId)))
-    .limit(1);
-  if (!club) redirect("/liga/clubs");
+  const loaded = await loadNewPlayerPage(clubId, categoryId);
+  if (!loaded) redirect("/liga/clubs");
+  const { club, category } = loaded;
   if (!category) redirect(`/liga/clubs/${clubId}`);
 
   return (

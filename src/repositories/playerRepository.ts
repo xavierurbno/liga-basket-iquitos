@@ -1,7 +1,8 @@
 import { db } from "@/lib/db/client";
 import { players, Player, NewPlayer, PlayerCategory, PlayerStatus } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, asc } from "drizzle-orm";
+import { categories, clubs, leagues } from "@/lib/db/schema";
 import { ExtractTablesWithRelations } from "drizzle-orm";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
@@ -91,6 +92,95 @@ export class PlayerRepository {
       .where(eq(players.id, id))
       .limit(1);
     return row || null;
+  }
+
+  async findRosterByCategory(clubId: string, categoryId: string, tx: DB | Transaction = db) {
+    return tx
+      .select({
+        id: players.id,
+        name: players.name,
+        lastname: players.lastname,
+        documentType: players.documentType,
+        documentNumber: players.documentNumber,
+        birthdate: players.birthdate,
+        phone: players.phone,
+        jerseyNumber: players.jerseyNumber,
+        photoUrl: players.photoUrl,
+        carnetNumber: players.carnetNumber,
+        gender: players.gender,
+      })
+      .from(players)
+      .where(and(eq(players.clubId, clubId), eq(players.categoryId, categoryId)))
+      .orderBy(asc(players.lastname), asc(players.name));
+  }
+
+  async findForFichaByCategory(clubId: string, categoryId: string, tx: DB | Transaction = db) {
+    return tx
+      .select({
+        id: players.id,
+        name: players.name,
+        lastname: players.lastname,
+        documentType: players.documentType,
+        documentNumber: players.documentNumber,
+        birthdate: players.birthdate,
+        photoUrl: players.photoUrl,
+        jerseyNumber: players.jerseyNumber,
+        gender: players.gender,
+      })
+      .from(players)
+      .where(and(eq(players.clubId, clubId), eq(players.categoryId, categoryId)));
+  }
+
+  async findForCarnet(
+    playerId: string,
+    clubId: string,
+    categoryId: string,
+    tx: DB | Transaction = db,
+  ) {
+    const [row] = await tx
+      .select({
+        id: players.id,
+        name: players.name,
+        lastname: players.lastname,
+        documentType: players.documentType,
+        documentNumber: players.documentNumber,
+        birthdate: players.birthdate,
+        photoUrl: players.photoUrl,
+        carnetNumber: players.carnetNumber,
+        gender: players.gender,
+      })
+      .from(players)
+      .where(
+        and(
+          eq(players.id, playerId),
+          eq(players.clubId, clubId),
+          eq(players.categoryId, categoryId),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findValidationById(playerId: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        name: players.name,
+        lastname: players.lastname,
+        carnetNumber: players.carnetNumber,
+        photoUrl: players.photoUrl,
+        gender: players.gender,
+        clubName: clubs.name,
+        categoriaNombre: categories.name,
+        leagueName: leagues.name,
+        leagueSlug: leagues.slug,
+      })
+      .from(players)
+      .innerJoin(clubs, eq(players.clubId, clubs.id))
+      .leftJoin(categories, eq(players.categoryId, categories.id))
+      .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
+      .where(eq(players.id, playerId))
+      .limit(1);
+    return row ?? null;
   }
 }
 

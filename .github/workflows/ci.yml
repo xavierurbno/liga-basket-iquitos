@@ -5,6 +5,27 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+env:
+  CI: "true"
+  APP_ENV: development
+  SUPABASE_PROJECT_REF: placeholder
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  DATABASE_URL_DIRECT: postgresql://postgres:postgres@localhost:5432/postgres
+  DATABASE_POOL_MAX: "2"
+  MASTER_SUPER_ADMIN_EMAIL: ci@example.com
+  SYSTEM_OWNER_EMAILS: ci@example.com
+  VALIDATION_TOKEN_SECRET: ci-validation-token-secret-min-32-chars
+  NEXT_PUBLIC_SITE_URL: http://localhost:3001
+  NEXT_PUBLIC_APP_URL: http://localhost:3001
+  NEXT_PUBLIC_BUCKET_ASSETS: club-assets
+  NEXT_PUBLIC_BUCKET_PLAYERS: jugador-fotos
+  NEXT_PUBLIC_BUCKET_GALLERY: galeria
+  NEXT_PUBLIC_BUCKET_RECEIPTS: recibos-tesoreria
 
 jobs:
   build:
@@ -14,12 +35,21 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate migration manifest
+        run: npm run db:validate:manifest
+
+      - name: Audit data layer (no db in app/)
+        run: npm run db:audit:access
+
+      - name: Environment (strict)
+        run: npm run env:verify:strict
 
       - name: Unit tests
         run: npm test
@@ -29,8 +59,78 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  db-verify-local:
+  # Opcional: Postgres local + bootstrap + verify (sin Supabase CLI completo).
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16-alpine
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bootstrap SQL on local Postgres
+        run: npm run db:bootstrap:dev
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DATABASE_URL_DIRECT: postgresql://postgres:postgres@localhost:5432/postgres
+          SUPABASE_PROJECT_REF: local
+          NEXT_PUBLIC_SUPABASE_URL: https://local.supabase.co
+
+      - name: Verify schema
+        run: npm run db:verify:dev
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          SUPABASE_PROJECT_REF: local
+          NEXT_PUBLIC_SUPABASE_URL: https://local.supabase.co
+
+  e2e:
+    runs-on: ubuntu-latest
+  # Requiere secretos E2E_* en el repositorio; si faltan, los tests se omiten.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E tests
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_DELEGATE_EMAIL: ${{ secrets.E2E_DELEGATE_EMAIL }}
+          E2E_DELEGATE_PASSWORD: ${{ secrets.E2E_DELEGATE_PASSWORD }}
+          E2E_LEAGUE_SLUG: ${{ secrets.E2E_LEAGUE_SLUG }}
+          E2E_FOREIGN_CLUB_ID: ${{ secrets.E2E_FOREIGN_CLUB_ID }}

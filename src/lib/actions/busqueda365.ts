@@ -7,6 +7,7 @@ import { categories, clubs, players } from "@/lib/db/schema";
 import { isValidUuid, sanitizeTsQueryInput } from "@/lib/db/public-read-guards";
 import { resolvePublicJugadorImageUrl } from "@/lib/utils/jugador-image-url";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
+import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
 
 /** Option del buscador: cada fila en `categories` (category interna al club). */
 export type Busqueda365CategoriaOpcion = {
@@ -45,39 +46,55 @@ export type ListarPlantillaResult =
   | { success: true; clubs: Busqueda365ClubBloque[] }
   | { success: false; error: string };
 
-const getCachedCategoriasGlobal = unstable_cache(
-  async () => {
-    return await db
-      .select({
-        id: categories.id,
-        nombreCategoria: categories.name,
-        clubId: clubs.id,
-        clubName: clubs.name,
-        clubLogoUrl: clubs.logoUrl,
-      })
-      .from(categories)
-      .innerJoin(clubs, eq(categories.clubId, clubs.id))
-      .orderBy(asc(clubs.name), asc(categories.name));
-  },
-  ["all-categories-list"],
-  {
-    revalidate: 86400, // 24 hours
-    tags: ["categories-list"],
-  }
-);
+function normalizeLeagueId(leagueId: string): string | null {
+  const id = leagueId.trim();
+  return isValidUuid(id) ? id : null;
+}
+
+function getCachedCategoriasForLeague(leagueId: string) {
+  const tag = busqueda365CategoriesCacheTag(leagueId);
+  return unstable_cache(
+    async () => {
+      return await db
+        .select({
+          id: categories.id,
+          nombreCategoria: categories.name,
+          clubId: clubs.id,
+          clubName: clubs.name,
+          clubLogoUrl: clubs.logoUrl,
+        })
+        .from(categories)
+        .innerJoin(clubs, eq(categories.clubId, clubs.id))
+        .where(eq(clubs.leagueId, leagueId))
+        .orderBy(asc(clubs.name), asc(categories.name));
+    },
+    [`busqueda365-categories`, leagueId],
+    {
+      revalidate: 86400,
+      tags: [tag],
+    },
+  )();
+}
 
 /**
- * Lista todas las categorys registradas (`categorias_club`) con su club.
- * No expone DNI de staff ni columnas sensibles.
+ * Lista categorías de clubes de una sola liga.
+ * No expone DNI ni columnas sensibles.
  */
-export async function listarCategoriasBusqueda365(): Promise<ListarCategoriasResult> {
+export async function listarCategoriasBusqueda365(
+  leagueId: string,
+): Promise<ListarCategoriasResult> {
   const rateError = await enforceRateLimit("busqueda365");
   if (rateError) {
     return { success: false, error: rateError };
   }
 
+  const scopedLeagueId = normalizeLeagueId(leagueId);
+  if (!scopedLeagueId) {
+    return { success: false, error: "Liga no válida." };
+  }
+
   try {
-    const rows = await getCachedCategoriasGlobal();
+    const rows = await getCachedCategoriasForLeague(scopedLeagueId);
 
     const data: Busqueda365CategoriaOpcion[] = rows.map((r) => ({
       id: r.id,
@@ -95,21 +112,21 @@ export async function listarCategoriasBusqueda365(): Promise<ListarCategoriasRes
 }
 
 /**
- * Plantilla filtrada por category de club (`categories.id`).
- *
- * Modelo actual en BD: no hay tabla `teams` ni `team_id`. La plantilla por category se modela con
- * `players.categoryId` → `categories` (equipo interno del club) y `players.clubId` → `clubs`.
- *
- * Joins: `players` ⋈ `categories` (por `categoryId`) ⋈ `clubs` (por `clubId`).
- * Seguridad: solo id, name, lastname, foto_url, numero_camiseta (polo), name club, name category.
+ * Plantilla filtrada por categoría de club, acotada a una liga.
  */
 export async function listarPlantillaPorCategoriaId(
+  leagueId: string,
   categoriaClubId: string,
-  searchTerm?: string
+  searchTerm?: string,
 ): Promise<ListarPlantillaResult> {
   const rateError = await enforceRateLimit("busqueda365");
   if (rateError) {
     return { success: false, error: rateError };
+  }
+
+  const scopedLeagueId = normalizeLeagueId(leagueId);
+  if (!scopedLeagueId) {
+    return { success: false, error: "Liga no válida." };
   }
 
   const id = categoriaClubId.trim();
@@ -118,11 +135,11 @@ export async function listarPlantillaPorCategoriaId(
   }
 
   try {
-    const baseConditions = [eq(categories.id, id)];
+    const baseConditions = [eq(categories.id, id), eq(clubs.leagueId, scopedLeagueId)];
     const tsQueryTerm = searchTerm ? sanitizeTsQueryInput(searchTerm) : "";
     if (tsQueryTerm) {
       baseConditions.push(
-        sql`to_tsvector('spanish', ${players.name} || ' ' || ${players.lastname}) @@ to_tsquery('spanish', ${tsQueryTerm})`
+        sql`to_tsvector('spanish', ${players.name} || ' ' || ${players.lastname}) @@ to_tsquery('spanish', ${tsQueryTerm})`,
       );
     }
 
@@ -168,12 +185,12 @@ export async function listarPlantillaPorCategoriaId(
         poloNumber: r.jerseyNumber,
         clubName: r.clubName,
         categoryLabel: r.nombreCategoria,
-        status: r.status as any,
+        status: r.status as Busqueda365JugadorSeguro["status"],
       });
     }
 
     const clubsList = [...byClub.values()].sort((a, b) =>
-      a.clubName.localeCompare(b.clubName, "es", { sensitivity: "base" })
+      a.clubName.localeCompare(b.clubName, "es", { sensitivity: "base" }),
     );
 
     return { success: true, clubs: clubsList };

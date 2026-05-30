@@ -26,7 +26,7 @@ const sql = postgres(connectionString, {
 });
 
 async function migrate() {
-  console.log("🔄 Aplicando migración 003_the_lock_league_settings...");
+  console.log("🔄 Aplicando migración 0012d_the_lock_league_settings (manual)...");
 
   try {
     // 1. Añadir banner_text si no existe

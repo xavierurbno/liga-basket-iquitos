@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { leaguePortalBusqueda365 } from "@/lib/portal/league-portal-paths";
 import {
   Building2,
   Landmark,
@@ -45,25 +46,32 @@ export type LigaHubCardItem = {
   body: string;
 };
 
-/** Delegados: solo estas dos tarjetas y rutas exactas exigidas por negocio. */
-const delegateHubItems: readonly LigaHubCardItem[] = [
-  {
-    href: "/liga/clubs/",
-    icon: Building2,
-    iconClass: "text-[#005CEE]",
-    title: "Clubes y categorías",
-    body: "Accede a la intranet de tu club para categorías, fichas y gestión del equipo (altas desde administración).",
-  },
-  {
-    href: "/busqueda-365/",
+function busqueda365HubItem(leagueSlug: string | null): LigaHubCardItem {
+  return {
+    href: leagueSlug ? leaguePortalBusqueda365(leagueSlug) : "/busqueda-365/",
     icon: Search,
     iconClass: "text-amber-600",
     title: "Búsqueda 365",
-    body: "Consulta pública de jugadores habilitados.",
-  },
-];
+    body: "Consulta pública de jugadores de tu liga.",
+  };
+}
 
-const adminHubItems: readonly LigaHubCardItem[] = [
+/** Delegados: solo estas dos tarjetas y rutas exactas exigidas por negocio. */
+function delegateHubItems(leagueSlug: string | null): readonly LigaHubCardItem[] {
+  return [
+    {
+      href: "/liga/clubs/",
+      icon: Building2,
+      iconClass: "text-[#005CEE]",
+      title: "Clubes y categorías",
+      body: "Accede a la intranet de tu club para categorías, fichas y gestión del equipo (altas desde administración).",
+    },
+    busqueda365HubItem(leagueSlug),
+  ];
+}
+
+function adminHubItems(leagueSlug: string | null): readonly LigaHubCardItem[] {
+  return [
   {
     href: "/liga/clubs/",
     icon: Building2,
@@ -78,13 +86,7 @@ const adminHubItems: readonly LigaHubCardItem[] = [
     title: "Caja / Tesorería",
     body: "Movimientos, filtros por club y resumen financiero.",
   },
-  {
-    href: "/busqueda-365/",
-    icon: Search,
-    iconClass: "text-amber-600",
-    title: "Búsqueda 365",
-    body: "Consulta pública de jugadores habilitados.",
-  },
+  busqueda365HubItem(leagueSlug),
   {
     href: "/liga/torneos/",
     icon: Trophy,
@@ -135,6 +137,7 @@ const adminHubItems: readonly LigaHubCardItem[] = [
     body: "Reglamentos y normas publicadas para clubes y deportistas.",
   },
 ];
+}
 
 /** Solo SUPER_ADMIN: gestión global de ligas (crear / eliminar / fichas). */
 const superAdminPlatformCard: LigaHubCardItem = {
@@ -157,6 +160,8 @@ export type LigaHubViewerSegment = "delegate" | "staff";
 
 type LigaHubCardGridProps = {
   viewerSegment: LigaHubViewerSegment;
+  /** Slug de la liga operativa (enlaces a Búsqueda 365 por tenant). */
+  activeLeagueSlug?: string | null;
   /** Solo SUPER_ADMIN y LEAGUE_ADMIN en modo staff. */
   showProfilesCard?: boolean;
   /** Tarjeta hacia /super-admin/leagues (solo super administrador). */
@@ -165,16 +170,19 @@ type LigaHubCardGridProps = {
 
 export function LigaHubCardGrid({
   viewerSegment,
+  activeLeagueSlug = null,
   showProfilesCard = false,
   showSuperAdminPlatform = false,
 }: LigaHubCardGridProps) {
+  const slug = activeLeagueSlug?.trim() || null;
+  const adminItems = adminHubItems(slug);
   const staffBase: LigaHubCardItem[] = showProfilesCard
-    ? [...adminHubItems.slice(0, 2), profilesCard, ...adminHubItems.slice(2)]
-    : [...adminHubItems];
+    ? [...adminItems.slice(0, 2), profilesCard, ...adminItems.slice(2)]
+    : [...adminItems];
 
   const items: LigaHubCardItem[] =
     viewerSegment === "delegate"
-      ? [...delegateHubItems]
+      ? [...delegateHubItems(slug)]
       : showSuperAdminPlatform
         ? [superAdminPlatformCard, ...staffBase]
         : staffBase;

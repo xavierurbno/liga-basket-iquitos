@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "20mb",
     },
   },
-  reactStrictMode: false,
+  reactStrictMode: true,
   trailingSlash: true,
   async rewrites() {
     return [

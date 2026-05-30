@@ -26,10 +26,22 @@ El script `scripts/phase2-db.mjs` prueba pooler → direct → `DATABASE_URL` si
 
 ## Orden en un entorno nuevo
 
+Preferido (BD vacía):
+
+```bash
+npm run db:validate:manifest
+npm run db:bootstrap:dev
+npm run db:verify:dev
+```
+
+Alternativa parcial (solo torneos + RLS operativo):
+
 1. Prerrequisitos Drizzle / migraciones base (`leagues`, `categories`, etc.).
 2. `APPLY_TOURNAMENTOS_COMPLETO.sql`
 3. `0017_rls_operational_league.sql`
 4. `npm run db:phase2:verify`
+
+Ver `docs/phase4-database-migrations.md`.
 
 ## Nota sobre Drizzle
 

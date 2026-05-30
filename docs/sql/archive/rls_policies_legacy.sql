@@ -1,4 +1,15 @@
 -- ============================================================
+-- ARCHIVO HISTÓRICO — NO EJECUTAR EN PIPELINE
+-- ============================================================
+-- Copia de referencia (Fase 3 diseño). Las políticas vigentes están en:
+--   - supabase/migrations/0009_clubs_authenticated_select_rls.sql
+--   - supabase/migrations/0012c_club_members_rls.sql
+--   - supabase/migrations/0017_rls_operational_league.sql
+--
+-- Bootstrap: npm run db:bootstrap:dev (manifest en scripts/db-migration-manifest.mjs)
+-- ============================================================
+
+-- ============================================================
 -- FASE 3: SEGURIDAD DE DATOS (ROW LEVEL SECURITY - RLS)
 -- ============================================================
 -- Este script activa RLS y define políticas de aislamiento 

@@ -6,7 +6,11 @@ import { PortalHeaderNavMenu } from "@/components/layout/PortalHeaderNavMenu";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
-import { buildPortalLoginHref, leaguePortalHome } from "@/lib/portal/league-portal-paths";
+import {
+  buildPortalLoginHref,
+  leaguePortalBusqueda365,
+  leaguePortalHome,
+} from "@/lib/portal/league-portal-paths";
 import { fetchPortalLeagueBranding, fetchPortalLeagueBySlug, resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 import { PROGRAM_LEAGUES_DIRECTORY_PATH } from "@/lib/portal/default-portal-league";
 import { LeagueHeaderLogo } from "@/components/ui/LeagueHeaderLogo";
@@ -111,6 +115,9 @@ export function PortalSiteHeaderBar({
   const showGestiónLink =
     !hidePanelGestión && (variant === "busqueda365" || variant === "normativas");
   const homeHref = leagueSlug ? leaguePortalHome(leagueSlug) : "/";
+  const busqueda365Href = leagueSlug
+    ? leaguePortalBusqueda365(leagueSlug)
+    : "/busqueda-365/";
   const campeonatosHref = leagueSlug ? `${homeHref}#campeonatos` : "/#campeonatos";
   const inLeaguePortal = Boolean(leagueSlug && leagueName);
   const portalLoginHref = leagueSlug
@@ -148,7 +155,7 @@ export function PortalSiteHeaderBar({
           ) : variant === "portal" ? (
             <>
               <PortalSocialLinks links={socialLinks} />
-              <Link href="/busqueda-365/" className={navBtnClass}>
+              <Link href={busqueda365Href} className={navBtnClass}>
                 <Search className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
                 Búsqueda 365
               </Link>

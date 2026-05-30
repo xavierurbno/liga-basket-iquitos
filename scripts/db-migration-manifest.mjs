@@ -1,5 +1,6 @@
 /**
- * Orden de migraciones SQL para bootstrap de BD vacía (DEV).
+ * Orden canónico de migraciones SQL para bootstrap (BD vacía).
+ * Convención: prefijo `NNNN` o `NNNNx_` (sin reutilizar el mismo número base en otro archivo).
  * Idempotentes cuando el SQL lo permite; errores duplicate_* se ignoran en apply-all.
  */
 export const MIGRATION_SQL_ORDER = [
@@ -9,16 +10,16 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0004_woozy_demogoblin.sql",
   "supabase/migrations/0005_ambitious_proemial_gods.sql",
   "supabase/migrations/0006_purple_stephen_strange.sql",
-  "supabase/migrations/0006_league_settings_fix.sql",
+  "supabase/migrations/0006b_league_settings_fix.sql",
   "supabase/migrations/0007_leagues_performance_idx.sql",
   "supabase/migrations/0008_create_sponsors_table.sql",
   "supabase/migrations/0009_clubs_authenticated_select_rls.sql",
   "supabase/migrations/0010_normativa_documents.sql",
   "supabase/migrations/0011_normativas_table.sql",
   "supabase/migrations/0012_treasury_operation_code.sql",
-  "supabase/migrations/0001_add_transactions_tesoreria.sql",
-  "supabase/migrations/002_club_members_rls.sql",
-  "supabase/migrations/003_the_lock_league_settings.sql",
+  "supabase/migrations/0012b_add_transactions_tesoreria.sql",
+  "supabase/migrations/0012c_club_members_rls.sql",
+  "supabase/migrations/0012d_the_lock_league_settings.sql",
   "supabase/migrations/0013_tournaments_module.sql",
   "supabase/migrations/0014_tournament_format_groups.sql",
   "supabase/migrations/0015_tournament_groups_playoffs.sql",

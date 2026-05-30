@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { db, galleryPhotos } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
 import { ActionResult } from "@/lib/types/league";
@@ -18,18 +18,6 @@ import crypto from "crypto";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
 
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    },
-  );
-}
 
 /**
  * uploadPhotosAction
@@ -55,7 +43,7 @@ export const uploadPhotosAction = withAuth(
         operationalLeagueId: context.leagueId,
       });
 
-      const adminSupabase = getAdminClient();
+      const adminSupabase = getSupabaseAdmin();
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
       const uploadResults = await mapInChunks(files, GALLERY_SERVER_PROCESS_CHUNK, async (file) => {
@@ -154,7 +142,7 @@ export const deletePhotoAction = withAuth(
       const fileName = photo.url.split("/").pop();
       const storagePath = `gallery/${fileName}`;
 
-      const adminSupabase = getAdminClient();
+      const adminSupabase = getSupabaseAdmin();
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
       // 4. ELIMINACIÓN ATÓMICA: Primero Storage

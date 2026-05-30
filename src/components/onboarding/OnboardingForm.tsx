@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClubAction } from "@/lib/actions/ownership";
+import { createClubAsDelegateAction } from "@/lib/actions/ownership";
 
 export function OnboardingForm() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export function OnboardingForm() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await createClubAction(formData);
+    const result = await createClubAsDelegateAction(formData);
 
     setLoading(false);
 

@@ -3,15 +3,13 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { and, asc, eq } from "drizzle-orm";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { leagueRepository } from "@/repositories/league.repository";
 import {
   formatCarnetNumberForLeague,
   resolveLeagueCarnetPrefix,
 } from "@/lib/leagues/league-carnet-prefix";
-import { db } from "@/lib/db/client";
-import { categories, clubs, players } from "@/lib/db/schema";
+import { loadCategoryDetailPage } from "@/lib/loaders/category-page.loader";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
@@ -53,19 +51,10 @@ export default async function CategoriaDetallePage({
   const clubId = decodeURIComponent(rawClubId).trim();
   const categoryId = decodeURIComponent(rawCategoriaId).trim();
 
-  const [club] = await db
-    .select({
-      id: clubs.id,
-      leagueId: clubs.leagueId,
-      name: clubs.name,
-      logoUrl: clubs.logoUrl,
-      federationCode: clubs.federationCode,
-      foundationDate: clubs.foundationDate,
-    })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-  if (!club) redirect("/liga/clubs");
+  const loaded = await loadCategoryDetailPage(clubId, categoryId);
+  if (!loaded) redirect("/liga/clubs");
+  const { club, category, listaJugadores } = loaded;
+  if (!category) redirect(`/liga/clubs/${clubId}`);
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -87,34 +76,9 @@ export default async function CategoriaDetallePage({
   });
   const leagueDisplayName = leagueRow?.name ?? "Liga deportiva";
 
-  const category = await db.query.categories.findFirst({
-    where: (categories, { and, eq }) => 
-      and(eq(categories.id, categoryId), eq(categories.clubId, clubId))
-  });
-
-  if (!category) redirect(`/liga/clubs/${clubId}`);
-
   if (category.clubId !== clubId) {
     redirect(`/liga/clubs/${category.clubId}/categories/${category.id}`);
   }
-
-  const listaJugadores = await db
-    .select({
-      id: players.id,
-      name: players.name,
-      lastname: players.lastname,
-      documentType: players.documentType,
-      documentNumber: players.documentNumber,
-      birthdate: players.birthdate,
-      phone: players.phone,
-      jerseyNumber: players.jerseyNumber,
-      photoUrl: players.photoUrl,
-      carnetNumber: players.carnetNumber,
-      gender: players.gender,
-    })
-    .from(players)
-    .where(and(eq(players.clubId, clubId), eq(players.categoryId, categoryId)))
-    .orderBy(asc(players.lastname), asc(players.name));
 
   const categoriaDetalle = lineaCategoriaInstitucional(
     category.name,

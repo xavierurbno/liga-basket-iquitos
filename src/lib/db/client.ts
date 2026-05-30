@@ -2,6 +2,10 @@
  * ============================================================
  * CLIENTE DE BASE DE DATOS - SINGLETON PATTERN
  * ============================================================
+ * Política de capa: `docs/DATA_LAYER.md` — no importar desde `src/app/**`;
+ * dominio vía `src/repositories/*`. Conexión owner (bypass RLS): ver
+ * `docs/database-connection-roles.md`.
+ *
  * Si cambias DATABASE_URL_* en .env.local, debemos **recrear** el cliente
  * postgres (ver `cachedConnectionString`).
  *

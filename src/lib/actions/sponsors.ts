@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { z } from "zod";
 import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
@@ -38,17 +37,7 @@ export const getSponsorsByLeagueAction = async (leagueId: string) => {
 export const upsertSponsorAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     let uploadedKey: string | null = null;
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     try {
       // SuperAdmin puede elegir la liga desde el formulario
@@ -147,17 +136,7 @@ export const upsertSponsorAction = withAuth(
 
 export const bulkUpsertSponsorsAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     const uploadedKeys: string[] = [];
 

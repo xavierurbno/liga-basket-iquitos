@@ -1,7 +1,7 @@
 import { db } from "@/lib/db/client";
 import { clubs, clubMembers, Club, NewClub } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
-import { eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { ExtractTablesWithRelations } from "drizzle-orm";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
@@ -79,6 +79,124 @@ export class ClubRepository {
       .where(eq(clubs.id, id))
       .limit(1);
     return row || null;
+  }
+
+  async findTenantById(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findGalleryHeaderById(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        id: clubs.id,
+        name: clubs.name,
+        logoUrl: clubs.logoUrl,
+        colorPrimary: clubs.colorPrimary,
+      })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findPublicGalleryMetaById(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findCategoryDetailClub(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        id: clubs.id,
+        leagueId: clubs.leagueId,
+        name: clubs.name,
+        logoUrl: clubs.logoUrl,
+        federationCode: clubs.federationCode,
+        foundationDate: clubs.foundationDate,
+      })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findFichaClub(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        id: clubs.id,
+        leagueId: clubs.leagueId,
+        name: clubs.name,
+        logoUrl: clubs.logoUrl,
+        foundationDate: clubs.foundationDate,
+        slug: clubs.slug,
+      })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findCarnetClub(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        id: clubs.id,
+        leagueId: clubs.leagueId,
+        name: clubs.name,
+        logoUrl: clubs.logoUrl,
+        slug: clubs.slug,
+        federationCode: clubs.federationCode,
+      })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findNameById(id: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({ id: clubs.id, name: clubs.name })
+      .from(clubs)
+      .where(eq(clubs.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findByOwnerId(ownerId: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select()
+      .from(clubs)
+      .where(eq(clubs.ownerId, ownerId))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findLeagueIdsForClubIds(ids: string[], tx: DB | Transaction = db) {
+    if (ids.length === 0) return [];
+    return tx
+      .select({ id: clubs.id, leagueId: clubs.leagueId })
+      .from(clubs)
+      .where(inArray(clubs.id, ids));
+  }
+
+  async findAllOrderedForPicker(tx: DB | Transaction = db) {
+    return tx
+      .select({
+        id: clubs.id,
+        name: clubs.name,
+        slug: clubs.slug,
+        leagueId: clubs.leagueId,
+      })
+      .from(clubs)
+      .orderBy(asc(clubs.name));
   }
 
   /**

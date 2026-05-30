@@ -35,6 +35,7 @@ export default async function LigaOperationalHubPage() {
 
       <LigaHubCardGrid
         viewerSegment={viewerSegment}
+        activeLeagueSlug={ctx.activeLeagueSlug}
         showProfilesCard={showProfilesCard}
         showSuperAdminPlatform={role === "SUPER_ADMIN"}
       />

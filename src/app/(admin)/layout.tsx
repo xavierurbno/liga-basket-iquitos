@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { logSecurityEvent } from "@/lib/observability/security-log";
 import { Role } from "@/lib/auth/withAuth";
 import { OperationalAppHeader } from "@/components/layout/OperationalAppHeader";
 import { intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
@@ -37,7 +38,13 @@ export default async function AdminLayout({
   const role = user.app_metadata?.role as Role;
 
   if (role !== "SUPER_ADMIN") {
-    console.warn(`[SECURITY] Intento de acceso no autorizado a (admin) por usuario ${user.id} con rol ${role}`);
+    logSecurityEvent({
+      type: "auth.route.forbidden",
+      message: "Acceso denegado a zona super-admin",
+      userId: user.id,
+      role,
+      route: "/super-admin",
+    });
     redirect("/liga/");
   }
 

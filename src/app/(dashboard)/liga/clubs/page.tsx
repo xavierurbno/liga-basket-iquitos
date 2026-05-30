@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { clubs } from "@/lib/db/schema";
 import { getCachedClubs } from "@/lib/data/cached-queries";
 import { eliminarClubFormAction } from "@/lib/actions/system-dashboard";
 import { EditarClubModal } from "@/components/system/EditarClubModal";
@@ -90,7 +89,8 @@ export default async function ClubsPage() {
   }
 
   // SUPER_ADMIN / LEAGUE_ADMIN: listado filtrado por liga operativa
-  let rawClubs: (typeof clubs.$inferSelect)[] = [];
+  type CachedClub = Awaited<ReturnType<typeof getCachedClubs>>[number];
+  let rawClubs: CachedClub[] = [];
   if (appRole === "SUPER_ADMIN" || appRole === "LEAGUE_ADMIN") {
     rawClubs = await getCachedClubs({
       leagueId: operationalLeagueId!,

@@ -6,7 +6,7 @@
 |--------|--------|
 | **Root Directory** | `liga-basket-iquitos` |
 | **Framework** | Next.js (detección automática) |
-| **Build Command** | `npm run build` |
+| **Build Command** | `npm run build:vercel` (incluye `env:verify:strict`) |
 | **Install Command** | `npm ci` (o `npm install`) |
 
 El repositorio puede estar un nivel arriba; Vercel debe apuntar a la carpeta que contiene `package.json`.
@@ -47,9 +47,15 @@ Verificación: `npm run env:verify` — detalle en `docs/phase3_environment.md` 
 
 El workflow `.github/workflows/ci.yml` ejecuta en cada push/PR a `main` o `master`:
 
-1. `npm test` — tests unitarios (cuartos, roles, guards públicos)
-2. `npm run lint`
-3. `npm run build` (con variables placeholder)
+1. `npm run db:validate:manifest` y `npm run db:audit:access`
+2. `npm run env:verify:strict`
+3. `npm test` — tests unitarios
+4. `npm run lint`
+5. `npm run build`
+6. (Opcional) `db-verify-local` — Postgres + bootstrap + verify
+7. (Opcional) `e2e` — Playwright con secretos `E2E_*`
+
+Ver `docs/phase5-observability.md`.
 
 Si el repositorio Git está en la carpeta padre, mueve el workflow o ajusta `working-directory` en el YAML.
 
@@ -57,7 +63,7 @@ Si el repositorio Git está en la carpeta padre, mueve el workflow o ajusta `wor
 
 - [ ] `npm run build` sin errores en local
 - [ ] `npm test` en verde
-- [ ] `npm run env:phase3:verify` sin errores
+- [ ] `npm run env:verify:strict` sin errores (mismo check que el build en Vercel)
 - [ ] `MASTER_SUPER_ADMIN_EMAIL` definido en Production
 - [ ] `DATABASE_POOL_MAX=2` en Production
 - [ ] Dominio y redirects de Supabase Auth (`docs/phase3_environment.md`, `supabase/AUTH_REDIRECT_URLS.template.txt`)

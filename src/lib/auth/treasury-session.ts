@@ -1,6 +1,5 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { resolveTreasuryAccess, type TreasuryAccess } from "@/lib/auth/treasury-access";
 
 export type TreasurySession = {
@@ -10,17 +9,7 @@ export type TreasurySession = {
 };
 
 export const getTreasurySession = cache(async (): Promise<TreasurySession | null> => {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll() {},
-      },
-    }
-  );
+  const supabase = await createSupabaseServerFromCookies();
   const {
     data: { user },
   } = await supabase.auth.getUser();

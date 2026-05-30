@@ -43,6 +43,10 @@ export function leaguePortalNormativas(slug: string): string {
   return `/l/${slug}/normativas/`;
 }
 
+export function leaguePortalBusqueda365(slug: string): string {
+  return `/l/${slug}/busqueda-365/`;
+}
+
 function resolveSiteOrigin(override?: string): string {
   const explicit = override?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (explicit) return explicit.replace(/\/$/, "");

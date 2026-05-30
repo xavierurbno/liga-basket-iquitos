@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { clubs } from "@/lib/db/schema";
+import { loadClubForGalleryRedirect } from "@/lib/loaders/club-page.loader";
 import { resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 import { leaguePortalClubGallery } from "@/lib/portal/league-portal-paths";
 import { leagueRepository } from "@/repositories/league.repository";
@@ -18,12 +16,7 @@ export default async function LegacyClubGalleryRedirect({ params, searchParams }
   const { clubId } = await params;
   const { page: pageStr } = await searchParams;
 
-  const [club] = await db
-    .select({ leagueId: clubs.leagueId })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-
+  const club = await loadClubForGalleryRedirect(clubId);
   if (!club) {
     redirect("/");
   }

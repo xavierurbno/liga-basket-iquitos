@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { z } from "zod";
 import { clubRepository } from "@/repositories/clubRepository";
 import { categoryRepository } from "@/repositories/categoryRepository";
@@ -13,11 +13,12 @@ import { ActionResult, LeagueSettings } from "@/lib/types/league";
 import { createClubService } from "@/services/clubService";
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
 import { isSuperAdminDataScope } from "@/lib/auth/intranet-roles";
 import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
 import { User } from "@supabase/supabase-js";
 import { db } from "@/lib/db/client";
-import { treasury, clubMembers, playerStatusEnum, type PlayerStatus } from "@/lib/db/schema";
+import { treasury, clubMembers } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import {
   formatRegistroJugadorZodError,
@@ -30,6 +31,20 @@ import {
 } from "@/lib/utils/category";
 import { resolveLeagueCarnetPrefix } from "@/lib/leagues/league-carnet-prefix";
 import { leagueRepository } from "@/repositories/league.repository";
+
+async function revalidateBusqueda365CategoriesForClub(
+  clubId: string,
+  context: AuthContext,
+): Promise<void> {
+  let leagueId = context.leagueId?.trim() || null;
+  if (!leagueId) {
+    const club = await clubRepository.findById(clubId);
+    leagueId = club?.leagueId ?? null;
+  }
+  if (leagueId) {
+    revalidateTag(busqueda365CategoriesCacheTag(leagueId), "max");
+  }
+}
 
 // --- Helpers ---
 
@@ -47,7 +62,7 @@ function slugifyNombre(name: string): string {
 }
 
 async function uploadImageIfPresent(
-  supabase: ReturnType<typeof createServerClient>,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerFromCookies>>,
   bucket: string,
   pathPrefix: string,
   field: FormDataEntryValue | null
@@ -199,7 +214,7 @@ const crearCategoriaSchema = z.object({
 
 // --- Actions ---
 
-export const crearClubSistemaAction = withAuth(
+export const createClubAsSystemAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     const operationalLeagueId = context.leagueId?.trim() || null;
     if (context.role === "LEAGUE_ADMIN" || context.role === "SUPER_ADMIN") {
@@ -214,17 +229,7 @@ export const crearClubSistemaAction = withAuth(
       }
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
     const res = await createClubService(
       formData,
       { id: user.id, email: user.email || "" },
@@ -285,17 +290,7 @@ export const crearCategoriaAction = withAuth(
 
     if (!parsed.success) return { success: false, error: "Datos de categoría inválidos." };
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     const entrenadorFotoSubida = await uploadImageIfPresent(
       supabase,
@@ -332,7 +327,7 @@ export const crearCategoriaAction = withAuth(
       delegatePhotoUrl: delegadoFotoSubida,
     });
 
-    revalidateTag("categories-list", "max");
+    await revalidateBusqueda365CategoriesForClub(clubId, context);
     revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
     return { success: true };
   },
@@ -347,7 +342,7 @@ export const eliminarCategoriaAction = withAuth(
     if (!clubId || !categoryId) return { success: false, error: "Datos incompletos." };
 
     await categoryRepository.delete(categoryId);
-    revalidateTag("categories-list", "max");
+    await revalidateBusqueda365CategoriesForClub(clubId, context);
     revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
     return { success: true };
   },
@@ -367,17 +362,7 @@ export const actualizarCategoriaAction = withAuth(
 
     if (!clubId || !categoryId || !name) return { success: false, error: "Datos incompletos." };
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     const coachPhotoUrl = await uploadImageIfPresent(
       supabase,
@@ -413,7 +398,7 @@ export const actualizarCategoriaAction = withAuth(
       delegatePhotoUrl: delegatePhotoUrl || asText(formData.get("delegadoFotoActual")) || null,
     });
 
-    revalidateTag("categories-list", "max");
+    await revalidateBusqueda365CategoriesForClub(clubId, context);
     revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
     return { success: true };
   },
@@ -451,17 +436,7 @@ export const registrarJugadorAction = withAuth(
 
       const { data } = validated;
 
-      const cookieStore = await cookies();
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll: () => cookieStore.getAll(),
-            setAll() {},
-          },
-        }
-      );
+      const supabase = await createSupabaseServerFromCookies();
 
       // 1. Pre-subida de Imagen (Fuera de la transacción de DB pero controlada)
       let photoUrl: string | null = null;
@@ -540,12 +515,7 @@ export const registrarJugadorAction = withAuth(
       
       // V-02: Rollback de Storage si la DB falla
       if (uploadedPhotoKey) {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          { cookies: { getAll: () => cookieStore.getAll(), setAll() {} } }
-        );
+        const supabase = await createSupabaseServerFromCookies();
         await supabase.storage
           .from(process.env.NEXT_PUBLIC_BUCKET_PLAYERS!)
           .remove([uploadedPhotoKey]);
@@ -615,17 +585,7 @@ export const editarDeportistaAction = withAuth(
       return { success: false, error: "Campos obligatorios incompletos." };
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      }
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     const fotoSubida = await uploadImageIfPresent(
       supabase,
@@ -681,43 +641,6 @@ export const eliminarDeportistaAction = withAuth(
   ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"]
 );
 
-export const actualizarEstadoJugadorAction = withAuth(
-  async (playerId: string, status: string, _user: User, context: AuthContext): Promise<ActionResult> => {
-    const allowed = playerStatusEnum.enumValues as readonly string[];
-    if (!allowed.includes(status)) {
-      return { success: false, error: "Estado no válido." };
-    }
-    const player = await playerRepository.findById(playerId);
-    if (!player) {
-      return { success: false, error: "Jugador no encontrado." };
-    }
-    const bypass = isSuperAdminDataScope(context.role);
-    if (!bypass) {
-      if (context.role === "CLUB_DELEGATE") {
-        if (!context.clubId || player.clubId !== context.clubId) {
-          return { success: false, error: "No autorizado para este club." };
-        }
-      }
-      if (context.role === "LEAGUE_ADMIN") {
-        const club = await clubRepository.findById(player.clubId);
-        if (!club?.leagueId || !context.leagueId || club.leagueId !== context.leagueId) {
-          return { success: false, error: "No autorizado en esta liga." };
-        }
-      }
-    }
-    await playerRepository.updateStatus(
-      playerId,
-      status as PlayerStatus,
-      db,
-      bypass
-        ? { bypassClubFilter: true, actingRole: context.role }
-        : { actingRole: context.role, clubId: player.clubId }
-    );
-    return { success: true };
-  },
-  ["SUPER_ADMIN", "LEAGUE_ADMIN"]
-);
-
 export async function getTransferStatusAction(): Promise<{
   isOpen: boolean;
   message: string;
@@ -763,31 +686,6 @@ export async function getLeagueSettingsAction(): Promise<LeagueSettings> {
     return {};
   }
 }
-
-export const updateLeagueSettingsAction = withAuth(
-  async (data: LeagueSettings, _user: User, _context: AuthContext): Promise<ActionResult> => {
-    const start = data.transferPeriodStart ? new Date(data.transferPeriodStart) : null;
-    const end = data.transferPeriodEnd ? new Date(data.transferPeriodEnd) : null;
-
-    if (start && isNaN(start.getTime())) return { success: false, error: "Fecha de inicio inválida." };
-    if (end && isNaN(end.getTime())) return { success: false, error: "Fecha de cierre inválida." };
-    if (start && end && start >= end) return { success: false, error: "La fecha de inicio debe ser anterior al cierre." };
-
-    await settingsRepository.upsert({
-      transferPeriodStart: start,
-      transferPeriodEnd: end,
-      bannerText: data.bannerText?.trim() || null,
-      isManualOverride: data.isManualOverride ?? false,
-    });
-
-    revalidateTag("league-settings", "max");
-    revalidatePath("/", "page" as any);
-    revalidatePath("/login", "page" as any);
-    revalidatePath("/liga/", "page" as any);
-    return { success: true };
-  },
-  ["SUPER_ADMIN", "LEAGUE_ADMIN"]
-);
 
 export const seedLeagueSettingsAction = withAuth(
   async (): Promise<ActionResult> => {
@@ -842,12 +740,7 @@ export const registrarMovimientoAction = withAuth(
       }
 
       const data = validated.data;
-      const cookieStore = await cookies();
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll: () => cookieStore.getAll(), setAll() {} } }
-      );
+      const supabase = await createSupabaseServerFromCookies();
 
       let proofUrl: string | null = null;
       const comprobante = formData.get("comprobante");

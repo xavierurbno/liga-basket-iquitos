@@ -131,6 +131,7 @@ export function LoginForm({
           </label>
           <input
             id="email"
+            data-testid="login-email"
             name="email"
             type="email"
             autoComplete="email"
@@ -155,6 +156,7 @@ export function LoginForm({
           </div>
           <input
             id="password"
+            data-testid="login-password"
             name="password"
             type="password"
             autoComplete="current-password"
@@ -167,6 +169,7 @@ export function LoginForm({
 
         <button
           type="submit"
+          data-testid="login-submit"
           disabled={loading || googleLoading}
           className="portal-accent-bg w-full rounded-lg py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/15 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
         >

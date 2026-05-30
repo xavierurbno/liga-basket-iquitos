@@ -13,7 +13,6 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // Scripts locales / migraciones (no forman parte de la app Next)
-    "scratch/**",
     "fixNotes.js",
     "refactor*.js",
     "script*.js",

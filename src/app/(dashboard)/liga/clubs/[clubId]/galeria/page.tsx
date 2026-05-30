@@ -1,9 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { eq, desc } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { clubs, galleryPhotos } from "@/lib/db/schema";
+import { loadClubGalleryHeader } from "@/lib/loaders/club-page.loader";
 import { ArrowLeft, Images } from "lucide-react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -30,12 +28,7 @@ export default async function ClubGaleriaPage({
   const currentPage = Math.max(1, parseInt(pageStr || "1"));
   const ITEMS_PER_PAGE = 30;
 
-  const [club] = await db
-    .select({ id: clubs.id, name: clubs.name, logoUrl: clubs.logoUrl, colorPrimary: clubs.colorPrimary })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-
+  const club = await loadClubGalleryHeader(clubId);
   if (!club) redirect("/liga/clubs");
 
   // Obtener fotos paginadas y conteo total del club

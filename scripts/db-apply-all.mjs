@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { loadAppEnv } from "./load-env.mjs";
 import { assertSafeMigrationTarget } from "./assert-db-target.mjs";
 import { MIGRATION_SQL_ORDER } from "./db-migration-manifest.mjs";
+import { spawnSync } from "node:child_process";
 import {
   connectPostgres,
   isBenignMigrationError,
@@ -20,6 +21,14 @@ import {
 const target = process.argv[2] === "production" ? "production" : "development";
 const { root } = loadAppEnv(target);
 assertSafeMigrationTarget({ target, forceProd: process.argv.includes("--force-prod") });
+
+const manifestCheck = spawnSync(process.execPath, ["scripts/validate-migration-manifest.mjs"], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (manifestCheck.status !== 0) {
+  process.exit(manifestCheck.status ?? 1);
+}
 
 async function main() {
   const sql = await connectPostgres();

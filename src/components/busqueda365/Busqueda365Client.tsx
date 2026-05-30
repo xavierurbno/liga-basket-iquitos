@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown, Layers, Loader2, Search } from "lucide-react";
 import Image from "next/image";
@@ -15,9 +15,7 @@ import type {
 } from "@/lib/actions/busqueda365";
 import { PlayerDetailsModal } from "./PlayerDetailsModal";
 
-import {
-  actualizarEstadoJugadorAction,
-} from "@/lib/actions/system-dashboard";
+import { actualizarEstadoJugadorBusqueda365Action } from "@/lib/actions/busqueda365-admin";
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -37,8 +35,10 @@ type ModalPlayer = {
 };
 
 export function Busqueda365Client({
+  leagueId,
   showQuickStatusEdit = false,
 }: {
+  leagueId: string;
   showQuickStatusEdit?: boolean;
 }) {
   const [categorias, setCategorias] = useState<Busqueda365CategoriaOpcion[]>([]);
@@ -52,6 +52,7 @@ export function Busqueda365Client({
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPlayer, setModalPlayer] = useState<ModalPlayer | null>(null);
+  const plantillaRequestRef = useRef(0);
 
   const onUpdateStatus = async (playerId: string, newStatus: any) => {
     if (!showQuickStatusEdit) return;
@@ -67,7 +68,7 @@ export function Busqueda365Client({
       }))
     );
 
-    const res = await actualizarEstadoJugadorAction(playerId, newStatus);
+    const res = await actualizarEstadoJugadorBusqueda365Action(playerId, newStatus);
     if (!res.success) {
       setClubs(previousClubs);
       setError("No se pudo actualizar el estado. Reintentando...");
@@ -79,7 +80,7 @@ export function Busqueda365Client({
     (async () => {
       setCargandoCategorias(true);
       setError(null);
-      const res = await listarCategoriasBusqueda365();
+      const res = await listarCategoriasBusqueda365(leagueId);
       if (!ok) return;
       if (!res.success) {
         setError(res.error);
@@ -92,17 +93,19 @@ export function Busqueda365Client({
     return () => {
       ok = false;
     };
-  }, []);
+  }, [leagueId]);
 
   const cargarPlantilla = useCallback(async (categoryId: string, term: string = "") => {
     if (!categoryId) {
       setClubs([]);
       return;
     }
+    const requestId = ++plantillaRequestRef.current;
     setError(null);
     setCargandoPlantilla(true);
     try {
-      const res = await listarPlantillaPorCategoriaId(categoryId, term);
+      const res = await listarPlantillaPorCategoriaId(leagueId, categoryId, term);
+      if (requestId !== plantillaRequestRef.current) return;
       if (!res.success) {
         setClubs([]);
         setError(res.error);
@@ -110,9 +113,11 @@ export function Busqueda365Client({
       }
       setClubs(res.clubs);
     } finally {
-      setCargandoPlantilla(false);
+      if (requestId === plantillaRequestRef.current) {
+        setCargandoPlantilla(false);
+      }
     }
-  }, []);
+  }, [leagueId]);
 
   const onElegirCategoria = (id: string) => {
     setCategoriaIdSel(id);
@@ -147,7 +152,7 @@ export function Busqueda365Client({
   const totalJug = clubs.reduce((n, c) => n + c.players.length, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="busqueda365-root">
       <div className="rounded-2xl border border-indigo-300/35 bg-white/35 p-3 shadow-sm shadow-indigo-950/10 backdrop-blur-sm sm:p-4">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <Layers className="h-4 w-4 text-[#005CEE]" />
@@ -160,6 +165,7 @@ export function Busqueda365Client({
           </label>
           <select
             id="busq365-select-cat"
+            data-testid="busqueda365-category-select"
             value={categoriaIdSel}
             onChange={(e) => onElegirCategoria(e.target.value)}
             disabled={cargandoCategorias || categorias.length === 0}

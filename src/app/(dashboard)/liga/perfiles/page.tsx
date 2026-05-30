@@ -1,86 +1,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { asc, inArray } from "drizzle-orm";
 import { createServerClient } from "@supabase/ssr";
-import { db } from "@/lib/db/client";
-import { clubs } from "@/lib/db/schema";
+import { loadPerfilesPageData } from "@/lib/loaders/perfiles.loader";
 import { PerfilesHubHeader, type DelegateClubPickerOption } from "@/components/perfiles/PerfilesHubHeader";
-import {
-  ProfilesAssignmentsTable,
-  type ProfileAssignmentRow,
-} from "@/components/perfiles/ProfilesAssignmentsTable";
+import { ProfilesAssignmentsTable } from "@/components/perfiles/ProfilesAssignmentsTable";
 import type { Role } from "@/lib/auth/withAuth";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { ActiveLeagueSelector } from "@/components/liga/ActiveLeagueSelector";
 import { leagueRepository } from "@/repositories/league.repository";
-import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
-import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
 import { partitionPerfilesAssignments } from "@/lib/perfiles/perfiles-league-scope";
-
-async function buildAssignmentRows(): Promise<ProfileAssignmentRow[]> {
-  const raw = await userAssignmentRepository.findAllWithEmail();
-  const uniqueUserIds = [...new Set(raw.map((r) => r.userId))];
-
-  const clubIdsNeedingLeague = [
-    ...new Set(
-      raw
-        .filter((r) => r.role === "CLUB_DELEGATE" && r.clubId)
-        .map((r) => r.clubId as string),
-    ),
-  ];
-
-  const clubLeagueById = new Map<string, string | null>();
-  if (clubIdsNeedingLeague.length > 0) {
-    const clubRows = await db
-      .select({ id: clubs.id, leagueId: clubs.leagueId })
-      .from(clubs)
-      .where(inArray(clubs.id, clubIdsNeedingLeague));
-    for (const c of clubRows) {
-      clubLeagueById.set(c.id, c.leagueId);
-    }
-  }
-
-  const displayByUserId = new Map<string, string>();
-
-  try {
-    const admin = getSupabaseAdmin();
-    await Promise.all(
-      uniqueUserIds.map(async (uid) => {
-        const { data, error } = await admin.auth.admin.getUserById(uid);
-        if (error || !data?.user) return;
-        const meta = data.user.user_metadata;
-        if (meta && typeof meta === "object" && meta !== null && "full_name" in meta) {
-          const fn = (meta as { full_name?: unknown }).full_name;
-          if (typeof fn === "string" && fn.trim()) {
-            displayByUserId.set(uid, fn.trim());
-          }
-        }
-      }),
-    );
-  } catch {
-    /* Sin SERVICE_ROLE: fallback al prefijo del correo */
-  }
-
-  return raw.map((r) => {
-    const email = r.email?.trim() ?? "";
-    const fromAuth = displayByUserId.get(r.userId)?.trim() ?? "";
-    const displayName =
-      fromAuth.length > 0 ? fromAuth : email.split("@")[0] || "—";
-
-    return {
-      assignmentKey: `${r.userId}:${r.leagueId ?? ""}:${r.clubId ?? ""}`,
-      userId: r.userId,
-      leagueId: r.leagueId,
-      clubId: r.clubId,
-      delegateClubLeagueId:
-        r.role === "CLUB_DELEGATE" && r.clubId ? clubLeagueById.get(r.clubId) ?? null : null,
-      email,
-      role: r.role,
-      displayName,
-    };
-  });
-}
 
 export default async function LigaPerfilesPage() {
   const cookieStore = await cookies();
@@ -132,21 +61,11 @@ export default async function LigaPerfilesPage() {
   const leagueName = league?.name ?? null;
   const allLeagues = role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
 
-  const allRows = await buildAssignmentRows();
+  const { allRows, clubRows } = await loadPerfilesPageData();
   const { leagueRows: tableRows, orphanRows } = partitionPerfilesAssignments(allRows, leagueId);
 
   const canManageDestructive = role === "SUPER_ADMIN";
   const canInviteStaff = role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN";
-
-  const clubRows = await db
-    .select({
-      id: clubs.id,
-      name: clubs.name,
-      slug: clubs.slug,
-      leagueId: clubs.leagueId,
-    })
-    .from(clubs)
-    .orderBy(asc(clubs.name));
 
   const clubOptionsForPicker: DelegateClubPickerOption[] = clubRows
     .filter((c) => c.leagueId === leagueId)

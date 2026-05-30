@@ -4,9 +4,7 @@ import { cookies } from "next/headers";
 import { MasterClockCounter } from "@/components/system/MasterClockCounter";
 import { OnboardingForm } from "@/components/onboarding/OnboardingForm";
 import { readUserRole } from "@/lib/auth/read-user-role";
-import { db } from "@/lib/db/client";
-import { clubs } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { loadDelegateOnboardingClub } from "@/lib/loaders/club-page.loader";
 
 export default async function OnboardingPage() {
   const cookieStore = await cookies();
@@ -41,9 +39,9 @@ export default async function OnboardingPage() {
   }
 
   // Verificar si ya tiene club para no dejarlo en onboarding
-  const existingClub = await db.select().from(clubs).where(eq(clubs.ownerId, user.id)).limit(1);
-  if (existingClub.length > 0) {
-    redirect(`/liga/clubs/${existingClub[0].id}/`);
+  const existingClub = await loadDelegateOnboardingClub(user.id);
+  if (existingClub) {
+    redirect(`/liga/clubs/${existingClub.id}/`);
   }
 
   return (

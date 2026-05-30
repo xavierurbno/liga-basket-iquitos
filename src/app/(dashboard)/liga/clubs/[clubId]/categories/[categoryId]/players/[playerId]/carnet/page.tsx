@@ -2,10 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { and, eq } from "drizzle-orm";
 import { createServerClient } from "@supabase/ssr";
-import { db } from "@/lib/db/client";
-import { categories, clubs, players } from "@/lib/db/schema";
+import { loadCarnetPage } from "@/lib/loaders/category-page.loader";
 import { CarnetConfigAlert } from "@/components/carnet/CarnetConfigAlert";
 import { CarnetPrintGuide } from "@/components/carnet/CarnetPrintGuide";
 import { CarnetVistaPrevia } from "@/components/carnet/CarnetVistaPrevia";
@@ -69,48 +67,10 @@ export default async function CarnetJugadorPage({
 }) {
   const { clubId, categoryId, playerId } = await params;
 
-  const [club] = await db
-    .select({
-      id: clubs.id,
-      leagueId: clubs.leagueId,
-      name: clubs.name,
-      logoUrl: clubs.logoUrl,
-      slug: clubs.slug,
-      federationCode: clubs.federationCode,
-    })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-  if (!club) redirect("/liga/clubs");
-
-  const [category] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.clubId, clubId)))
-    .limit(1);
+  const loaded = await loadCarnetPage(clubId, categoryId, playerId);
+  if (!loaded) redirect("/liga/clubs");
+  const { club, category, jugador } = loaded;
   if (!category) redirect(`/liga/clubs/${clubId}`);
-
-  const [jugador] = await db
-    .select({
-      id: players.id,
-      name: players.name,
-      lastname: players.lastname,
-      documentType: players.documentType,
-      documentNumber: players.documentNumber,
-      birthdate: players.birthdate,
-      photoUrl: players.photoUrl,
-      carnetNumber: players.carnetNumber,
-      gender: players.gender,
-    })
-    .from(players)
-    .where(
-      and(
-        eq(players.id, playerId),
-        eq(players.clubId, clubId),
-        eq(players.categoryId, categoryId),
-      ),
-    )
-    .limit(1);
   if (!jugador) redirect(`/liga/clubs/${clubId}/categories/${categoryId}`);
 
   const cookieStore = await cookies();

@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { db } from "@/lib/db/client";
-import { categories, clubs } from "@/lib/db/schema";
+import { loadClubCategoriesPage } from "@/lib/loaders/club-page.loader";
 import { CrearCategoriaModal } from "@/components/system/CrearCategoriaModal";
 import { EditarCategoriaButton } from "@/components/system/EditarCategoriaButton";
 import { eliminarCategoriaFormAction } from "@/lib/actions/system-dashboard";
@@ -19,12 +17,9 @@ export default async function ClubCategoriasPage({
 }) {
   const { clubId } = await params;
 
-  const [club] = await db
-    .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-  if (!club) redirect("/liga/clubs");
+  const pageData = await loadClubCategoriesPage(clubId);
+  if (!pageData) redirect("/liga/clubs");
+  const { club, categorias } = pageData;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -43,10 +38,6 @@ export default async function ClubCategoriasPage({
   ) {
     notFound();
   }
-
-  const categorias = await db.query.categories.findMany({
-    where: (categories, { eq }) => eq(categories.clubId, clubId),
-  });
 
   return (
     <div className="space-y-6">

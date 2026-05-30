@@ -204,13 +204,20 @@ export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }:
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setMounted(true);
-    getLeagueSettingsAction()
+    void getLeagueSettingsAction()
       .then((s) => {
+        if (cancelled) return;
         setSettings(s);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const now = new Date();

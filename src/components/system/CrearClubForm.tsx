@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createClubAction, updateClubAction } from "@/lib/actions/club.actions";
+import { createClubAsSystemAction, updateClubAction } from "@/lib/actions/club.actions";
 import type { Club } from "@/lib/db/schema";
 
 type FormFields = {
@@ -235,7 +235,7 @@ export function CrearClubForm({ onSuccess, initialData }: CrearClubFormProps) {
           try {
             const res = isEdit
               ? await updateClubAction(fd)
-              : await createClubAction(fd);
+              : await createClubAsSystemAction(fd);
             if (!res || typeof res !== "object" || !("success" in res)) {
               setError("Respuesta inválida del servidor.");
               return;

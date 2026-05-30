@@ -10,6 +10,7 @@ import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
  */
 export function StaleSessionCleanup() {
   useEffect(() => {
+    let cancelled = false;
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -17,10 +18,15 @@ export function StaleSessionCleanup() {
 
     void (async () => {
       const { error } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (error && isInvalidRefreshTokenError(error)) {
         await supabase.auth.signOut();
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return null;

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { clubs } from "@/lib/db/schema";
+import { loadPublicClubGalleryMeta } from "@/lib/loaders/club-page.loader";
+import { clubRepository } from "@/repositories/clubRepository";
 import { PhotoGalleryGrid } from "@/components/gallery/PhotoGalleryGrid";
 import { Pagination } from "@/components/gallery/Pagination";
 import { PublicGalleryShell } from "@/components/gallery/PublicGalleryShell";
@@ -21,11 +20,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { clubId } = await params;
-  const [club] = await db
-    .select({ name: clubs.name })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
+  const club = await clubRepository.findNameById(clubId);
   return { title: club ? `Galería · ${club.name}` : "Galería del club" };
 }
 
@@ -37,11 +32,7 @@ export default async function LeagueClubGalleryPage({ params, searchParams }: Pa
   const league = await fetchPortalLeagueBranding(leagueSlug);
   if (!league) notFound();
 
-  const [club] = await db
-    .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
+  const club = await loadPublicClubGalleryMeta(clubId);
 
   if (!club || club.leagueId !== league.leagueId) notFound();
 

@@ -1,9 +1,10 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { HiCheckCircle } from "react-icons/hi";
-import { db } from "@/lib/db/client";
-import { categories, clubs, leagues, players } from "@/lib/db/schema";
+import {
+  loadCategoryValidation,
+  loadPlayerValidation,
+} from "@/lib/loaders/validation.loader";
 import {
   formatCarnetNumberForLeague,
   resolveLeagueCarnetPrefix,
@@ -96,24 +97,7 @@ export default async function ValidarFichaPage({
   let registro: ValidacionJugador | ValidacionCategoria | null = null;
 
   if (lookup === "player") {
-    const [jugador] = await db
-      .select({
-        name: players.name,
-        lastname: players.lastname,
-        carnetNumber: players.carnetNumber,
-        photoUrl: players.photoUrl,
-        gender: players.gender,
-        clubName: clubs.name,
-        categoriaNombre: categories.name,
-        leagueName: leagues.name,
-        leagueSlug: leagues.slug,
-      })
-      .from(players)
-      .innerJoin(clubs, eq(players.clubId, clubs.id))
-      .leftJoin(categories, eq(players.categoryId, categories.id))
-      .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
-      .where(eq(players.id, entityId))
-      .limit(1);
+    const jugador = await loadPlayerValidation(entityId);
 
     if (jugador) {
       const catLine = jugador.categoriaNombre
@@ -139,15 +123,7 @@ export default async function ValidarFichaPage({
   }
 
   if (!registro) {
-    const [categoria] = await db
-      .select({
-        clubName: clubs.name,
-        categoriaNombre: categories.name,
-      })
-      .from(categories)
-      .innerJoin(clubs, eq(categories.clubId, clubs.id))
-      .where(eq(categories.id, entityId))
-      .limit(1);
+    const categoria = await loadCategoryValidation(entityId);
 
     if (categoria) {
       registro = {

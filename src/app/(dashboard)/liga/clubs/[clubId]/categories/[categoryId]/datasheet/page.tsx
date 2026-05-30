@@ -2,10 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { and, eq } from "drizzle-orm";
 import { createServerClient } from "@supabase/ssr";
-import { db } from "@/lib/db/client";
-import { categories, clubs, players } from "@/lib/db/schema";
+import { loadFichaCategoryPage } from "@/lib/loaders/category-page.loader";
 import { FichaVistaPrevia } from "@/components/ficha/FichaVistaPrevia";
 import { GenerateFichaPDF } from "@/components/ficha/GenerateFichaPDF";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
@@ -29,37 +27,9 @@ export default async function FichaCategoriaPage({
   params: Promise<{ clubId: string; categoryId: string }>;
 }) {
   const { clubId, categoryId } = await params;
-  const [club] = await db
-    .select({
-      id: clubs.id,
-      leagueId: clubs.leagueId,
-      name: clubs.name,
-      logoUrl: clubs.logoUrl,
-      foundationDate: clubs.foundationDate,
-      slug: clubs.slug,
-    })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1);
-  if (!club) redirect("/liga/clubs");
-
-  const [category] = await db
-    .select({
-      name: categories.name,
-      coachName: categories.coachName,
-      coachLastname: categories.coachLastname,
-      coachDocumentType: categories.coachDocumentType,
-      coachDocumentNumber: categories.coachDocumentNumber,
-      coachPhotoUrl: categories.coachPhotoUrl,
-      delegateName: categories.delegateName,
-      delegateLastname: categories.delegateLastname,
-      delegateDocumentType: categories.delegateDocumentType,
-      delegateDocumentNumber: categories.delegateDocumentNumber,
-      delegatePhotoUrl: categories.delegatePhotoUrl,
-    })
-    .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.clubId, clubId)))
-    .limit(1);
+  const loaded = await loadFichaCategoryPage(clubId, categoryId);
+  if (!loaded) redirect("/liga/clubs");
+  const { club, category, listaJugadores } = loaded;
   if (!category) redirect(`/liga/clubs/${clubId}`);
 
   const cookieStore = await cookies();
@@ -92,21 +62,6 @@ export default async function FichaCategoriaPage({
   } else {
     leagueLogoUrl = "/logos/liga.png";
   }
-
-  const listaJugadores = await db
-    .select({
-      id: players.id,
-      name: players.name,
-      lastname: players.lastname,
-      documentType: players.documentType,
-      documentNumber: players.documentNumber,
-      birthdate: players.birthdate,
-      photoUrl: players.photoUrl,
-      jerseyNumber: players.jerseyNumber,
-      gender: players.gender,
-    })
-    .from(players)
-    .where(and(eq(players.clubId, clubId), eq(players.categoryId, categoryId)));
 
   const categoriaDetalle = lineaCategoriaInstitucional(
     category.name,

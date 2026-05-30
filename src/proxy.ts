@@ -99,7 +99,8 @@ export async function proxy(request: NextRequest) {
 
   if (
     pathnameCanon === "/busqueda-365" ||
-    pathname.startsWith("/busqueda-365/")
+    pathname.startsWith("/busqueda-365/") ||
+    /^\/l\/[^/]+\/busqueda-365\/?$/.test(pathname)
   ) {
     const limited = maybeRateLimitResponse(request, "busqueda365");
     if (limited) return limited;
@@ -144,7 +145,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/liga/busqueda-365/")
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/busqueda-365";
+    const slugFromCookie = request.cookies.get(ACTIVE_LEAGUE_SLUG_COOKIE)?.value?.trim();
+    url.pathname = slugFromCookie
+      ? `/l/${slugFromCookie}/busqueda-365/`
+      : "/busqueda-365/";
     return NextResponse.redirect(url);
   }
 

@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import type { ActionResult } from "@/lib/types/league";
@@ -61,17 +60,7 @@ export const createNormativaDocumentAction = withAuth(
       process.env.NEXT_PUBLIC_BUCKET_ASSETS?.trim() ||
       "Nomativa";
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll() {},
-        },
-      },
-    );
+    const supabase = await createSupabaseServerFromCookies();
 
     const extRaw = file.name.includes(".") ? file.name.split(".").pop() ?? "pdf" : "pdf";
     const ext = extRaw.toLowerCase().replace(/[^a-z0-9]/g, "") || "pdf";

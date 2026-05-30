@@ -5,11 +5,11 @@ import { clubs, ownershipHistory } from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
 import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { findAuthUserIdByEmail } from "@/lib/auth/auth-user-lookup";
 
-export async function createClubAction(formData: FormData) {
+export async function createClubAsDelegateAction(formData: FormData) {
   try {
-    const auth = await requireAuth(["CLUB_DELEGATE"]);
+    const auth = await requireAuth(["CLUB_DELEGATE"], [formData]);
     if (auth.denied) {
       return { error: auth.error };
     }
@@ -69,13 +69,16 @@ export async function createClubAction(formData: FormData) {
 
 export async function transferClubOwnershipAction(clubId: string, newOwnerEmail: string) {
   try {
-    const auth = await requireAuth(["CLUB_DELEGATE"]);
+    const targetClubId = clubId?.trim();
+    const auth = await requireAuth(
+      ["CLUB_DELEGATE"],
+      targetClubId ? [{ clubId: targetClubId }] : [],
+    );
     if (auth.denied) {
       return { error: auth.error };
     }
 
     const currentUser = auth.user;
-    const targetClubId = clubId?.trim();
     const emailNorm = newOwnerEmail?.trim().toLowerCase();
     if (!targetClubId || !emailNorm) {
       return { error: "Datos incompletos para transferir el club." };
@@ -90,8 +93,7 @@ export async function transferClubOwnershipAction(clubId: string, newOwnerEmail:
       return { error: "No puedes transferir un club ajeno a tu cuenta." };
     }
 
-    const result = await db.execute(sql`SELECT id FROM auth.users WHERE email = ${emailNorm}`);
-    const newOwnerId = result[0]?.id as string | undefined;
+    const newOwnerId = await findAuthUserIdByEmail(emailNorm);
 
     if (!newOwnerId) {
       return {

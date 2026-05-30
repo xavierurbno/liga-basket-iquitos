@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { db } from "@/lib/db/client";
 import { galleryPhotos } from "@/lib/db/schema";
 import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
@@ -73,29 +72,11 @@ function slugifyNombre(name: string): string {
   return sinAcentos.slice(0, 45);
 }
 
-async function createSupabaseServer() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-}
-
 /**
  * Crea club + membresía ADMIN para el usuario (propietario del sistema).
  */
 export async function crearClubComoPropietarioAction(formData: FormData) {
-  const supabase = await createSupabaseServer();
+  const supabase = await createSupabaseServerFromCookies();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -181,7 +162,10 @@ export async function uploadClubPhotosAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    const auth = await requireAuth(["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"]);
+    const auth = await requireAuth(
+      ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"],
+      [formData],
+    );
     if (auth.denied) {
       return { success: false, error: auth.error };
     }
@@ -228,11 +212,7 @@ export async function uploadClubPhotosAction(
       return { success: false, error: "No se seleccionaron imágenes." };
     }
 
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const adminClient = getSupabaseAdmin();
 
     const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 

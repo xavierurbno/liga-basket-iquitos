@@ -35,6 +35,6 @@ Actualizado con el cierre de Fase 1 (carnet, validación pública, assets).
 
 ## Pendiente Fase 2+
 
-- `ownership.createClubAction` — cualquier usuario autenticado
+- `ownership.createClubAsDelegateAction` — solo `CLUB_DELEGATE` con liga asignada
 - Unificar tesorería / `club_members` vs JWT
 - Rate limiting login y `/validar`

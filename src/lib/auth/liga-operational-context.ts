@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { leagueRepository } from "@/repositories/league.repository";
@@ -23,16 +23,7 @@ export type LigaOperationalContext = {
 
 export const getLigaOperationalContext = cache(async (): Promise<LigaOperationalContext> => {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll() {},
-      },
-    }
-  );
+  const supabase = await createSupabaseServerFromCookies();
 
   const {
     data: { user },

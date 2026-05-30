@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
-import { leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
+import { leaguePortalBusqueda365, leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
 
 function ctaFallbackForLeague(leagueSlug?: string) {
-  const normativasHref = leagueSlug?.trim()
-    ? leaguePortalNormativas(leagueSlug.trim())
-    : "/normativas/";
+  const slug = leagueSlug?.trim();
+  const normativasHref = slug ? leaguePortalNormativas(slug) : "/normativas/";
+  const busquedaHref = slug ? leaguePortalBusqueda365(slug) : "/busqueda-365/";
   return [
   {
     href: normativasHref,
@@ -14,7 +14,7 @@ function ctaFallbackForLeague(leagueSlug?: string) {
     className: "from-slate-800 to-slate-950",
   },
   {
-    href: "/busqueda-365",
+    href: busquedaHref,
     title: "Búsqueda 365",
     subtitle: "Consulta la base deportiva",
     className: "from-[#1e3a5f] to-slate-900",
