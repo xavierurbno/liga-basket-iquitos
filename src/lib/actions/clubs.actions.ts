@@ -20,6 +20,7 @@ import {
   slugifyNombre,
   uploadImageIfPresent,
 } from "@/lib/actions/system-dashboard-helpers";
+import { logSecurityEvent } from "@/lib/observability/security-log";
 
 export const createClubAsSystemAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
@@ -297,20 +298,40 @@ export const registrarMovimientoAction = withAuth(
         proofUrl = urlData.publicUrl;
       }
 
-      await db.insert(treasury).values({
-        leagueId: context.leagueId,
-        clubId,
-        type: data.type,
-        amount: String(data.amount),
-        concept: data.concept,
-        paymentChannel: data.paymentChannel,
-        operationCode: data.operationCode,
-        playerId: data.playerId,
-        transactionDate: data.transactionDate,
-        notes: data.notes,
-        registeredBy: user.id,
-        proofUrl,
-      });
+      const [treasuryRow] = await db
+        .insert(treasury)
+        .values({
+          leagueId: context.leagueId,
+          clubId,
+          type: data.type,
+          amount: String(data.amount),
+          concept: data.concept,
+          paymentChannel: data.paymentChannel,
+          operationCode: data.operationCode,
+          playerId: data.playerId,
+          transactionDate: data.transactionDate,
+          notes: data.notes,
+          registeredBy: user.id,
+          proofUrl,
+        })
+        .returning({ id: treasury.id });
+
+      logSecurityEvent(
+        {
+          type: "treasury.create",
+          message: "Movimiento de caja club registrado",
+          userId: context.userId,
+          role: context.role,
+          clubId,
+          leagueId: context.leagueId,
+          meta: {
+            treasuryId: treasuryRow?.id,
+            tipo: data.type,
+            source: "club_caja",
+          },
+        },
+        { level: "info" },
+      );
 
       revalidatePath(`/liga/clubs/${clubId}/caja/`, "page" as any);
       return { success: true };

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { logRateLimitBlocked } from "@/lib/observability/security-log";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
 import {
   checkRateLimit,
@@ -12,6 +13,7 @@ export async function enforceRateLimit(scope: RateLimitScope): Promise<string | 
   const clientIp = getClientIpFromHeaders(headerStore);
   const result = checkRateLimit(scope, clientIp);
   if (!result.allowed) {
+    logRateLimitBlocked(scope, clientIp, result.retryAfterSec);
     return rateLimitExceededMessage(result.retryAfterSec);
   }
   return null;

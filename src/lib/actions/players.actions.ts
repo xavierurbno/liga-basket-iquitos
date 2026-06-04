@@ -27,6 +27,7 @@ import {
   resolveLeagueAndClubForPlayerAction,
   uploadImageIfPresent,
 } from "@/lib/actions/system-dashboard-helpers";
+import { logSecurityEvent } from "@/lib/observability/security-log";
 
 export const registrarJugadorAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
@@ -124,6 +125,19 @@ export const registrarJugadorAction = withAuth(
           tx,
         );
       });
+
+      logSecurityEvent(
+        {
+          type: "player.create",
+          message: "Jugador registrado",
+          userId: context.userId,
+          role: context.role,
+          clubId,
+          leagueId,
+          meta: { categoryId },
+        },
+        { level: "info" },
+      );
 
       revalidatePath(`/liga/clubs/${clubId}/categories/${categoryId}/`, "page" as any);
       return { success: true };

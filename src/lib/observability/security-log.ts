@@ -12,7 +12,12 @@ export type SecurityEventType =
   | "auth.tenant.club_mismatch"
   | "auth.tenant.league_mismatch"
   | "auth.route.forbidden"
-  | "auth.session.failure";
+  | "auth.session.failure"
+  | "rate_limit.blocked"
+  | "treasury.create"
+  | "player.create";
+
+export type SecurityLogLevel = "info" | "warn" | "error";
 
 export type SecurityEvent = {
   type: SecurityEventType;
@@ -35,7 +40,7 @@ function shouldEmitJson(): boolean {
   );
 }
 
-function emitToConsole(event: SecurityEvent, level: "warn" | "error") {
+function emitToConsole(event: SecurityEvent, level: SecurityLogLevel) {
   const payload = {
     ts: new Date().toISOString(),
     level,
@@ -46,6 +51,7 @@ function emitToConsole(event: SecurityEvent, level: "warn" | "error") {
   if (shouldEmitJson()) {
     const line = JSON.stringify(payload);
     if (level === "error") console.error(line);
+    else if (level === "info") console.log(line);
     else console.warn(line);
     return;
   }
@@ -62,6 +68,7 @@ function emitToConsole(event: SecurityEvent, level: "warn" | "error") {
     .join(" · ");
 
   if (level === "error") console.error(prefix, detail);
+  else if (level === "info") console.log(prefix, detail);
   else console.warn(prefix, detail);
 }
 
@@ -93,17 +100,54 @@ async function emitToSentry(event: SecurityEvent, level: "warn" | "error") {
   }
 }
 
+function resolveMinLevel(): SecurityLogLevel {
+  const raw = process.env.SECURITY_LOG_LEVEL?.trim().toLowerCase();
+  if (raw === "error") return "error";
+  if (raw === "info") return "info";
+  return "warn";
+}
+
+function shouldEmitLevel(requested: SecurityLogLevel, min: SecurityLogLevel): boolean {
+  if (requested === "info" && shouldEmitJson()) {
+    return true;
+  }
+  const order: SecurityLogLevel[] = ["info", "warn", "error"];
+  return order.indexOf(requested) >= order.indexOf(min);
+}
+
 /**
  * Registra un evento de seguridad. No lanza excepciones.
+ *
+ * SECURITY_LOG_LEVEL: `info` (todo) | `warn` (default, sin info) | `error` (solo errores)
  */
 export function logSecurityEvent(
   event: SecurityEvent,
-  options?: { level?: "warn" | "error" },
+  options?: { level?: SecurityLogLevel },
 ): void {
-  const minLevel = process.env.SECURITY_LOG_LEVEL === "error" ? "error" : "warn";
+  const minLevel = resolveMinLevel();
   const level = options?.level ?? "warn";
-  if (minLevel === "error" && level === "warn") return;
+  if (!shouldEmitLevel(level, minLevel)) return;
 
   emitToConsole(event, level);
-  void emitToSentry(event, level);
+  if (level !== "info") {
+    void emitToSentry(event, level);
+  }
+}
+
+/** Rate limit excedido (proxy o server action). */
+export function logRateLimitBlocked(
+  scope: string,
+  clientIp: string,
+  retryAfterSec: number,
+  route?: string,
+): void {
+  logSecurityEvent(
+    {
+      type: "rate_limit.blocked",
+      message: `Rate limit (${scope})`,
+      route,
+      meta: { scope, retryAfterSec, clientIp },
+    },
+    { level: "warn" },
+  );
 }

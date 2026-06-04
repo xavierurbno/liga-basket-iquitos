@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/treasury-access";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { readUserRole } from "@/lib/auth/read-user-role";
+import { logSecurityEvent } from "@/lib/observability/security-log";
 import { createTreasuryTxSchema, type CreateTreasuryTxValues } from "@/lib/validations/treasury";
 
 export async function createTreasuryTransaction(
@@ -43,15 +45,37 @@ export async function createTreasuryTransaction(
   );
   if (!scope.ok) return { success: false, error: scope.error };
 
-  await db.insert(treasury).values({
-    clubId: parsed.data.clubId,
-    type: parsed.data.type,
-    amount: String(parsed.data.amount.toFixed(2)),
-    concept: parsed.data.concept,
-    paymentChannel: parsed.data.paymentChannel,
-    transactionDate: parsed.data.transactionDate,
-    notes: parsed.data.notes?.trim() || null,
-  });
+  const [row] = await db
+    .insert(treasury)
+    .values({
+      leagueId: operationalLeagueId ?? undefined,
+      clubId: parsed.data.clubId,
+      type: parsed.data.type,
+      amount: String(parsed.data.amount.toFixed(2)),
+      concept: parsed.data.concept,
+      paymentChannel: parsed.data.paymentChannel,
+      transactionDate: parsed.data.transactionDate,
+      notes: parsed.data.notes?.trim() || null,
+      registeredBy: auth.user.id,
+    })
+    .returning({ id: treasury.id });
+
+  logSecurityEvent(
+    {
+      type: "treasury.create",
+      message: "Movimiento de tesorería registrado",
+      userId: auth.user.id,
+      role: readUserRole(auth.user),
+      clubId: parsed.data.clubId,
+      leagueId: operationalLeagueId ?? undefined,
+      meta: {
+        treasuryId: row?.id,
+        tipo: parsed.data.type,
+        monto: parsed.data.amount,
+      },
+    },
+    { level: "info" },
+  );
 
   revalidatePath("/liga/tesoreria/", "page");
   return { success: true };

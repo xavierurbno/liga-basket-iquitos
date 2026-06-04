@@ -6,6 +6,7 @@ import {
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
+import { logRateLimitBlocked } from "@/lib/observability/security-log";
 import {
   checkRateLimit,
   rateLimitExceededMessage,
@@ -69,6 +70,7 @@ function maybeRateLimitResponse(
   const result = checkRateLimit(scope, clientIp);
   if (result.allowed) return null;
 
+  logRateLimitBlocked(scope, clientIp, result.retryAfterSec, request.nextUrl.pathname);
   const message = rateLimitExceededMessage(result.retryAfterSec);
   return new NextResponse(message, {
     status: 429,
