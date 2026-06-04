@@ -467,6 +467,39 @@ export const ownershipHistory = pgTable(
   })
 );
 
+/** Fase 2: auditoría de acciones de negocio (escritura vía servidor, lectura con RLS). */
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    actorId: uuid("actor_id").references(() => authUsers.id, { onDelete: "set null" }),
+    actorRole: varchar("actor_role", { length: 30 }),
+    action: varchar("action", { length: 80 }).notNull(),
+    entityType: varchar("entity_type", { length: 50 }).notNull(),
+    entityId: uuid("entity_id"),
+    leagueId: uuid("league_id").references(() => leagues.id, { onDelete: "set null" }),
+    clubId: uuid("club_id").references(() => clubs.id, { onDelete: "set null" }),
+    clientIp: varchar("client_ip", { length: 45 }),
+    payload: jsonb("payload"),
+  },
+  (table) => ({
+    leagueCreatedIdx: index("audit_events_league_created_idx").on(
+      table.leagueId,
+      table.createdAt,
+    ),
+    entityIdx: index("audit_events_entity_idx").on(table.entityType, table.entityId),
+    actorCreatedIdx: index("audit_events_actor_created_idx").on(
+      table.actorId,
+      table.createdAt,
+    ),
+    actionCreatedIdx: index("audit_events_action_created_idx").on(
+      table.action,
+      table.createdAt,
+    ),
+  })
+);
+
 export const clubsRelations = relations(clubs, ({ one, many }) => ({
   league: one(leagues, {
     fields: [clubs.leagueId],
@@ -898,6 +931,8 @@ export type LeagueSettings = typeof leagueSettings.$inferSelect;
 export type NewLeagueSettings = typeof leagueSettings.$inferInsert;
 export type OwnershipHistory = typeof ownershipHistory.$inferSelect;
 export type NewOwnershipHistory = typeof ownershipHistory.$inferInsert;
+export type AuditEvent = typeof auditEvents.$inferSelect;
+export type NewAuditEvent = typeof auditEvents.$inferInsert;
 export type GalleryPhoto = typeof galleryPhotos.$inferSelect;
 export type NewGalleryPhoto = typeof galleryPhotos.$inferInsert;
 export type UserAssignment = typeof userAssignments.$inferSelect;

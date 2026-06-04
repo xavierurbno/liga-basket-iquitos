@@ -27,6 +27,7 @@ import {
   resolveLeagueAndClubForPlayerAction,
   uploadImageIfPresent,
 } from "@/lib/actions/system-dashboard-helpers";
+import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
 
 export const registrarJugadorAction = withAuth(
@@ -83,6 +84,8 @@ export const registrarJugadorAction = withAuth(
         name: leagueRow?.name,
       });
 
+      let createdPlayerId: string | undefined;
+
       await db.transaction(async (tx) => {
         const catRow = await categoryRepository.findById(categoryId, tx);
         if (!catRow || catRow.clubId !== clubId) {
@@ -100,7 +103,7 @@ export const registrarJugadorAction = withAuth(
           cityPrefix,
         );
 
-        await playerRepository.create(
+        const playerRow = await playerRepository.create(
           {
             leagueId,
             clubId,
@@ -124,6 +127,19 @@ export const registrarJugadorAction = withAuth(
           },
           tx,
         );
+        createdPlayerId = playerRow?.id;
+      });
+
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.playerCreate,
+        entityType: "player",
+        entityId: createdPlayerId,
+        leagueId,
+        clubId,
+        payload: {
+          playerId: createdPlayerId,
+          categoryId,
+        },
       });
 
       logSecurityEvent(

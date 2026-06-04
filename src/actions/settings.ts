@@ -14,6 +14,7 @@ import {
   LEAGUE_SOCIAL_FORM_FIELDS,
   normalizeLeagueSocialSettings,
 } from "@/lib/leagues/league-social-links";
+import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 
 /**
  * Esquema de validación para las configuraciones de la liga.
@@ -268,6 +269,16 @@ export const updateLeagueSettingsAction = withAuth(
 
       // 5. Persistencia
       await settingsRepository.updateLeagueSettings(vLeagueId, data);
+
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.settingsUpdate,
+        entityType: "league_settings",
+        entityId: vLeagueId,
+        leagueId: vLeagueId,
+        payload: {
+          fieldsUpdated: Object.keys(data),
+        },
+      });
 
       const leagueRow = await leagueRepository.findById(vLeagueId);
       revalidateLeagueBrandingPaths(leagueRow?.slug);

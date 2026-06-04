@@ -11,6 +11,7 @@ import {
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { readUserRole } from "@/lib/auth/read-user-role";
+import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
 import { createTreasuryTxSchema, type CreateTreasuryTxValues } from "@/lib/validations/treasury";
 
@@ -60,12 +61,15 @@ export async function createTreasuryTransaction(
     })
     .returning({ id: treasury.id });
 
+  const clientIp = await getAuditClientIp();
+  const role = readUserRole(auth.user);
+
   logSecurityEvent(
     {
       type: "treasury.create",
       message: "Movimiento de tesorería registrado",
       userId: auth.user.id,
-      role: readUserRole(auth.user),
+      role,
       clubId: parsed.data.clubId,
       leagueId: operationalLeagueId ?? undefined,
       meta: {
@@ -76,6 +80,23 @@ export async function createTreasuryTransaction(
     },
     { level: "info" },
   );
+
+  await recordAudit({
+    actorId: auth.user.id,
+    actorRole: role,
+    action: AUDIT_ACTIONS.treasuryCreate,
+    entityType: "treasury",
+    entityId: row?.id,
+    leagueId: operationalLeagueId,
+    clubId: parsed.data.clubId,
+    clientIp,
+    payload: {
+      treasuryId: row?.id,
+      tipo: parsed.data.type,
+      monto: parsed.data.amount,
+      source: "liga_tesoreria",
+    },
+  });
 
   revalidatePath("/liga/tesoreria/", "page");
   return { success: true };

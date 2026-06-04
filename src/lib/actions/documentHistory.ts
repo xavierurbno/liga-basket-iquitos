@@ -9,6 +9,8 @@ import {
   resolveDocumentHistoryLeagueId,
 } from "@/lib/auth/document-emission-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
+import { readUserRole } from "@/lib/auth/read-user-role";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
 
 const DOCUMENT_HISTORY_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
@@ -40,9 +42,28 @@ export async function registrarEmisionDocumento(
         leagueId: scope.leagueId,
       })
       .returning({
+        id: documentHistory.id,
         correlative: documentHistory.correlative,
         createdAt: documentHistory.createdAt,
       });
+
+    await recordAudit({
+      actorId: auth.user.id,
+      actorRole: readUserRole(auth.user),
+      action: AUDIT_ACTIONS.documentEmit,
+      entityType: "document_history",
+      entityId: row.id,
+      leagueId: scope.leagueId,
+      clubId: auth.context.clubId,
+      clientIp: await getAuditClientIp(),
+      payload: {
+        documentHistoryId: row.id,
+        type,
+        entityId,
+        shortIdentifier,
+        correlative: row.correlative,
+      },
+    });
 
     return {
       ok: true,

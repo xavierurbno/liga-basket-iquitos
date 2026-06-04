@@ -6,6 +6,8 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
 import { eq } from "drizzle-orm";
 import { findAuthUserIdByEmail } from "@/lib/auth/auth-user-lookup";
+import { readUserRole } from "@/lib/auth/read-user-role";
+import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
 
 export async function createClubAsDelegateAction(formData: FormData) {
   try {
@@ -111,6 +113,8 @@ export async function transferClubOwnershipAction(clubId: string, newOwnerEmail:
       return { error: "El usuario ya es responsable de otro club" };
     }
 
+    const clubLeagueId = club[0].leagueId ?? auth.context.leagueId ?? null;
+
     await db.transaction(async (tx) => {
       await tx.update(clubs).set({ ownerId: newOwnerId }).where(eq(clubs.id, targetClubId));
 
@@ -120,6 +124,21 @@ export async function transferClubOwnershipAction(clubId: string, newOwnerEmail:
         newOwnerId: newOwnerId,
         registeredBy: currentUser.id,
       });
+    });
+
+    await recordAudit({
+      actorId: currentUser.id,
+      actorRole: readUserRole(currentUser),
+      action: AUDIT_ACTIONS.ownershipTransfer,
+      entityType: "club",
+      entityId: targetClubId,
+      leagueId: clubLeagueId,
+      clubId: targetClubId,
+      clientIp: await getAuditClientIp(),
+      payload: {
+        previousOwnerId: currentUser.id,
+        newOwnerId,
+      },
     });
 
     return { success: true };

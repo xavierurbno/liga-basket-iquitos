@@ -38,4 +38,5 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0028_league_social_links.sql",
   "supabase/migrations/0029_security_advisor_fixes.sql",
   "supabase/migrations/0030_security_advisor_warnings.sql",
+  "supabase/migrations/0031_audit_events.sql",
 ];

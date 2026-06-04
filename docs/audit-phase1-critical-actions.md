@@ -30,11 +30,15 @@ Variables:
 - `SECURITY_LOG_LEVEL=info|warn|error` (default `warn`)
 - En **producción/Vercel**, los eventos `info` (`treasury.create`, `player.create`) se emiten siempre en JSON aunque el nivel mínimo sea `warn`
 
-## Pendiente Fase 2+
+## Fase 2 (implementada)
 
-- `player.update`, `settings.update`, `tournament.*`, `normativa.upload`, `gallery.delete`
+Tabla `audit_events` + `recordAudit()` — ver `docs/audit-phase2-persistent-events.md`.
+
+## Pendiente Fase 3+
+
+- `player.update`, `tournament.*`, `normativa.upload`, `gallery.delete`
 - Consultas PII (`validar.view`, `busqueda365.query`)
-- Tabla `audit_events` + UI “Actividad”
+- UI intranet “Actividad reciente”
 
 ## Verificación local
 

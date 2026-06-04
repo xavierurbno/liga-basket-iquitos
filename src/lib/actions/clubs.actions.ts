@@ -20,6 +20,7 @@ import {
   slugifyNombre,
   uploadImageIfPresent,
 } from "@/lib/actions/system-dashboard-helpers";
+import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
 
 export const createClubAsSystemAction = withAuth(
@@ -332,6 +333,19 @@ export const registrarMovimientoAction = withAuth(
         },
         { level: "info" },
       );
+
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.treasuryCreate,
+        entityType: "treasury",
+        entityId: treasuryRow?.id,
+        leagueId: context.leagueId,
+        clubId,
+        payload: {
+          treasuryId: treasuryRow?.id,
+          tipo: data.type,
+          source: "club_caja",
+        },
+      });
 
       revalidatePath(`/liga/clubs/${clubId}/caja/`, "page" as any);
       return { success: true };
