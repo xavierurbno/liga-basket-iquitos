@@ -4,7 +4,8 @@
  * Variables:
  *   SECURITY_LOG_JSON=1        — fuerza JSON en desarrollo
  *   SENTRY_DSN                 — envía eventos a Sentry (captureMessage)
- *   SECURITY_LOG_LEVEL=warn    — mínimo nivel (warn | error), default warn
+ *   SECURITY_LOG_LEVEL=warn    — mínimo nivel (info | warn | error), default warn
+ *   PII_LOG_HASH_SALT          — sal para hashes en logs PII (ver audit-phase3)
  */
 
 export type SecurityEventType =
@@ -12,10 +13,14 @@ export type SecurityEventType =
   | "auth.tenant.club_mismatch"
   | "auth.tenant.league_mismatch"
   | "auth.route.forbidden"
+  | "auth.route.allowed"
   | "auth.session.failure"
   | "rate_limit.blocked"
   | "treasury.create"
-  | "player.create";
+  | "player.create"
+  | "pii.validar.view"
+  | "pii.busqueda365.query"
+  | "pii.document.search";
 
 export type SecurityLogLevel = "info" | "warn" | "error";
 
@@ -149,5 +154,31 @@ export function logRateLimitBlocked(
       meta: { scope, retryAfterSec, clientIp },
     },
     { level: "warn" },
+  );
+}
+
+/** Acceso exitoso a ruta sensible (intranet / super-admin). */
+export function logSensitiveRouteAllowed(input: {
+  route: string;
+  userId: string;
+  role?: string | null;
+  leagueId?: string | null;
+  clubId?: string | null;
+  clientIp?: string | null;
+}): void {
+  logSecurityEvent(
+    {
+      type: "auth.route.allowed",
+      message: `Acceso permitido a ruta sensible`,
+      userId: input.userId,
+      role: input.role ?? undefined,
+      leagueId: input.leagueId ?? undefined,
+      clubId: input.clubId ?? undefined,
+      route: input.route,
+      meta: {
+        clientIp: input.clientIp ?? null,
+      },
+    },
+    { level: "info" },
   );
 }

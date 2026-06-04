@@ -8,6 +8,7 @@ import { isValidUuid, sanitizeTsQueryInput } from "@/lib/db/public-read-guards";
 import { resolvePublicJugadorImageUrl } from "@/lib/utils/jugador-image-url";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
+import { logBusqueda365Query } from "@/lib/observability/pii-access-log";
 
 /** Option del buscador: cada fila en `categories` (category interna al club). */
 export type Busqueda365CategoriaOpcion = {
@@ -104,6 +105,12 @@ export async function listarCategoriasBusqueda365(
       clubLogoUrl: resolvePublicJugadorImageUrl(r.clubLogoUrl),
     }));
 
+    await logBusqueda365Query({
+      leagueId: scopedLeagueId,
+      operation: "list_categories",
+      resultCount: data.length,
+    });
+
     return { success: true, data };
   } catch (error) {
     console.error("Error al listar categorys en Busqueda365:", error);
@@ -192,6 +199,15 @@ export async function listarPlantillaPorCategoriaId(
     const clubsList = [...byClub.values()].sort((a, b) =>
       a.clubName.localeCompare(b.clubName, "es", { sensitivity: "base" }),
     );
+
+    const playerCount = clubsList.reduce((sum, c) => sum + c.players.length, 0);
+    await logBusqueda365Query({
+      leagueId: scopedLeagueId,
+      operation: "list_roster",
+      categoryId: id,
+      searchTerm: searchTerm ?? null,
+      resultCount: playerCount,
+    });
 
     return { success: true, clubs: clubsList };
   } catch (error) {

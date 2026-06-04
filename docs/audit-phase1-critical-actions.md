@@ -37,7 +37,6 @@ Tabla `audit_events` + `recordAudit()` — ver `docs/audit-phase2-persistent-eve
 ## Pendiente Fase 3+
 
 - `player.update`, `tournament.*`, `normativa.upload`, `gallery.delete`
-- Consultas PII (`validar.view`, `busqueda365.query`)
 - UI intranet “Actividad reciente”
 
 ## Verificación local

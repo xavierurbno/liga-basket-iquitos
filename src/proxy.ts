@@ -6,7 +6,7 @@ import {
   canAccessIntranet,
 } from "@/lib/auth/intranet-gate";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
-import { logRateLimitBlocked } from "@/lib/observability/security-log";
+import { logRateLimitBlocked, logSensitiveRouteAllowed } from "@/lib/observability/security-log";
 import {
   checkRateLimit,
   rateLimitExceededMessage,
@@ -14,6 +14,18 @@ import {
 
 function isSuperAdminPath(pathnameCanon: string, pathname: string): boolean {
   return pathnameCanon === "/super-admin" || pathname.startsWith("/super-admin/");
+}
+
+/** Rutas intranet donde se registra acceso exitoso (Fase 3). */
+function resolveSensitiveRoute(pathnameCanon: string, pathname: string): string | null {
+  if (isSuperAdminPath(pathnameCanon, pathname)) return "/super-admin";
+  if (pathnameCanon === "/liga/documentos" || pathname.startsWith("/liga/documentos/")) {
+    return "/liga/documentos";
+  }
+  if (pathnameCanon === "/liga/tesoreria" || pathname.startsWith("/liga/tesoreria/")) {
+    return "/liga/tesoreria";
+  }
+  return null;
 }
 import { createSupabaseCookieHandlers } from "@/lib/supabase/auth-cookies";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
@@ -347,6 +359,18 @@ export async function proxy(request: NextRequest) {
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
+  }
+
+  const sensitiveRoute = resolveSensitiveRoute(pathnameCanon, pathname);
+  if (sensitiveRoute && user) {
+    logSensitiveRouteAllowed({
+      route: sensitiveRoute,
+      userId: user.id,
+      role: userRole,
+      leagueId: userAppMetadata.league_id,
+      clubId: userClubId,
+      clientIp: getClientIpFromHeaders(request.headers),
+    });
   }
 
   return supabaseResponse;

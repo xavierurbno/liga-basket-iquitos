@@ -22,11 +22,12 @@ Módulo: `src/lib/observability/security-log.ts`
 - Eventos JSON en stdout en producción/Vercel (`SECURITY_LOG_JSON=1` en local).
 - Si existe `SENTRY_DSN` y el paquete `@sentry/nextjs` está instalado, envía `captureMessage` con tags.
 
-Tipos: `auth.denied`, `auth.tenant.club_mismatch`, `auth.tenant.league_mismatch`, `auth.route.forbidden`, `auth.session.failure`, `rate_limit.blocked`, `treasury.create`, `player.create`.
+Tipos: `auth.denied`, `auth.tenant.club_mismatch`, `auth.tenant.league_mismatch`, `auth.route.forbidden`, `auth.route.allowed`, `auth.session.failure`, `rate_limit.blocked`, `treasury.create`, `player.create`, `pii.validar.view`, `pii.busqueda365.query`, `pii.document.search`.
 
-Integrado en: `delegate-club-scope`, `assert-action-scope`, `resolveAuthSession`, layout `(admin)`, `proxy`, `enforce-rate-limit`, `treasury.ts`, `players.actions`, `clubs.actions` (caja).
+Integrado en: `delegate-club-scope`, `assert-action-scope`, `resolveAuthSession`, layout `(admin)`, `proxy`, `enforce-rate-limit`, `treasury.ts`, `players.actions`, `clubs.actions` (caja), `validar/[id]`, `busqueda365.ts`, `buscarJugadorPorDocumento`, `buscarClubParaDocumento`.
 
-Acciones críticas y `registered_by`: ver `docs/audit-phase1-critical-actions.md`.
+Acciones críticas y `registered_by`: ver `docs/audit-phase1-critical-actions.md`.  
+PII y retención: ver `docs/audit-phase3-pii-security.md`.
 
 **Datadog:** configurar el drain de logs de Vercel o el agente para parsear líneas JSON con `domain=security`.
 

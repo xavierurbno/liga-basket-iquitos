@@ -5,6 +5,7 @@ import { players, clubs, categories } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { createClient, User } from "@supabase/supabase-js";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import { logDocumentSearchByPlayer } from "@/lib/observability/pii-access-log";
 
 // ─────────────────────────────────────────────────────────────
 // TIPOS DE RETORNO
@@ -112,9 +113,17 @@ export const buscarJugadorPorDocumento = withAuth(
         .limit(1);
 
       if (rows.length === 0) {
+        await logDocumentSearchByPlayer({
+          userId: user.id,
+          role: context.role,
+          leagueId: context.leagueId,
+          documentType,
+          documentNumber: docNumFmt,
+          found: false,
+        });
         return {
           ok: false,
-          error: `No se encontró ningún jugador con ${documentType} ${docNumFmt}.`,
+          error: `No se encontró ningún jugador con el documento indicado (${documentType}).`,
         };
       }
 
@@ -136,6 +145,16 @@ export const buscarJugadorPorDocumento = withAuth(
         carnetNumber: row.carnetNumber ?? null,
         leagueId: row.leagueId ?? null,
       };
+
+      await logDocumentSearchByPlayer({
+        userId: user.id,
+        role: context.role,
+        leagueId: row.leagueId ?? context.leagueId,
+        documentType,
+        documentNumber: docNumFmt,
+        found: true,
+        playerId: row.id,
+      });
 
       return { ok: true, jugador: jugadorDocumental };
     } catch (err) {

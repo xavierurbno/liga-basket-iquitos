@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
 import { buildDocumentClubSearchConditions } from "@/lib/auth/document-club-search-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { logDocumentClubSearch } from "@/lib/observability/pii-access-log";
 
 export type ClubDocumental = {
   id: string;
@@ -59,8 +60,24 @@ export async function buscarClubParaDocumento(
       .where(whereClause)
       .limit(10);
 
-    if (rows.length === 0)
-      return { ok: false, error: `No se encontraron clubs con "${q}".` };
+    if (rows.length === 0) {
+      await logDocumentClubSearch({
+        userId: auth.user.id,
+        role: auth.context.role,
+        leagueId: auth.context.leagueId,
+        query: q,
+        resultCount: 0,
+      });
+      return { ok: false, error: "No se encontraron clubes con ese criterio de búsqueda." };
+    }
+
+    await logDocumentClubSearch({
+      userId: auth.user.id,
+      role: auth.context.role,
+      leagueId: auth.context.leagueId,
+      query: q,
+      resultCount: rows.length,
+    });
 
     return { ok: true, clubs: rows };
   } catch (err) {

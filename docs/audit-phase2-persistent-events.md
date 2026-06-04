@@ -41,8 +41,11 @@ ORDER BY created_at DESC
 LIMIT 50;
 ```
 
-## Fase 3 (pendiente)
+## Fase 3 (implementada)
+
+Logs PII y accesos permitidos — ver `docs/audit-phase3-pii-security.md`.
+
+## Pendiente Fase 4
 
 - UI intranet “Actividad reciente”
 - Más acciones (`player.update`, torneos, normativas)
-- Logs PII (`validar`, búsqueda 365)

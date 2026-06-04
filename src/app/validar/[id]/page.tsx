@@ -14,6 +14,7 @@ import {
   isLegacyValidationUuid,
   verifyEntityValidationToken,
 } from "@/lib/validation/entity-validation-token";
+import { logValidarView } from "@/lib/observability/pii-access-log";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,10 @@ export default async function ValidarFichaPage({
 }) {
   const { id } = await params;
   const target = resolveValidationTarget(id);
-  if (!target) redirect("/");
+  if (!target) {
+    await logValidarView({ tokenSegment: id, outcome: "invalid_token" });
+    redirect("/");
+  }
 
   const { entityId, lookup } = target;
 
@@ -134,7 +138,22 @@ export default async function ValidarFichaPage({
     }
   }
 
-  if (!registro) redirect("/");
+  if (!registro) {
+    await logValidarView({
+      tokenSegment: id,
+      lookup,
+      entityId,
+      outcome: "not_found",
+    });
+    redirect("/");
+  }
+
+  await logValidarView({
+    tokenSegment: id,
+    lookup,
+    entityId,
+    outcome: "found",
+  });
 
   const esJugador = registro.kind === "player";
   const jugadorRegistro: ValidacionJugador | null =
