@@ -2,7 +2,7 @@ import { db } from "@/lib/db/client";
 import { categories, Category, NewCategory } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
 import { and, eq } from "drizzle-orm";
-import { clubs } from "@/lib/db/schema";
+import { clubs, leagues } from "@/lib/db/schema";
 import { ExtractTablesWithRelations } from "drizzle-orm";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
@@ -84,6 +84,23 @@ export class CategoryRepository {
       })
       .from(categories)
       .innerJoin(clubs, eq(categories.clubId, clubs.id))
+      .where(eq(categories.id, categoryId))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findValidationContextById(categoryId: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        clubId: categories.clubId,
+        clubName: clubs.name,
+        categoriaNombre: categories.name,
+        leagueName: leagues.name,
+        leagueSlug: leagues.slug,
+      })
+      .from(categories)
+      .innerJoin(clubs, eq(categories.clubId, clubs.id))
+      .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
       .where(eq(categories.id, categoryId))
       .limit(1);
     return row ?? null;

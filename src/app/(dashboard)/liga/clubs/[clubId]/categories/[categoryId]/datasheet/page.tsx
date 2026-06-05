@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { loadFichaCategoryPage } from "@/lib/loaders/category-page.loader";
 import { FichaVistaPrevia } from "@/components/ficha/FichaVistaPrevia";
 import { GenerateFichaPDF } from "@/components/ficha/GenerateFichaPDF";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
-import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
+import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { leagueRepository } from "@/repositories/league.repository";
 import { loadLeaguePortalBranding } from "@/lib/leagues/league-branding";
 import { resolveLeagueDisplayLogoUrl } from "@/lib/logos/resolve-public-league-logo.server";
 import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
 import { FICHA_T2 } from "@/lib/pdf/fichaInstitucionalTextos";
+import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 
 function aIso(transactionDate: Date | null | undefined): string | null {
   if (!transactionDate) return null;
@@ -27,25 +27,22 @@ export default async function FichaCategoriaPage({
   params: Promise<{ clubId: string; categoryId: string }>;
 }) {
   const { clubId, categoryId } = await params;
-  const loaded = await loadFichaCategoryPage(clubId, categoryId);
-  if (!loaded) redirect("/liga/clubs");
-  const { club, category, listaJugadores } = loaded;
+
+  const [{ club, category, listaJugadores }, opContext] = await Promise.all([
+    loadFichaCategoryPage(clubId, categoryId),
+    withQueryTimeout(getLigaOperationalContext(), 12_000, "ligaOperationalContext").catch(
+      () => null,
+    ),
+  ]);
+
+  if (!club) redirect("/liga/clubs");
   if (!category) redirect(`/liga/clubs/${clubId}`);
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const operationalLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
-  const effectiveLeagueId = club.leagueId?.trim() || operationalLeagueId;
+  const effectiveLeagueId = club.leagueId?.trim() || opContext?.leagueId || null;
 
   let leagueDisplayName = FICHA_T2;
-  let leagueLogoUrl = "";
+  let leagueLogoUrl = "/logos/liga.png";
+
   if (effectiveLeagueId) {
     const leagueRow = await leagueRepository.findById(effectiveLeagueId);
     if (leagueRow) {
@@ -59,18 +56,18 @@ export default async function FichaCategoriaPage({
         resolvedLogo ??
         (isPrimaryPortalLeagueSlug(leagueRow.slug) ? "/logos/liga.png" : "");
     }
-  } else {
-    leagueLogoUrl = "/logos/liga.png";
   }
 
   const categoriaDetalle = lineaCategoriaInstitucional(
     category.name,
-    listaJugadores.map((j) => j.gender)
+    listaJugadores.map((j) => j.gender),
   );
 
   const fileName = `ficha-${club.slug}-${category.name}`
     .replace(/\s+/g, "-")
     .replace(/[^a-zA-Z0-9._-]/g, "");
+
+  const clubLogoPublic = resolvePublicImageUrl(club.logoUrl);
 
   const jugadoresPreview = listaJugadores.map((j) => ({
     id: j.id,
@@ -79,7 +76,7 @@ export default async function FichaCategoriaPage({
     documentType: j.documentType,
     documentNumber: j.documentNumber,
     fechaNacimientoIso: aIso(j.birthdate) ?? "",
-    photoUrl: j.photoUrl,
+    photoUrl: resolvePublicImageUrl(j.photoUrl),
     jerseyNumber: j.jerseyNumber,
   }));
 
@@ -97,23 +94,24 @@ export default async function FichaCategoriaPage({
         </Link>
         <GenerateFichaPDF
           leagueId={effectiveLeagueId}
+          leagueLogoUrl={leagueLogoUrl || null}
           leagueDisplayName={leagueDisplayName}
           fileName={fileName}
           teamId={categoryId}
           clubName={club.name}
-          clubLogoUrl={club.logoUrl}
+          clubLogoUrl={clubLogoPublic}
           categoriaDetalle={categoriaDetalle}
           coachName={category.coachName}
           coachLastname={category.coachLastname}
           coachDocumentType={category.coachDocumentType}
           coachDocumentNumber={category.coachDocumentNumber}
-          coachPhotoUrl={category.coachPhotoUrl}
+          coachPhotoUrl={resolvePublicImageUrl(category.coachPhotoUrl)}
           delegateName={category.delegateName}
           delegateLastname={category.delegateLastname}
           delegateDocumentType={category.delegateDocumentType}
           delegateDocumentNumber={category.delegateDocumentNumber}
-          delegatePhotoUrl={category.delegatePhotoUrl}
-          players={jugadoresPreview.map(({ id, ...rest }) => rest)}
+          delegatePhotoUrl={resolvePublicImageUrl(category.delegatePhotoUrl)}
+          players={jugadoresPreview}
         />
       </div>
 
@@ -121,7 +119,7 @@ export default async function FichaCategoriaPage({
         leagueDisplayName={leagueDisplayName}
         leagueLogoUrl={leagueLogoUrl}
         clubName={club.name}
-        clubLogoUrl={club.logoUrl}
+        clubLogoUrl={clubLogoPublic}
         categoriaDetalle={categoriaDetalle}
         players={jugadoresPreview}
         entrenador={{
@@ -129,14 +127,14 @@ export default async function FichaCategoriaPage({
           lastname: category.coachLastname,
           documentType: category.coachDocumentType,
           documentNumber: category.coachDocumentNumber,
-          photoUrl: category.coachPhotoUrl,
+          photoUrl: resolvePublicImageUrl(category.coachPhotoUrl),
         }}
         delegado={{
           name: category.delegateName,
           lastname: category.delegateLastname,
           documentType: category.delegateDocumentType,
           documentNumber: category.delegateDocumentNumber,
-          photoUrl: category.delegatePhotoUrl,
+          photoUrl: resolvePublicImageUrl(category.delegatePhotoUrl),
         }}
       />
     </div>

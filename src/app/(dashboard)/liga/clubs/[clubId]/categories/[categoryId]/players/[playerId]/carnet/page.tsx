@@ -5,9 +5,9 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { loadCarnetPage } from "@/lib/loaders/category-page.loader";
 import { CarnetConfigAlert } from "@/components/carnet/CarnetConfigAlert";
+import { CarnetEmissionPanel } from "@/components/carnet/CarnetEmissionPanel";
 import { CarnetPrintGuide } from "@/components/carnet/CarnetPrintGuide";
 import { CarnetVistaPrevia } from "@/components/carnet/CarnetVistaPrevia";
-import { GenerateCarnetPDF } from "@/components/carnet/GenerateCarnetPDF";
 import {
   buildCarnetLeagueReadiness,
   buildPlayerCarnetWarnings,
@@ -157,6 +157,19 @@ export default async function CarnetJugadorPage({
     hasPhoto: Boolean(fotoPublica),
     hasCarnetNumber: Boolean(carnetDisplay),
   });
+  const credentialVersion = jugador.credentialVersion ?? 0;
+  const credentialIssuedAt = jugador.credentialIssuedAt
+    ? jugador.credentialIssuedAt.toISOString()
+    : null;
+  const canEmitCarnet =
+    leagueReadiness.ready && Boolean(fotoPublica) && Boolean(carnetDisplay);
+  const emitBlockReason = !leagueReadiness.ready
+    ? "Completa la configuración del carnet en ajustes de liga."
+    : !fotoPublica
+      ? "Sube la foto del deportista."
+      : !carnetDisplay
+        ? "El deportista no tiene número de carnet."
+        : null;
   const settingsHref = effectiveLeagueId
     ? `/liga/configuracion/#carnet-settings`
     : "/liga/configuracion/#carnet-settings";
@@ -190,7 +203,9 @@ export default async function CarnetJugadorPage({
         settingsHref={settingsHref}
       />
 
-      <CarnetVistaPrevia
+      <section className="rounded-2xl border border-[#BFDBFE] bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-bold text-slate-900">Vista previa del carnet</h2>
+        <CarnetVistaPrevia
         leagueId={effectiveLeagueId}
         playerId={jugador.id}
         leagueDisplayName={leagueDisplayName}
@@ -227,7 +242,8 @@ export default async function CarnetJugadorPage({
         carnetFederationDisplayName={leagueSettings?.carnetFederationDisplayName}
         carnetSportLabel={leagueSettings?.carnetSportLabel}
         carnetSportGraphicUrl={carnetSportGraphicUrl}
-      />
+        />
+      </section>
 
       <div className="rounded-2xl border border-[#BFDBFE] bg-white p-6 shadow-sm">
         <div className="flex gap-4">
@@ -266,7 +282,6 @@ export default async function CarnetJugadorPage({
           </div>
         </div>
         <div className="mt-6 space-y-4 print:hidden">
-          <CarnetPrintGuide />
           {!leagueReadiness.ready ? (
             <p className="text-center text-[11px] font-medium text-amber-800">
               Completa la configuración del carnet en{" "}
@@ -276,28 +291,40 @@ export default async function CarnetJugadorPage({
               para un reverso con firmas oficiales.
             </p>
           ) : null}
-          <GenerateCarnetPDF
-            leagueId={effectiveLeagueId}
-            leagueDisplayName={leagueDisplayName}
+          <CarnetEmissionPanel
             playerId={jugador.id}
-            fileName={fileName}
-            name={jugador.name}
-            lastname={jugador.lastname}
-            documentType={jugador.documentType}
-            documentNumber={jugador.documentNumber}
-            fechaNacimientoIso={aIso(jugador.birthdate)}
-            gender={jugador.gender}
-            clubName={club.name}
-            federationSportsCode={club.federationCode}
-            leagueSportsCode={cityPrefix}
-            categoriaDetalle={categoriaCarnet}
-            carnetNumber={jugador.carnetNumber}
-            carnetNumberDisplay={carnetDisplay}
-            photoUrl={fotoPublica}
-            clubLogoUrl={club.logoUrl}
-            label="Descargar carnet PDF"
-            className="w-full rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-[#1D4ED8] disabled:opacity-60"
+            clubId={clubId}
+            categoryId={categoryId}
+            credentialVersion={credentialVersion}
+            credentialIssuedAt={credentialIssuedAt}
+            validationUrl={validationUrl}
+            canEmit={canEmitCarnet}
+            emitBlockReason={emitBlockReason}
+            pdfProps={{
+              leagueId: effectiveLeagueId,
+              leagueDisplayName,
+              playerId: jugador.id,
+              fileName,
+              name: jugador.name,
+              lastname: jugador.lastname,
+              documentType: jugador.documentType,
+              documentNumber: jugador.documentNumber,
+              fechaNacimientoIso: aIso(jugador.birthdate),
+              gender: jugador.gender,
+              clubName: club.name,
+              federationSportsCode: club.federationCode,
+              leagueSportsCode: cityPrefix,
+              categoriaDetalle: categoriaCarnet,
+              carnetNumber: jugador.carnetNumber,
+              carnetNumberDisplay: carnetDisplay,
+              photoUrl: fotoPublica,
+              clubLogoUrl: club.logoUrl,
+              validationUrl,
+              credentialIssuedAtIso: credentialIssuedAt,
+              credentialVersion,
+            }}
           />
+          <CarnetPrintGuide />
         </div>
       </div>
     </div>

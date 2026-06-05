@@ -25,5 +25,6 @@ describe("record-audit", () => {
   it("expone constantes de acción Fase 2", () => {
     assert.equal(AUDIT_ACTIONS.treasuryCreate, "treasury.create");
     assert.equal(AUDIT_ACTIONS.documentEmit, "document.emit");
+    assert.equal(AUDIT_ACTIONS.carnetEmit, "carnet.emit");
   });
 });

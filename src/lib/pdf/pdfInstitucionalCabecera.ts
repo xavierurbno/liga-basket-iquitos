@@ -1,5 +1,11 @@
 import type { jsPDF } from "jspdf";
 import {
+  FICHA_HEADER_FEDERATION_LOGO_SCALE,
+  FICHA_HEADER_LOGO_H_MM,
+  FICHA_HEADER_LOGO_TOP_OFFSET_MM,
+  FICHA_HEADER_LOGO_W_MM,
+} from "@/lib/pdf/fichaHeaderLayout";
+import {
   FICHA_T1,
   FICHA_T3,
   resolveFichaLeagueTitle,
@@ -20,7 +26,10 @@ export function drawLogoFit(
   x: number,
   y: number,
   maxW: number,
-  maxH: number
+  maxH: number,
+  /** Escala del dibujo dentro de la caja (1 = ocupa el máximo posible). */
+  contentScale = 1,
+  verticalAlign: "center" | "top" = "center",
 ) {
   if (!dataUrl || !dataUrl.startsWith("data:image")) return;
   let fmt: "PNG" | "JPEG" = "PNG";
@@ -29,14 +38,16 @@ export function drawLogoFit(
   }
   const props = doc.getImageProperties(dataUrl);
   const ratio = props.width / props.height;
-  let w = maxW;
+  const fitW = maxW * contentScale;
+  const fitH = maxH * contentScale;
+  let w = fitW;
   let h = w / ratio;
-  if (h > maxH) {
-    h = maxH;
+  if (h > fitH) {
+    h = fitH;
     w = h * ratio;
   }
   const ox = x + (maxW - w) / 2;
-  const oy = y + (maxH - h) / 2;
+  const oy = verticalAlign === "top" ? y : y + (maxH - h) / 2;
   doc.addImage({
     imageData: dataUrl,
     format: fmt,
@@ -260,18 +271,31 @@ export function drawCabeceraInstitucional(
   m: CabeceraInstitucionalMetrics
 ) {
   const y0 = headerTop;
+  const textBlockTop = y0 + (m.bandH - m.blockH) / 2;
+  const logoBoxTop = textBlockTop + FICHA_HEADER_LOGO_TOP_OFFSET_MM;
 
-  drawLogoFit(doc, input.federacionLogoPngDataUrl, m.margin, y0, m.sideW, m.bandH);
+  drawLogoFit(
+    doc,
+    input.federacionLogoPngDataUrl,
+    m.margin,
+    logoBoxTop,
+    FICHA_HEADER_LOGO_W_MM,
+    FICHA_HEADER_LOGO_H_MM,
+    FICHA_HEADER_FEDERATION_LOGO_SCALE,
+    "top",
+  );
   drawLogoFit(
     doc,
     input.ligaLogoPngDataUrl,
-    m.pageW - m.margin - m.sideW,
-    y0,
-    m.sideW,
-    m.bandH
+    m.pageW - m.margin - FICHA_HEADER_LOGO_W_MM,
+    logoBoxTop,
+    FICHA_HEADER_LOGO_W_MM,
+    FICHA_HEADER_LOGO_H_MM,
+    1,
+    "top",
   );
 
-  let yy = y0 + (m.bandH - m.blockH) / 2 + m.lineH14 * 0.85;
+  let yy = textBlockTop + m.lineH14 * 0.85;
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);

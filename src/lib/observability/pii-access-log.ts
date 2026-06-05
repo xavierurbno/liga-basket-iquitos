@@ -30,6 +30,10 @@ export async function logValidarView(input: {
   lookup?: "player" | "category";
   entityId?: string | null;
   outcome: "found" | "not_found" | "invalid_token";
+  /** Solo código de estado (`ACTIVO`, etc.); sin PII. */
+  playerStatus?: string | null;
+  /** Tamaño de plantilla en validación por categoría. */
+  rosterCount?: number | null;
   clientIp?: string | null;
 }): Promise<void> {
   const { tokenHash, legacyUuid } = fingerprintOpaqueToken(input.tokenSegment);
@@ -43,6 +47,8 @@ export async function logValidarView(input: {
         outcome: input.outcome,
         lookup: input.lookup ?? null,
         entityId: input.entityId ?? null,
+        playerStatus: input.playerStatus ?? null,
+        rosterCount: input.rosterCount ?? null,
         tokenHash,
         legacyUuid,
         clientIp,

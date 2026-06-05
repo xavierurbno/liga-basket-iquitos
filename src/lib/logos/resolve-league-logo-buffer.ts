@@ -1,8 +1,21 @@
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
-import { settingsRepository } from "@/repositories/settingsRepository";
+import { DEFAULT_PUBLIC_LEAGUE_LOGO } from "@/lib/logos/public-league-logo";
+import { resolvePublicLeagueLogoUrlFromDisk } from "@/lib/logos/resolve-public-league-logo.server";
 import { resolveWatermarkLogoPath } from "@/lib/logos/resolve-watermark-logo";
+import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
+import { settingsRepository } from "@/repositories/settingsRepository";
+import { leagueRepository } from "@/repositories/league.repository";
+
+async function readPublicAssetBuffer(relativeUrl: string): Promise<Buffer | null> {
+  const rel = relativeUrl.replace(/^\//, "");
+  try {
+    return await fs.readFile(path.join(process.cwd(), "public", rel));
+  } catch {
+    return null;
+  }
+}
 
 async function fetchRemoteImageBuffer(url: string): Promise<Buffer | null> {
   try {
@@ -16,12 +29,14 @@ async function fetchRemoteImageBuffer(url: string): Promise<Buffer | null> {
 
 /**
  * Logo PNG para marca de agua / PDF.
- * - Con `leagueId`: solo `login_logo_url` de esa liga (sin sustituir por Iquitos).
+ * - Con `leagueId`: `login_logo_url` de la liga; si falta y es la liga principal del portal,
+ *   mismo fallback que la vista previa (`public/logos/…`).
  * - Sin `leagueId`: archivo global en `public/logos` (liga principal).
  */
 export async function resolveLeagueLogoBuffer(leagueId?: string | null): Promise<Buffer | null> {
   if (leagueId?.trim()) {
-    const settings = await settingsRepository.getLeagueSettings(leagueId.trim());
+    const id = leagueId.trim();
+    const settings = await settingsRepository.getLeagueSettings(id);
     const url = settings?.loginLogoUrl?.trim();
     if (url) {
       const remote = await fetchRemoteImageBuffer(url);
@@ -29,6 +44,16 @@ export async function resolveLeagueLogoBuffer(leagueId?: string | null): Promise
         return await sharp(remote).png().toBuffer();
       }
     }
+
+    const leagueRow = await leagueRepository.findById(id);
+    if (leagueRow && isPrimaryPortalLeagueSlug(leagueRow.slug)) {
+      const diskUrl = (await resolvePublicLeagueLogoUrlFromDisk()) ?? DEFAULT_PUBLIC_LEAGUE_LOGO;
+      const localBuf = await readPublicAssetBuffer(diskUrl);
+      if (localBuf) {
+        return await sharp(localBuf).png().toBuffer();
+      }
+    }
+
     return null;
   }
 

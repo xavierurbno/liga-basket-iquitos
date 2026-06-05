@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { getLeagueSettingsAction } from "@/lib/actions/system-dashboard";
 import { useCountdown } from "@/hooks/useCountdown";
 
@@ -199,13 +200,27 @@ function ClockSkeleton({ minimal }: { minimal?: boolean }) {
 
 // ─── Main Component ───────────────────────────────────────────
 export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }: MasterClockCounterProps) {
+  const pathname = usePathname();
   const [settings, setSettings] = useState<LeagueSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  const skipSettingsFetch =
+    pathname.includes("/datasheet") ||
+    pathname.includes("/carnet") ||
+    pathname.includes("/documentos");
+
   useEffect(() => {
     let cancelled = false;
     setMounted(true);
+
+    if (skipSettingsFetch) {
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void getLeagueSettingsAction()
       .then((s) => {
         if (cancelled) return;
@@ -218,7 +233,7 @@ export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }:
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [skipSettingsFetch]);
 
   const now = new Date();
   const endRaw = settings?.transferPeriodEnd ?? null;

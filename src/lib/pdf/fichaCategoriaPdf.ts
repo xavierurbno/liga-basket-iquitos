@@ -1,7 +1,11 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { calcularEdad } from "@/lib/utils/age";
-import { FOTO_CELDA_ALTO_MM, FOTO_CELDA_ANCHO_MM } from "@/lib/pdf/fichaLayout";
+import {
+  FOTO_CELDA_ALTO_MM,
+  FOTO_CELDA_ANCHO_MM,
+  QR_CELDA_MM,
+} from "@/lib/pdf/fichaLayout";
 import {
   FICHA_COLUMNAS_TABLA,
   resolveFichaLeagueTitle,
@@ -23,6 +27,8 @@ export type FichaPdfJugadorInput = {
   fotoPngDataUrl: string | null;
   /** Número de camiseta / polo */
   jerseyNumber: number | null;
+  /** QR estático `/validar/{token}` rasterizado para la celda. */
+  validationQrPngDataUrl: string | null;
 };
 
 export type FichaPdfStaffInput = {
@@ -217,17 +223,18 @@ function fmtFechaPeru(iso: string): string {
   return d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-/** Anchos que suman exactamente `innerW` (borde N° = margen Fed; borde Foto = borde Liga). */
+/** Anchos que suman exactamente `innerW` (borde N° = margen Fed; borde QR = borde Liga). */
 function buildColumnStylesFullWidth(innerW: number) {
   const wNum = 10;
-  const wFoto = Math.round(Math.min(FOTO_CELDA_ANCHO_MM + 2.8, innerW * 0.13) * 10) / 10;
-  const rest = innerW - wNum - wFoto;
-  let wName = Math.round(rest * 0.38 * 10) / 10;
-  const wDni = Math.round(rest * 0.15 * 10) / 10;
-  const wFecha = Math.round(rest * 0.19 * 10) / 10;
-  const wEdad = Math.round(rest * 0.09 * 10) / 10;
+  const wQr = 14;
+  const wFoto = Math.round(Math.min(FOTO_CELDA_ANCHO_MM + 2.8, innerW * 0.12) * 10) / 10;
+  const rest = innerW - wNum - wFoto - wQr;
+  let wName = Math.round(rest * 0.36 * 10) / 10;
+  const wDni = Math.round(rest * 0.14 * 10) / 10;
+  const wFecha = Math.round(rest * 0.18 * 10) / 10;
+  const wEdad = Math.round(rest * 0.08 * 10) / 10;
   const wPolo = Math.round((rest - wName - wDni - wFecha - wEdad) * 10) / 10;
-  const sum = wNum + wName + wDni + wFecha + wEdad + wPolo + wFoto;
+  const sum = wNum + wName + wDni + wFecha + wEdad + wPolo + wFoto + wQr;
   if (Math.abs(sum - innerW) > 0.001) {
     wName = Math.round((wName + innerW - sum) * 10) / 10;
   }
@@ -239,6 +246,7 @@ function buildColumnStylesFullWidth(innerW: number) {
     4: { cellWidth: wEdad, halign: "center" as const },
     5: { cellWidth: wPolo, halign: "center" as const },
     6: { cellWidth: wFoto, minCellWidth: wFoto, halign: "center" as const },
+    7: { cellWidth: wQr, minCellWidth: wQr, halign: "center" as const },
   };
 }
 
@@ -271,8 +279,10 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
   });
 
   const fotosOrdenadas = sorted.map((j) => j.fotoPngDataUrl);
+  const qrsOrdenados = sorted.map((j) => j.validationQrPngDataUrl);
 
   const COL_FOTO = 6;
+  const COL_QR = 7;
 
   const head = [Array.from(FICHA_COLUMNAS_TABLA)];
 
@@ -288,6 +298,7 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
       fmtFechaPeru(j.fechaNacimientoIso),
       edad,
       polo,
+      "",
       "",
     ];
   });
@@ -373,6 +384,28 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
             y,
             width: w,
             height: h,
+            compression: "NONE",
+          });
+        }
+      }
+      if (data.section === "body" && data.column.index === COL_QR) {
+        const qr = qrsOrdenados[data.row.index];
+        if (qr) {
+          const cell = data.cell;
+          const pad = 0.45;
+          const maxW = cell.width - 2 * pad;
+          const maxH = cell.height - 2 * pad;
+          const s = Math.min(maxW / QR_CELDA_MM, maxH / QR_CELDA_MM, 1);
+          const side = QR_CELDA_MM * s;
+          const x = cell.x + (cell.width - side) / 2;
+          const y = cell.y + (cell.height - side) / 2;
+          (data.doc as jsPDF).addImage({
+            imageData: qr,
+            format: "PNG",
+            x,
+            y,
+            width: side,
+            height: side,
             compression: "NONE",
           });
         }

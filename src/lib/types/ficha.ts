@@ -1,4 +1,5 @@
 export type GenerateFichaPDFJugador = {
+  id: string;
   name: string;
   lastname: string;
   documentType: string;
@@ -10,6 +11,8 @@ export type GenerateFichaPDFJugador = {
 
 export type GenerateFichaPDFProps = {
   leagueId?: string | null;
+  /** Misma URL que la vista previa; respaldo si el servidor no resuelve `login_logo_url`. */
+  leagueLogoUrl?: string | null;
   /** Nombre oficial de la liga (cabecera PDF). */
   leagueDisplayName: string;
   fileName: string;

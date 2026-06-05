@@ -31,7 +31,7 @@ export function GenerateCarnetPDF({
       onClick={() => {
         void generar();
       }}
-      disabled={cargando}
+      disabled={cargando || props.disabled}
       className={className}
     >
       {cargando ? "…" : label}

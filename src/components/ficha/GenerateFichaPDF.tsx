@@ -11,21 +11,31 @@ import {
   type FichaPdfJugadorInput,
   type FichaPdfStaffInput,
 } from "@/lib/pdf/fichaCategoriaPdf";
-import { getEntityValidationUrlAction } from "@/lib/actions/validation-url";
+import { prepareFichaPdfDataAction } from "@/lib/actions/ficha-pdf";
+import {
+  isServerActionNetworkError,
+  serverActionNetworkMessage,
+} from "@/lib/client/server-action-error";
 import { resolveFichaLeagueTitle } from "@/lib/pdf/fichaInstitucionalTextos";
+
+const FETCH_ASSET_TIMEOUT_MS = 12_000;
 
 async function fetchUrlToPngDataUrl(
   url: string | null,
-  cache: RequestCache = "force-cache"
+  cache: RequestCache = "force-cache",
 ): Promise<string | null> {
   if (!url) return null;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), FETCH_ASSET_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { mode: "cors", cache });
+    const res = await fetch(url, { mode: "cors", cache, signal: controller.signal });
     if (!res.ok) return null;
     const blob = await res.blob();
     return blobToPngDataUrl(blob);
   } catch {
     return null;
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
@@ -45,6 +55,21 @@ function nombreCompleto(n: string | null, a: string | null): string {
   return [n, a].filter(Boolean).join(" ").trim();
 }
 
+function resolveAbsoluteAssetUrl(url: string, origin: string): string {
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/")) {
+    return `${origin.replace(/\/+$/, "")}${trimmed}`;
+  }
+  return trimmed;
+}
+
 export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
   const [cargando, setCargando] = useState(false);
 
@@ -53,23 +78,40 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
     try {
       const base = typeof window !== "undefined" ? window.location.origin : "";
 
-      const { getInstitutionalLogosAction } = await import("@/lib/actions/assets");
-      const logosRes = await getInstitutionalLogosAction(props.leagueId);
+      const prepared = await prepareFichaPdfDataAction(
+        props.leagueId,
+        props.teamId,
+        props.players.map((j) => j.id),
+      );
+      if (!prepared.ok) {
+        toast.error(prepared.error);
+        return;
+      }
 
-      const [fedRaw, ligaRaw, clubRaw] = await Promise.all([
-        Promise.resolve(logosRes.success ? logosRes.federacionBase64 : null),
-        Promise.resolve(logosRes.success ? logosRes.ligaBase64 : null),
+      const logosRes = prepared.logos;
+
+      let ligaRaw = logosRes.ligaBase64;
+      if (!ligaRaw && props.leagueLogoUrl?.trim()) {
+        ligaRaw = await fetchUrlToPngDataUrl(
+          resolveAbsoluteAssetUrl(props.leagueLogoUrl, base),
+          "force-cache",
+        );
+      }
+
+      const [fedRaw, clubRaw] = await Promise.all([
+        Promise.resolve(logosRes.federacionBase64),
         fetchUrlToPngDataUrl(props.clubLogoUrl, "force-cache"),
       ]);
-      if (logosRes.success && !ligaRaw && props.leagueId?.trim()) {
+
+      if (!ligaRaw && props.leagueId?.trim()) {
         toast.warning(
           "Esta liga no tiene logo en configuración; el PDF usará el nombre correcto pero sin logo de liga. Súbelo en la ficha de la liga o en /liga/configuración/.",
         );
       }
 
       const [fedUrl, ligaUrl, clubLogoPdf] = await Promise.all([
-        fedRaw ? escalarLogoParaPdf(fedRaw) : null,
-        ligaRaw ? escalarLogoParaPdf(ligaRaw, 2800) : null,
+        fedRaw ? escalarLogoParaPdf(fedRaw, 520) : null,
+        ligaRaw ? escalarLogoParaPdf(ligaRaw, 900) : null,
         clubRaw ? escalarLogoParaPdf(clubRaw, 1200) : null,
       ]);
 
@@ -84,12 +126,31 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
         return x.name.localeCompare(y.name, "es", { sensitivity: "base" });
       });
 
-      // Carga de fotos en paralelo: evita espera secuencial por cada jugador.
+      const playerUrls = prepared.playerUrls;
+
+      const sinQr = ordenados.filter((j) => !playerUrls[j.id]);
+      if (sinQr.length > 0) {
+        toast.warning(
+          `${sinQr.length} deportista(s) sin QR en la ficha. Revisa permisos o vuelve a intentar.`,
+        );
+      }
+
+      const qrOptions = {
+        errorCorrectionLevel: "M" as const,
+        margin: 0,
+        width: 180,
+        color: { dark: "#111111", light: "#FFFFFF" },
+      };
+
+      // Fotos y QR en paralelo por jugador; URLs de validación en una sola petición al servidor.
       const jugadoresPdf: FichaPdfJugadorInput[] = await Promise.all(
         ordenados.map(async (j) => {
-          const fotoPng = j.photoUrl
-            ? await fetchUrlToPngDataUrl(j.photoUrl, "force-cache")
-            : null;
+          const [fotoPng, validationQrPngDataUrl] = await Promise.all([
+            j.photoUrl ? fetchUrlToPngDataUrl(j.photoUrl, "force-cache") : Promise.resolve(null),
+            playerUrls[j.id]
+              ? QRCode.toDataURL(playerUrls[j.id]!, qrOptions)
+              : Promise.resolve<string | null>(null),
+          ]);
           return {
             name: j.name,
             lastname: j.lastname,
@@ -98,15 +159,15 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
             fechaNacimientoIso: j.fechaNacimientoIso,
             fotoPngDataUrl: fotoPng,
             jerseyNumber: j.jerseyNumber,
+            validationQrPngDataUrl,
           };
-        })
+        }),
       );
 
       const coachName = nombreCompleto(props.coachName, props.coachLastname);
       const delegateName = nombreCompleto(props.delegateName, props.delegateLastname);
       const generatedAtIso = new Date().toISOString();
-      const validationRes = await getEntityValidationUrlAction(props.teamId, "category");
-      const validationUrl = validationRes.ok ? validationRes.url : null;
+      const validationUrl = prepared.categoryValidationUrl;
       const [validationQrPngDataUrl, entFotoRaw, delFotoRaw] = await Promise.all([
         validationUrl
           ? QRCode.toDataURL(validationUrl, {
@@ -144,7 +205,7 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
       };
 
       const leagueTitle = resolveFichaLeagueTitle(
-        logosRes.success ? logosRes.leagueDisplayName : props.leagueDisplayName,
+        logosRes.leagueDisplayName || props.leagueDisplayName,
       );
 
       const input: FichaCategoriaPdfInput = {
@@ -167,6 +228,14 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
       enlace.download = `${props.fileName.replace(/\.pdf$/i, "")}.pdf`;
       enlace.click();
       URL.revokeObjectURL(enlace.href);
+      toast.success("Ficha PDF descargada.");
+    } catch (error) {
+      console.error("[GenerateFichaPDF]", error);
+      toast.error(
+        isServerActionNetworkError(error)
+          ? serverActionNetworkMessage()
+          : "No se pudo generar el PDF. Revisa tu conexión o vuelve a intentar en unos segundos.",
+      );
     } finally {
       setCargando(false);
     }
@@ -176,7 +245,15 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
     <button
       type="button"
       onClick={() => {
-        void generar();
+        void generar().catch((error: unknown) => {
+          console.error("[GenerateFichaPDF] unhandled", error);
+          setCargando(false);
+          toast.error(
+            isServerActionNetworkError(error)
+              ? serverActionNetworkMessage()
+              : "No se pudo generar el PDF.",
+          );
+        });
       }}
       disabled={cargando}
       className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60"

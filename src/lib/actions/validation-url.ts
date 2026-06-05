@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { categories, clubs, players } from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth/require-auth";
@@ -102,4 +102,60 @@ export async function getEntityValidationUrlAction(
   }
 
   return { ok: true, url };
+}
+
+export type PlayersValidationUrlsResult =
+  | { ok: true; urls: Record<string, string> }
+  | { ok: false; error: string };
+
+function canIssuePlayerValidationForContext(
+  row: { clubId: string; leagueId: string | null },
+  context: { role: Role; clubId?: string; leagueId?: string },
+): boolean {
+  if (context.role === "CLUB_DELEGATE") {
+    return Boolean(context.clubId && context.clubId === row.clubId);
+  }
+  if (context.leagueId?.trim() && row.leagueId) {
+    return clubBelongsToOperationalLeague(row.leagueId, context.leagueId, context.role);
+  }
+  return true;
+}
+
+/** URLs `/validar` por jugador en una sola petición (ficha de inscripción). */
+export async function getPlayersValidationUrlsAction(
+  playerIds: string[],
+): Promise<PlayersValidationUrlsResult> {
+  const auth = await requireAuth(VALIDATION_URL_ROLES);
+  if (auth.denied) return { ok: false, error: auth.error };
+
+  const ids = [...new Set(playerIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) {
+    return { ok: true, urls: {} };
+  }
+
+  const rows = await db
+    .select({
+      id: players.id,
+      clubId: players.clubId,
+      leagueId: clubs.leagueId,
+    })
+    .from(players)
+    .innerJoin(clubs, eq(players.clubId, clubs.id))
+    .where(inArray(players.id, ids));
+
+  const urls: Record<string, string> = {};
+  for (const row of rows) {
+    if (!canIssuePlayerValidationForContext(row, auth.context)) continue;
+    const url = buildPublicValidationUrl(row.id, "player");
+    if (url) urls[row.id] = url;
+  }
+
+  if (Object.keys(urls).length === 0) {
+    return {
+      ok: false,
+      error: "No se pudieron generar enlaces de validación para los deportistas solicitados.",
+    };
+  }
+
+  return { ok: true, urls };
 }

@@ -285,6 +285,10 @@ export const players = pgTable(
     photoUrl: text("photo_url"),
     status: playerStatusEnum("status").default("PENDIENTE_PAGO"),
     carnetNumber: varchar("carnet_number", { length: 20 }),
+    /** Versión de emisión del carnet digital (0 = nunca emitido). */
+    credentialVersion: integer("credential_version").notNull().default(0),
+    /** Fecha/hora de la última emisión registrada en sistema. */
+    credentialIssuedAt: timestamp("credential_issued_at"),
     tutorName: varchar("tutor_name", { length: 100 }),
     tutorDocumentType: documentTypeEnum("tutor_document_type").default("DNI"),
     tutorDocumentNumber: varchar("tutor_document_number", { length: 20 }),

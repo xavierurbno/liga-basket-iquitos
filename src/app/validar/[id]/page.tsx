@@ -1,15 +1,16 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
-import { HiCheckCircle } from "react-icons/hi";
+import { ValidarJugadorCredencial } from "@/components/validar/ValidarJugadorCredencial";
+import { ValidarPlantillaEquipo } from "@/components/validar/ValidarPlantillaEquipo";
 import {
-  loadCategoryValidation,
+  loadCategoryRosterValidation,
   loadPlayerValidation,
 } from "@/lib/loaders/validation.loader";
+import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import {
   formatCarnetNumberForLeague,
   resolveLeagueCarnetPrefix,
 } from "@/lib/leagues/league-carnet-prefix";
-import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
+import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 import {
   isLegacyValidationUuid,
   verifyEntityValidationToken,
@@ -29,38 +30,6 @@ function formatNow(): string {
     timeStyle: "medium",
   }).format(new Date());
 }
-
-function resolvePublicImageUrl(rawUrl: string | null): string | null {
-  if (!rawUrl) return null;
-  if (rawUrl.includes("/storage/v1/object/sign/")) {
-    const [withoutQuery] = rawUrl.split("?");
-    return withoutQuery.replace("/storage/v1/object/sign/", "/storage/v1/object/public/");
-  }
-  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) return rawUrl;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return null;
-  const key = rawUrl.replace(/^\/+/, "");
-  const hasBucket = key.startsWith("jugador-fotos/") || key.startsWith("club-assets/");
-  if (hasBucket) return `${supabaseUrl}/storage/v1/object/public/${key}`;
-  return `${supabaseUrl}/storage/v1/object/public/jugador-fotos/${key}`;
-}
-
-type ValidacionJugador = {
-  kind: "player";
-  leagueName: string | null;
-  clubName: string;
-  categoriaNombre: string;
-  playerName: string;
-  carnetNumber: string | null;
-  carnetDisplay: string | null;
-  photoUrl: string | null;
-};
-
-type ValidacionCategoria = {
-  kind: "category";
-  clubName: string;
-  categoriaNombre: string;
-};
 
 function resolveValidationTarget(segment: string): {
   entityId: string;
@@ -98,8 +67,6 @@ export default async function ValidarFichaPage({
 
   const { entityId, lookup } = target;
 
-  let registro: ValidacionJugador | ValidacionCategoria | null = null;
-
   if (lookup === "player") {
     const jugador = await loadPlayerValidation(entityId);
 
@@ -113,35 +80,39 @@ export default async function ValidarFichaPage({
       });
       const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
 
-      registro = {
-        kind: "player",
-        leagueName: jugador.leagueName,
-        clubName: jugador.clubName,
-        categoriaNombre: catLine,
-        playerName: `${jugador.lastname}, ${jugador.name}`,
-        carnetNumber: jugador.carnetNumber,
-        carnetDisplay,
-        photoUrl: resolvePublicImageUrl(jugador.photoUrl),
-      };
+      await logValidarView({
+        tokenSegment: id,
+        lookup,
+        entityId,
+        outcome: "found",
+        playerStatus: jugador.status,
+      });
+
+      return (
+        <main className="min-h-screen bg-linear-to-b from-slate-100 via-white to-slate-50 px-4 py-6 text-slate-900 sm:py-8">
+          <ValidarJugadorCredencial
+            leagueName={jugador.leagueName}
+            clubName={jugador.clubName}
+            categoriaNombre={catLine}
+            playerName={`${jugador.lastname}, ${jugador.name}`}
+            carnetDisplay={carnetDisplay}
+            carnetNumber={jugador.carnetNumber}
+            jerseyNumber={jugador.jerseyNumber}
+            photoUrl={resolvePublicImageUrl(jugador.photoUrl)}
+            status={jugador.status}
+            verifiedAtLabel={formatNow()}
+          />
+        </main>
+      );
     }
   }
 
-  if (!registro) {
-    const categoria = await loadCategoryValidation(entityId);
+  const plantilla = await loadCategoryRosterValidation(entityId);
 
-    if (categoria) {
-      registro = {
-        kind: "category",
-        clubName: categoria.clubName,
-        categoriaNombre: categoria.categoriaNombre,
-      };
-    }
-  }
-
-  if (!registro) {
+  if (!plantilla) {
     await logValidarView({
       tokenSegment: id,
-      lookup,
+      lookup: lookup === "player" ? "category" : lookup,
       entityId,
       outcome: "not_found",
     });
@@ -150,103 +121,21 @@ export default async function ValidarFichaPage({
 
   await logValidarView({
     tokenSegment: id,
-    lookup,
+    lookup: "category",
     entityId,
     outcome: "found",
+    rosterCount: plantilla.players.length,
   });
 
-  const esJugador = registro.kind === "player";
-  const jugadorRegistro: ValidacionJugador | null =
-    registro.kind === "player" ? registro : null;
-
   return (
-    <main className="min-h-screen bg-linear-to-b from-white via-slate-50 to-slate-100 px-4 py-8 text-slate-900">
-      <div className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/90 bg-white p-6 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.45)]">
-        <p className="text-center text-[11px] font-semibold tracking-[0.22em] text-slate-500">
-          {esJugador ? "CREDENCIAL DEPORTIVA" : "VALIDACIÓN OFICIAL"}
-        </p>
-        {jugadorRegistro?.leagueName ? (
-          <p className="mt-2 text-center text-xs font-bold uppercase leading-tight text-slate-700">
-            {jugadorRegistro.leagueName}
-          </p>
-        ) : null}
-
-        <section className="relative mt-5 flex items-center justify-center rounded-2xl border border-slate-200 bg-linear-to-b from-white to-slate-50 py-6">
-          {jugadorRegistro?.photoUrl ? (
-            <div className="relative h-32 w-24 overflow-hidden rounded-xl border-2 border-slate-200 shadow-md">
-              <Image
-                src={jugadorRegistro.photoUrl}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="96px"
-                unoptimized
-              />
-            </div>
-          ) : (
-            <Image
-              src="/logos/liga.png"
-              alt="Liga"
-              width={128}
-              height={128}
-              className="object-contain opacity-95"
-              priority
-            />
-          )}
-          <div className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 shadow-md">
-            <HiCheckCircle className="h-3.5 w-3.5" />
-            <span>Registro válido</span>
-          </div>
-        </section>
-
-        <section className="mt-6 space-y-3.5 text-sm">
-          {jugadorRegistro ? (
-            <>
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-                  Deportista
-                </p>
-                <p className="mt-1.5 text-base font-semibold text-slate-900">
-                  {jugadorRegistro.playerName}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Identidad verificada en el registro oficial de la liga (sin exposición de
-                  documento en línea).
-                </p>
-              </div>
-              {jugadorRegistro.carnetDisplay || jugadorRegistro.carnetNumber ? (
-                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3.5">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-blue-600">
-                    N° carnet
-                  </p>
-                  <p className="mt-1.5 font-mono text-base font-bold text-blue-900">
-                    {jugadorRegistro.carnetDisplay ?? jugadorRegistro.carnetNumber}
-                  </p>
-                  <p className="mt-1 text-[10px] text-blue-700/80">
-                    Coincide con el código QR impreso en el reverso del carnet.
-                  </p>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">Club</p>
-            <p className="mt-1.5 text-base font-semibold text-slate-900">{registro.clubName}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-              Categoría
-            </p>
-            <p className="mt-1.5 text-base font-semibold text-slate-900">{registro.categoriaNombre}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-              Verificado en
-            </p>
-            <p className="mt-1.5 text-sm font-semibold text-slate-800">{formatNow()}</p>
-          </div>
-        </section>
-      </div>
+    <main className="min-h-screen bg-linear-to-b from-slate-100 via-white to-slate-50 px-4 py-6 text-slate-900 sm:py-8">
+      <ValidarPlantillaEquipo
+        leagueName={plantilla.leagueName}
+        clubName={plantilla.clubName}
+        categoriaNombre={plantilla.categoriaDisplay}
+        verifiedAtLabel={formatNow()}
+        players={plantilla.players}
+      />
     </main>
   );
 }

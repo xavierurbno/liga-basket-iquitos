@@ -59,6 +59,6 @@ export function buildCarnetJugadorPdfInput(
     categoriaNombre: props.categoriaDetalle,
     carnetNumber: props.carnetNumberDisplay ?? props.carnetNumber,
     validationUrl: props.validationUrl?.trim() || null,
-    generatedAtIso: new Date().toISOString(),
+    generatedAtIso: props.credentialIssuedAtIso?.trim() || new Date().toISOString(),
   };
 }

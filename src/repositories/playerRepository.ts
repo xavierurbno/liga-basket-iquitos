@@ -147,6 +147,8 @@ export class PlayerRepository {
         birthdate: players.birthdate,
         photoUrl: players.photoUrl,
         carnetNumber: players.carnetNumber,
+        credentialVersion: players.credentialVersion,
+        credentialIssuedAt: players.credentialIssuedAt,
         gender: players.gender,
       })
       .from(players)
@@ -161,12 +163,64 @@ export class PlayerRepository {
     return row ?? null;
   }
 
+  async emitCredential(
+    playerId: string,
+    clubId: string,
+    categoryId: string,
+    tx: DB | Transaction = db,
+  ) {
+    const player = await this.findForCarnet(playerId, clubId, categoryId, tx);
+    if (!player) return null;
+
+    const nextVersion = (player.credentialVersion ?? 0) + 1;
+    const issuedAt = new Date();
+
+    const [row] = await tx
+      .update(players)
+      .set({
+        credentialVersion: nextVersion,
+        credentialIssuedAt: issuedAt,
+        updatedAt: issuedAt,
+      })
+      .where(
+        and(
+          eq(players.id, playerId),
+          eq(players.clubId, clubId),
+          eq(players.categoryId, categoryId),
+        ),
+      )
+      .returning({
+        credentialVersion: players.credentialVersion,
+        credentialIssuedAt: players.credentialIssuedAt,
+      });
+
+    return row ?? null;
+  }
+
+  async findValidationRosterByCategoryId(categoryId: string, tx: DB | Transaction = db) {
+    return tx
+      .select({
+        id: players.id,
+        name: players.name,
+        lastname: players.lastname,
+        jerseyNumber: players.jerseyNumber,
+        photoUrl: players.photoUrl,
+        status: players.status,
+        gender: players.gender,
+      })
+      .from(players)
+      .where(eq(players.categoryId, categoryId))
+      .orderBy(asc(players.lastname), asc(players.name));
+  }
+
   async findValidationById(playerId: string, tx: DB | Transaction = db) {
     const [row] = await tx
       .select({
         name: players.name,
         lastname: players.lastname,
         carnetNumber: players.carnetNumber,
+        jerseyNumber: players.jerseyNumber,
+        status: players.status,
         photoUrl: players.photoUrl,
         gender: players.gender,
         clubName: clubs.name,

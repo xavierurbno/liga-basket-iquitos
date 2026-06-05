@@ -28,9 +28,13 @@ export type GenerateCarnetPDFProps = {
   clubLogoUrl: string | null;
   /** URL firmada `/validar` (generada en servidor). */
   validationUrl?: string | null;
+  /** Fecha de emisión registrada en BD (trazabilidad en PDF). */
+  credentialIssuedAtIso?: string | null;
+  credentialVersion?: number;
   /** Etiqueta del botón (tabla vs página dedicada). */
   label?: string;
   className?: string;
+  disabled?: boolean;
 };
 
 /** Datos del deportista para el motor PDF (sin assets rasterizados). */

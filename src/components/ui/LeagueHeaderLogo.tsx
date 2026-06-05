@@ -108,6 +108,7 @@ export function LeagueHeaderLogo({
   return (
     <Link
       href={href}
+      prefetch={href === "/" ? false : undefined}
       className={`relative z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 py-0.5 transition hover:opacity-90 ${className}`.trim()}
       title={title}
     >

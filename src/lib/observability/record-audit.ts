@@ -15,6 +15,7 @@ export const AUDIT_ACTIONS = {
   settingsUpdate: "settings.update",
   ownershipTransfer: "ownership.transfer",
   documentEmit: "document.emit",
+  carnetEmit: "carnet.emit",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS] | string;

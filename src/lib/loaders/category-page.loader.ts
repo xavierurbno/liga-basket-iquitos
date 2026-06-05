@@ -1,6 +1,9 @@
+import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { clubRepository } from "@/repositories/clubRepository";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { playerRepository } from "@/repositories/playerRepository";
+
+const PAGE_LOADER_TIMEOUT_MS = 15_000;
 
 export async function loadCategoryDetailPage(clubId: string, categoryId: string) {
   const club = await clubRepository.findCategoryDetailClub(clubId);
@@ -14,6 +17,19 @@ export async function loadCategoryDetailPage(clubId: string, categoryId: string)
 }
 
 export async function loadFichaCategoryPage(clubId: string, categoryId: string) {
+  try {
+    return await withQueryTimeout(
+      loadFichaCategoryPageInner(clubId, categoryId),
+      PAGE_LOADER_TIMEOUT_MS,
+      "loadFichaCategoryPage",
+    );
+  } catch (error) {
+    console.error("[loadFichaCategoryPage]", error);
+    return null;
+  }
+}
+
+async function loadFichaCategoryPageInner(clubId: string, categoryId: string) {
   const club = await clubRepository.findFichaClub(clubId);
   if (!club) return null;
 

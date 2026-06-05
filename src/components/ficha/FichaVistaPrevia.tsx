@@ -9,6 +9,7 @@ import {
   resolveFichaLeagueTitle,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
+import { FICHA_HEADER_FEDERATION_LOGO_SCALE } from "@/lib/pdf/fichaHeaderLayout";
 import { FichaVistaPreviaJugador, FichaStaff, FichaVistaPreviaProps } from "@/lib/types/ficha";
 
 function fmtFechaPeru(iso: string): string {
@@ -39,6 +40,9 @@ function ordenarJugadores(j: FichaVistaPreviaJugador[]) {
 }
 
 const HEAD_BG = "#2563EB";
+/** Misma caja que el PDF (`fichaHeaderLayout`: 26 × 28 mm). */
+const HEADER_LOGO_BOX_CLASS =
+  "flex h-[28mm] w-[26mm] shrink-0 items-start justify-center pt-1";
 
 export function FichaVistaPrevia({
   leagueDisplayName,
@@ -74,12 +78,16 @@ export function FichaVistaPrevia({
       <div className="relative z-10 p-[14mm] pb-8 pt-[14mm]">
         {/* Cabecera institucional */}
         <header className="flex items-start gap-2">
-          <div className="flex h-[38mm] w-[30mm] shrink-0 items-center justify-center">
+          <div className={HEADER_LOGO_BOX_CLASS}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logos/federacion.png"
               alt="Federación Deportiva Peruana de Basketball"
-              className="max-h-full max-w-full object-contain"
+              className="max-h-full max-w-full object-contain object-top"
+              style={{
+                width: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
+                height: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
+              }}
             />
           </div>
 
@@ -95,13 +103,13 @@ export function FichaVistaPrevia({
             </p>
           </div>
 
-          <div className="flex h-[38mm] w-[30mm] shrink-0 items-center justify-center">
+          <div className={HEADER_LOGO_BOX_CLASS}>
             {hasLeagueLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={leagueLogoUrl}
                 alt={leagueDisplayName}
-                className="max-h-full max-w-full object-contain"
+                className="h-full w-full object-contain object-top"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-slate-50 px-1 text-center text-[7px] font-semibold uppercase leading-tight text-slate-400">
@@ -133,7 +141,7 @@ export function FichaVistaPrevia({
 
         {/* Tabla (fondo transparente para ver marca de agua) */}
         <div className="overflow-x-auto rounded border border-slate-200/80">
-          <table className="w-full min-w-[640px] border-collapse text-[11px]">
+          <table className="w-full min-w-[700px] border-collapse text-[11px]">
             <thead>
               <tr>
                 {FICHA_COLUMNAS_TABLA.map((label, colIdx) => (
@@ -185,6 +193,14 @@ export function FichaVistaPrevia({
                         ) : (
                           <span className="text-[8px] text-slate-400">—</span>
                         )}
+                      </div>
+                    </td>
+                    <td className="border border-slate-200/70 px-0.5 py-0.5 text-center align-middle">
+                      <div
+                        className="mx-auto flex h-[12mm] w-[12mm] items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[7px] font-bold uppercase leading-none text-slate-400"
+                        title="El código QR se genera al descargar el PDF"
+                      >
+                        QR
                       </div>
                     </td>
                   </tr>

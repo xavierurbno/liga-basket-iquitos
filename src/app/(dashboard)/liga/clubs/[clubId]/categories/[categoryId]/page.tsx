@@ -1,21 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
-import { leagueRepository } from "@/repositories/league.repository";
-import {
-  formatCarnetNumberForLeague,
-  resolveLeagueCarnetPrefix,
-} from "@/lib/leagues/league-carnet-prefix";
 import { loadCategoryDetailPage } from "@/lib/loaders/category-page.loader";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
-import { GenerateCarnetPDF } from "@/components/carnet/GenerateCarnetPDF";
-import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
-
 function calcularEdad(transactionDate: Date | string | null): string {
   if (!transactionDate) return "N/D";
   const nacimiento = new Date(transactionDate);
@@ -56,34 +45,9 @@ export default async function CategoriaDetallePage({
   const { club, category, listaJugadores } = loaded;
   if (!category) redirect(`/liga/clubs/${clubId}`);
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const operationalLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
-  const effectiveLeagueId = club.leagueId?.trim() || operationalLeagueId;
-  const leagueRow = effectiveLeagueId
-    ? await leagueRepository.findById(effectiveLeagueId)
-    : null;
-  const cityPrefix = resolveLeagueCarnetPrefix({
-    slug: leagueRow?.slug,
-    name: leagueRow?.name,
-  });
-  const leagueDisplayName = leagueRow?.name ?? "Liga deportiva";
-
   if (category.clubId !== clubId) {
     redirect(`/liga/clubs/${category.clubId}/categories/${category.id}`);
   }
-
-  const categoriaDetalle = lineaCategoriaInstitucional(
-    category.name,
-    listaJugadores.map((j) => j.gender),
-  );
 
   const listaJugadoresOrdenados = [...listaJugadores].sort((a, b) => {
     const lastname = a.lastname.localeCompare(b.lastname, "es", {
@@ -318,37 +282,11 @@ export default async function CategoriaDetallePage({
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <GenerateCarnetPDF
-                          leagueId={effectiveLeagueId}
-                          leagueDisplayName={leagueDisplayName}
-                          playerId={j.id}
-                          fileName={`carnet-${j.documentNumber}`}
-                          name={j.name}
-                          lastname={j.lastname}
-                          documentType={j.documentType}
-                          documentNumber={j.documentNumber}
-                          fechaNacimientoIso={
-                            j.birthdate ? new Date(j.birthdate).toISOString() : ""
-                          }
-                          gender={j.gender}
-                          clubName={club.name}
-                          federationSportsCode={club.federationCode}
-                          leagueSportsCode={cityPrefix}
-                          categoriaDetalle={categoriaDetalle}
-                          carnetNumber={j.carnetNumber}
-                          carnetNumberDisplay={formatCarnetNumberForLeague(
-                            j.carnetNumber,
-                            cityPrefix,
-                          )}
-                          photoUrl={resolvePublicImageUrl(j.photoUrl)}
-                          clubLogoUrl={club.logoUrl}
-                          label="Carnet"
-                        />
                         <Link
                           href={`/liga/clubs/${clubId}/categories/${categoryId}/players/${j.id}/carnet`}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                          className="rounded-lg border border-[#BFDBFE] bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#1D4ED8] hover:bg-blue-100"
                         >
-                          Ver
+                          Emitir carnet
                         </Link>
                         <RegistroMasivoDeportistasModal
                           clubId={clubId}
