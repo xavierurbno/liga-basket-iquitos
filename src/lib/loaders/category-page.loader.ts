@@ -30,13 +30,15 @@ export async function loadFichaCategoryPage(clubId: string, categoryId: string) 
 }
 
 async function loadFichaCategoryPageInner(clubId: string, categoryId: string) {
-  const club = await clubRepository.findFichaClub(clubId);
-  if (!club) return null;
+  const [club, category, listaJugadores] = await Promise.all([
+    clubRepository.findFichaClub(clubId),
+    categoryRepository.findFichaStaffByIdAndClub(categoryId, clubId),
+    playerRepository.findForFichaByCategory(clubId, categoryId),
+  ]);
 
-  const category = await categoryRepository.findFichaStaffByIdAndClub(categoryId, clubId);
+  if (!club) return null;
   if (!category) return { club, category: null, listaJugadores: [] };
 
-  const listaJugadores = await playerRepository.findForFichaByCategory(clubId, categoryId);
   return { club, category, listaJugadores };
 }
 

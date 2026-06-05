@@ -18,6 +18,7 @@ export function withQueryTimeout<T>(
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
+      void promise.catch(() => {});
       reject(new QueryTimeoutError(label, timeoutMs));
     }, timeoutMs);
 

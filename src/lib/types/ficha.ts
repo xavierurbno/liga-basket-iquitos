@@ -1,3 +1,5 @@
+import type { PlayerStatus } from "@/lib/db/schema";
+
 export type GenerateFichaPDFJugador = {
   id: string;
   name: string;
@@ -64,4 +66,9 @@ export type FichaVistaPreviaProps = {
   players: FichaVistaPreviaJugador[];
   entrenador: FichaStaff;
   delegado: FichaStaff;
+  /** `validacion`: columna ESTADO en lugar de QR (/validar plantilla). */
+  variant?: "admin" | "validacion";
+  estadosPorJugador?: Record<string, PlayerStatus | null | undefined>;
+  /** IDs que coinciden con búsqueda; el resto se atenúa. */
+  resaltarJugadorIds?: string[];
 };

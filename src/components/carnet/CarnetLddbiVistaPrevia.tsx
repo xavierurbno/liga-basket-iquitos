@@ -17,6 +17,7 @@ import {
   LDDBI_PREMIUM_PRIMARY_HEX,
 } from "@/lib/carnet/lddbiPremiumTheme";
 import { LDDBI_DEFAULT_WATERMARK_PUBLIC_PATH } from "@/lib/carnet/lddbiWatermarkPaths";
+import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps } from "@/lib/types/carnet";
 
 const CR80_ASPECT = "85.6 / 53.98";
@@ -39,8 +40,10 @@ function hexRgb(hex: string): string {
 }
 
 export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
+  const esValidacion = isCarnetValidacionMode(props);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [cara, setCara] = useState<"anverso" | "reverso">("anverso");
+  const [caraAdmin, setCaraAdmin] = useState<"anverso" | "reverso">("anverso");
+  const cara = esValidacion ? "anverso" : caraAdmin;
 
   const primary = props.portalPrimaryColor ?? LDDBI_PREMIUM_PRIMARY_HEX;
   const accent = props.portalAccentColor ?? LDDBI_PREMIUM_ACCENT_HEX;
@@ -111,41 +114,11 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
     background: `linear-gradient(135deg, rgb(${primaryRgb}) 0%, rgb(${accentRgb}) 100%)`,
   };
 
-  return (
-    <section className="space-y-4" aria-label="Vista previa carnet LDDBI">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold text-slate-800">Vista previa — plantilla LDDBI</h2>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setCara("anverso")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              cara === "anverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Anverso
-          </button>
-          <button
-            type="button"
-            onClick={() => setCara("reverso")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              cara === "reverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Reverso
-          </button>
-        </div>
-      </div>
-
-      <p className="text-[11px] text-slate-500">
-        Degradado, líneas geométricas y balón de fondo en anverso. CR80 85,6 × 53,98 mm.
-      </p>
-
-      {cara === "anverso" ? (
-        <div
-          className="relative mx-auto w-full max-w-[440px] overflow-hidden rounded-lg shadow-lg ring-1 ring-slate-400/60"
-          style={shellStyle}
-        >
+  const anversoCard = (
+    <div
+      className="relative mx-auto w-full max-w-[440px] overflow-hidden rounded-lg shadow-lg ring-1 ring-slate-400/60"
+      style={shellStyle}
+    >
           <div
             className="pointer-events-none absolute inset-0 bottom-[7.4%]"
             style={LDDBI_DIAGONAL_LINES_STYLE}
@@ -249,8 +222,10 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
               </span>
             ) : null}
           </div>
-        </div>
-      ) : (
+    </div>
+  );
+
+  const reversoCard = (
         <div className="relative mx-auto w-full max-w-[440px] overflow-hidden rounded-lg shadow-lg ring-1 ring-slate-400/60 bg-white">
           <header
             className="grid min-h-14 grid-cols-[2.5rem_1fr_auto] items-center gap-1.5 px-2.5 py-1.5"
@@ -359,7 +334,47 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
             ) : null}
           </div>
         </div>
-      )}
+  );
+
+  if (esValidacion) {
+    return (
+      <section className="flex justify-center" aria-label="Credencial deportiva">
+        {anversoCard}
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4" aria-label="Vista previa carnet LDDBI">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-bold text-slate-800">Vista previa — plantilla LDDBI</h2>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setCaraAdmin("anverso")}
+            className={`rounded-md px-3 py-1.5 transition ${
+              cara === "anverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
+            }`}
+          >
+            Anverso
+          </button>
+          <button
+            type="button"
+            onClick={() => setCaraAdmin("reverso")}
+            className={`rounded-md px-3 py-1.5 transition ${
+              cara === "reverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
+            }`}
+          >
+            Reverso
+          </button>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-slate-500">
+        Degradado, líneas geométricas y balón de fondo en anverso. CR80 85,6 × 53,98 mm.
+      </p>
+
+      {cara === "anverso" ? anversoCard : reversoCard}
     </section>
   );
 }

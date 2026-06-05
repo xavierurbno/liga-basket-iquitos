@@ -4,12 +4,15 @@ import { useMemo } from "react";
 import { calcularEdad } from "@/lib/utils/age";
 import {
   FICHA_COLUMNAS_TABLA,
+  FICHA_COLUMNAS_VALIDACION,
   FICHA_T1,
   FICHA_T3,
   resolveFichaLeagueTitle,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
 import { FICHA_HEADER_FEDERATION_LOGO_SCALE } from "@/lib/pdf/fichaHeaderLayout";
+import { FichaEstadoCelda } from "@/components/ficha/FichaEstadoCelda";
+import { resolvePlayerValidationStatus } from "@/lib/validation/player-validation-status";
 import { FichaVistaPreviaJugador, FichaStaff, FichaVistaPreviaProps } from "@/lib/types/ficha";
 
 function fmtFechaPeru(iso: string): string {
@@ -44,6 +47,12 @@ const HEAD_BG = "#2563EB";
 const HEADER_LOGO_BOX_CLASS =
   "flex h-[28mm] w-[26mm] shrink-0 items-start justify-center pt-1";
 
+const ROW_TONE_BORDER: Record<string, string> = {
+  habilitado: "border-l-emerald-500",
+  suspendido: "border-l-red-500",
+  no_habilitado: "border-l-amber-500",
+};
+
 export function FichaVistaPrevia({
   leagueDisplayName,
   leagueLogoUrl,
@@ -53,10 +62,19 @@ export function FichaVistaPrevia({
   players,
   entrenador,
   delegado,
+  variant = "admin",
+  estadosPorJugador,
+  resaltarJugadorIds,
 }: FichaVistaPreviaProps) {
   const filas = useMemo(() => ordenarJugadores(players), [players]);
   const leagueTitle = resolveFichaLeagueTitle(leagueDisplayName);
   const hasLeagueLogo = Boolean(leagueLogoUrl?.trim());
+  const esValidacion = variant === "validacion";
+  const columnas = esValidacion ? FICHA_COLUMNAS_VALIDACION : FICHA_COLUMNAS_TABLA;
+  const resaltarSet = useMemo(
+    () => (resaltarJugadorIds ? new Set(resaltarJugadorIds) : null),
+    [resaltarJugadorIds],
+  );
 
   return (
     <div className="relative mx-auto max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
@@ -144,7 +162,7 @@ export function FichaVistaPrevia({
           <table className="w-full min-w-[700px] border-collapse text-[11px]">
             <thead>
               <tr>
-                {FICHA_COLUMNAS_TABLA.map((label, colIdx) => (
+                {columnas.map((label, colIdx) => (
                   <th
                     key={`${colIdx}-${label}`}
                     className="border border-[#2a4470] px-1 py-2 text-center text-[9px] font-bold uppercase leading-tight text-white shadow-[inset_0_-3px_0_0_#0070f3]"
@@ -161,8 +179,18 @@ export function FichaVistaPrevia({
                 const edad = Number.isNaN(fn.getTime()) ? "—" : String(calcularEdad(fn));
                 const nombreCompleto = `${j.lastname}, ${j.name}`.toUpperCase();
                 const polo = j.jerseyNumber != null ? String(j.jerseyNumber) : "—";
+                const playerStatus = esValidacion ? estadosPorJugador?.[j.id] : undefined;
+                const tone = esValidacion
+                  ? resolvePlayerValidationStatus(playerStatus).tone
+                  : null;
+                const rowBorder = tone ? ROW_TONE_BORDER[tone] : "";
+                const atenuar =
+                  resaltarSet != null && resaltarSet.size > 0 && !resaltarSet.has(j.id);
                 return (
-                  <tr key={j.id} className="border-b border-slate-200/90 bg-transparent">
+                  <tr
+                    key={j.id}
+                    className={`border-b border-slate-200/90 bg-transparent transition-opacity ${rowBorder ? `border-l-[3px] ${rowBorder}` : ""} ${atenuar ? "opacity-30" : "opacity-100"}`}
+                  >
                     <td className="border border-slate-200/70 px-1 py-1.5 text-center align-middle font-medium uppercase text-slate-900">
                       {String(idx + 1)}
                     </td>
@@ -195,14 +223,20 @@ export function FichaVistaPrevia({
                         )}
                       </div>
                     </td>
-                    <td className="border border-slate-200/70 px-0.5 py-0.5 text-center align-middle">
-                      <div
-                        className="mx-auto flex h-[12mm] w-[12mm] items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[7px] font-bold uppercase leading-none text-slate-400"
-                        title="El código QR se genera al descargar el PDF"
-                      >
-                        QR
-                      </div>
-                    </td>
+                    {esValidacion ? (
+                      <td className="border border-slate-200/70 px-0.5 py-1 text-center align-middle">
+                        <FichaEstadoCelda status={playerStatus} />
+                      </td>
+                    ) : (
+                      <td className="border border-slate-200/70 px-0.5 py-0.5 text-center align-middle">
+                        <div
+                          className="mx-auto flex h-[12mm] w-[12mm] items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50 text-[7px] font-bold uppercase leading-none text-slate-400"
+                          title="El código QR se genera al descargar el PDF"
+                        >
+                          QR
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

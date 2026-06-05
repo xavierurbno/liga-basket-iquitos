@@ -68,7 +68,8 @@ function postgresOptions(connectionString: string): Parameters<typeof postgres>[
     max_lifetime: 60 * 10,
     onnotice: () => {},
     connection: {
-      statement_timeout: 10000,
+      /** Dev: más margen si el pooler Supabase tarda en asignar conexión (evita 57014 en RSC). */
+      statement_timeout: process.env.NODE_ENV === "production" ? 10_000 : 25_000,
     },
     ...(esSupabaseHost ? { ssl: "require" as const } : {}),
   };

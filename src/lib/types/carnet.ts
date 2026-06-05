@@ -171,4 +171,6 @@ export type CarnetVistaPreviaProps = {
   carnetFederationDisplayName?: string | null;
   carnetSportLabel?: string | null;
   carnetSportGraphicUrl?: string | null;
+  /** `validacion`: solo anverso, sin controles de panel admin (/validar jugador). */
+  presentationMode?: "admin" | "validacion";
 };

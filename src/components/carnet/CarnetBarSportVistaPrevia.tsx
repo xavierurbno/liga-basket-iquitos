@@ -7,13 +7,16 @@ import {
   splitApellidosParaCarnet,
 } from "@/lib/carnet/carnetInstitucionalText";
 import { resolveFichaLeagueTitle } from "@/lib/pdf/fichaInstitucionalTextos";
+import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps } from "@/lib/types/carnet";
 
 const CR80_ASPECT = "85.6 / 53.98";
 
 export function CarnetBarSportVistaPrevia(props: CarnetVistaPreviaProps) {
+  const esValidacion = isCarnetValidacionMode(props);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [cara, setCara] = useState<"anverso" | "reverso">("anverso");
+  const [caraAdmin, setCaraAdmin] = useState<"anverso" | "reverso">("anverso");
+  const cara = esValidacion ? "anverso" : caraAdmin;
 
   const primary = props.portalPrimaryColor ?? "#8b1538";
   const accent = props.portalAccentColor ?? primary;
@@ -60,35 +63,42 @@ export function CarnetBarSportVistaPrevia(props: CarnetVistaPreviaProps) {
   ];
 
   return (
-    <section className="space-y-4" aria-label="Vista previa carnet franjas">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold text-slate-800">Vista previa — plantilla franjas</h2>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setCara("anverso")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              cara === "anverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Anverso
-          </button>
-          <button
-            type="button"
-            onClick={() => setCara("reverso")}
-            className={`rounded-md px-3 py-1.5 transition ${
-              cara === "reverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Reverso
-          </button>
-        </div>
-      </div>
+    <section
+      className={esValidacion ? "flex justify-center" : "space-y-4"}
+      aria-label={esValidacion ? "Credencial deportiva" : "Vista previa carnet franjas"}
+    >
+      {!esValidacion ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-slate-800">Vista previa — plantilla franjas</h2>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setCaraAdmin("anverso")}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  cara === "anverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
+                }`}
+              >
+                Anverso
+              </button>
+              <button
+                type="button"
+                onClick={() => setCaraAdmin("reverso")}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  cara === "reverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
+                }`}
+              >
+                Reverso
+              </button>
+            </div>
+          </div>
 
-      <p className="text-[11px] text-slate-500">
-        Estilo inspirado en credenciales de fútbol/vóley, parametrizado para ligas de básquet (colores,
-        federación opcional, gráfico central).
-      </p>
+          <p className="text-[11px] text-slate-500">
+            Estilo inspirado en credenciales de fútbol/vóley, parametrizado para ligas de básquet
+            (colores, federación opcional, gráfico central).
+          </p>
+        </>
+      ) : null}
 
       {cara === "anverso" ? (
         <div
@@ -138,7 +148,7 @@ export function CarnetBarSportVistaPrevia(props: CarnetVistaPreviaProps) {
                 className="w-full overflow-hidden rounded-md bg-white p-[2px]"
                 style={{ boxShadow: `0 0 0 2px ${accent}` }}
               >
-                <div className="relative aspect-[5/6] w-full">
+                <div className="relative aspect-5/6 w-full">
                   {props.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={props.photoUrl} alt="" className="h-full w-full object-cover" />

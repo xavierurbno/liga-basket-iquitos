@@ -13,6 +13,7 @@ import { parseCarnetThemePreset, splitFederationDisplayLines } from "@/lib/carne
 import { CarnetBarSportVistaPrevia } from "@/components/carnet/CarnetBarSportVistaPrevia";
 import { CarnetLddbiVistaPrevia } from "@/components/carnet/CarnetLddbiVistaPrevia";
 import { CarnetPdfVistaPrevia } from "@/components/carnet/CarnetPdfVistaPrevia";
+import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps } from "@/lib/types/carnet";
 
 const CR80_ASPECT = "85.6 / 53.98";
@@ -279,8 +280,10 @@ function CarnetReversoPreview(
 }
 
 function CarnetInstitutionalSoftVistaPrevia(props: CarnetVistaPreviaProps) {
+  const esValidacion = isCarnetValidacionMode(props);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [cara, setCara] = useState<"anverso" | "reverso">("anverso");
+  const [caraAdmin, setCaraAdmin] = useState<"anverso" | "reverso">("anverso");
+  const cara = esValidacion ? "anverso" : caraAdmin;
 
   const paletteAnverso = resolveCarnetPremiumPaletteFromHex(
     props.portalPrimaryColor,
@@ -341,6 +344,14 @@ function CarnetInstitutionalSoftVistaPrevia(props: CarnetVistaPreviaProps) {
     carnetYear,
   };
 
+  if (esValidacion) {
+    return (
+      <section className="flex justify-center" aria-label="Credencial deportiva">
+        <CarnetAnversoPreview {...anversoProps} />
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4" aria-label="Vista previa del carnet">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -348,7 +359,7 @@ function CarnetInstitutionalSoftVistaPrevia(props: CarnetVistaPreviaProps) {
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
           <button
             type="button"
-            onClick={() => setCara("anverso")}
+            onClick={() => setCaraAdmin("anverso")}
             className={`rounded-md px-3 py-1.5 transition ${
               cara === "anverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
             }`}
@@ -357,7 +368,7 @@ function CarnetInstitutionalSoftVistaPrevia(props: CarnetVistaPreviaProps) {
           </button>
           <button
             type="button"
-            onClick={() => setCara("reverso")}
+            onClick={() => setCaraAdmin("reverso")}
             className={`rounded-md px-3 py-1.5 transition ${
               cara === "reverso" ? "bg-white text-[#1D4ED8] shadow-sm" : "text-slate-600"
             }`}

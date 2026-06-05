@@ -28,18 +28,19 @@ export default async function FichaCategoriaPage({
 }) {
   const { clubId, categoryId } = await params;
 
-  const [loaded, opContext] = await Promise.all([
-    loadFichaCategoryPage(clubId, categoryId),
-    withQueryTimeout(getLigaOperationalContext(), 12_000, "ligaOperationalContext").catch(
-      () => null,
-    ),
-  ]);
-
+  const loaded = await loadFichaCategoryPage(clubId, categoryId);
   if (!loaded) redirect("/liga/clubs");
   const { club, category, listaJugadores } = loaded;
 
   if (!club) redirect("/liga/clubs");
   if (!category) redirect(`/liga/clubs/${clubId}`);
+
+  const opContext =
+    club.leagueId?.trim()
+      ? null
+      : await withQueryTimeout(getLigaOperationalContext(), 12_000, "ligaOperationalContext").catch(
+          () => null,
+        );
 
   const effectiveLeagueId = club.leagueId?.trim() || opContext?.leagueId || null;
 

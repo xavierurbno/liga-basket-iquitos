@@ -5,6 +5,7 @@ import { generateCarnetPdfBlob } from "@/lib/carnet/generateCarnetPdfBlob";
 import { mapVistaPreviaToGenerateCarnetPdfProps } from "@/lib/carnet/mapVistaPreviaToGenerateCarnetPdfProps";
 import { LDDBI_TEMPLATE_ASPECT_CSS } from "@/lib/carnet/lddbiTemplateLayout";
 import { CARNET_THEME_PRESET_LABELS, parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
+import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps } from "@/lib/types/carnet";
 
 function buildPreviewCacheKey(props: CarnetVistaPreviaProps): string {
@@ -29,7 +30,9 @@ function buildPreviewCacheKey(props: CarnetVistaPreviaProps): string {
 }
 
 export function CarnetPdfVistaPrevia(props: CarnetVistaPreviaProps) {
-  const [cara, setCara] = useState<"anverso" | "reverso">("anverso");
+  const esValidacion = isCarnetValidacionMode(props);
+  const [caraAdmin, setCaraAdmin] = useState<"anverso" | "reverso">("anverso");
+  const cara = esValidacion ? "anverso" : caraAdmin;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -130,38 +133,7 @@ export function CarnetPdfVistaPrevia(props: CarnetVistaPreviaProps) {
     };
   }, [pdfBlob, cara]);
 
-  return (
-    <section className="space-y-4" aria-label="Vista previa carnet PDF">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-bold text-slate-800">Vista previa del carnet</h2>
-          <p className="text-[11px] text-slate-500">
-            Preset: <strong>{presetLabel}</strong> — misma salida que el PDF descargable
-            (WYSIWYG).
-          </p>
-        </div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setCara("anverso")}
-            className={`rounded-md px-3 py-1.5 ${
-              cara === "anverso" ? "bg-[#2563EB] text-white shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Anverso
-          </button>
-          <button
-            type="button"
-            onClick={() => setCara("reverso")}
-            className={`rounded-md px-3 py-1.5 ${
-              cara === "reverso" ? "bg-[#2563EB] text-white shadow-sm" : "text-slate-600"
-            }`}
-          >
-            Reverso
-          </button>
-        </div>
-      </div>
-
+  const canvasBlock = (
       <div className="mx-auto w-full max-w-[520px] rounded-xl border border-slate-200 bg-slate-100 p-2 shadow-lg">
         <div
           className="relative flex min-h-[200px] w-full items-center justify-center overflow-hidden rounded-lg bg-white"
@@ -176,6 +148,49 @@ export function CarnetPdfVistaPrevia(props: CarnetVistaPreviaProps) {
           )}
         </div>
       </div>
+  );
+
+  if (esValidacion) {
+    return (
+      <section className="flex justify-center" aria-label="Credencial deportiva">
+        {canvasBlock}
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4" aria-label="Vista previa carnet PDF">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-bold text-slate-800">Vista previa del carnet</h2>
+          <p className="text-[11px] text-slate-500">
+            Preset: <strong>{presetLabel}</strong> — misma salida que el PDF descargable
+            (WYSIWYG).
+          </p>
+        </div>
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setCaraAdmin("anverso")}
+            className={`rounded-md px-3 py-1.5 ${
+              cara === "anverso" ? "bg-[#2563EB] text-white shadow-sm" : "text-slate-600"
+            }`}
+          >
+            Anverso
+          </button>
+          <button
+            type="button"
+            onClick={() => setCaraAdmin("reverso")}
+            className={`rounded-md px-3 py-1.5 ${
+              cara === "reverso" ? "bg-[#2563EB] text-white shadow-sm" : "text-slate-600"
+            }`}
+          >
+            Reverso
+          </button>
+        </div>
+      </div>
+
+      {canvasBlock}
 
       <p className="text-center text-[10px] leading-snug text-slate-500">
         Lo que ves es el PDF real generado en el navegador; al descargar obtendrás el mismo

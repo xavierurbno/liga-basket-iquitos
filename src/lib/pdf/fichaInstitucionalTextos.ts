@@ -36,3 +36,15 @@ export const FICHA_COLUMNAS_TABLA = [
   "FOTO",
   "QR",
 ] as const;
+
+/** Encabezados en /validar (plantilla): QR sustituido por estado en vivo. */
+export const FICHA_COLUMNAS_VALIDACION = [
+  "N°",
+  "APELLIDOS Y NOMBRES",
+  "DOCUMENTO",
+  "FECHA DE NACIMIENTO",
+  "EDAD",
+  "N° POLO",
+  "FOTO",
+  "ESTADO",
+] as const;

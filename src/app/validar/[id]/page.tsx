@@ -1,21 +1,15 @@
 import { redirect } from "next/navigation";
-import { ValidarJugadorCredencial } from "@/components/validar/ValidarJugadorCredencial";
-import { ValidarPlantillaEquipo } from "@/components/validar/ValidarPlantillaEquipo";
+import { ValidarCarnetPublico } from "@/components/validar/ValidarCarnetPublico";
+import { ValidarFichaEquipoPublica } from "@/components/validar/ValidarFichaEquipoPublica";
 import {
-  loadCategoryRosterValidation,
-  loadPlayerValidation,
-} from "@/lib/loaders/validation.loader";
-import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
-import {
-  formatCarnetNumberForLeague,
-  resolveLeagueCarnetPrefix,
-} from "@/lib/leagues/league-carnet-prefix";
-import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+  loadCategoryFichaValidation,
+  loadPlayerCarnetValidation,
+} from "@/lib/validar/build-validation-presentation.server";
+import { logValidarView } from "@/lib/observability/pii-access-log";
 import {
   isLegacyValidationUuid,
   verifyEntityValidationToken,
 } from "@/lib/validation/entity-validation-token";
-import { logValidarView } from "@/lib/observability/pii-access-log";
 
 export const dynamic = "force-dynamic";
 
@@ -66,48 +60,35 @@ export default async function ValidarFichaPage({
   }
 
   const { entityId, lookup } = target;
+  const verifiedAtLabel = formatNow();
 
   if (lookup === "player") {
-    const jugador = await loadPlayerValidation(entityId);
+    const loaded = await loadPlayerCarnetValidation(entityId);
 
-    if (jugador) {
-      const catLine = jugador.categoriaNombre
-        ? lineaCategoriaInstitucional(jugador.categoriaNombre, [jugador.gender])
-        : "—";
-      const cityPrefix = resolveLeagueCarnetPrefix({
-        slug: jugador.leagueSlug,
-        name: jugador.leagueName,
-      });
-      const carnetDisplay = formatCarnetNumberForLeague(jugador.carnetNumber, cityPrefix);
-
+    if (loaded) {
       await logValidarView({
         tokenSegment: id,
         lookup,
         entityId,
         outcome: "found",
-        playerStatus: jugador.status,
+        playerStatus: loaded.status,
       });
 
       return (
         <main className="min-h-screen bg-linear-to-b from-slate-100 via-white to-slate-50 px-4 py-6 text-slate-900 sm:py-8">
-          <ValidarJugadorCredencial
-            leagueName={jugador.leagueName}
-            clubName={jugador.clubName}
-            categoriaNombre={catLine}
-            playerName={`${jugador.lastname}, ${jugador.name}`}
-            carnetDisplay={carnetDisplay}
-            carnetNumber={jugador.carnetNumber}
-            jerseyNumber={jugador.jerseyNumber}
-            photoUrl={resolvePublicImageUrl(jugador.photoUrl)}
-            status={jugador.status}
-            verifiedAtLabel={formatNow()}
+          <ValidarCarnetPublico
+            carnetProps={loaded.carnetProps}
+            status={loaded.status}
+            verifiedAtLabel={verifiedAtLabel}
+            leagueName={loaded.leagueName}
+            accentColor={loaded.accentColor}
           />
         </main>
       );
     }
   }
 
-  const plantilla = await loadCategoryRosterValidation(entityId);
+  const plantilla = await loadCategoryFichaValidation(entityId);
 
   if (!plantilla) {
     await logValidarView({
@@ -124,17 +105,17 @@ export default async function ValidarFichaPage({
     lookup: "category",
     entityId,
     outcome: "found",
-    rosterCount: plantilla.players.length,
+    rosterCount: plantilla.ficha.players.length,
   });
 
   return (
     <main className="min-h-screen bg-linear-to-b from-slate-100 via-white to-slate-50 px-4 py-6 text-slate-900 sm:py-8">
-      <ValidarPlantillaEquipo
+      <ValidarFichaEquipoPublica
+        ficha={plantilla.ficha}
+        estadosPorJugador={plantilla.estadosPorJugador}
+        verifiedAtLabel={verifiedAtLabel}
         leagueName={plantilla.leagueName}
-        clubName={plantilla.clubName}
-        categoriaNombre={plantilla.categoriaDisplay}
-        verifiedAtLabel={formatNow()}
-        players={plantilla.players}
+        accentColor={plantilla.accentColor}
       />
     </main>
   );

@@ -236,6 +236,36 @@ export class PlayerRepository {
       .limit(1);
     return row ?? null;
   }
+
+  async findCarnetValidationById(playerId: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select({
+        id: players.id,
+        name: players.name,
+        lastname: players.lastname,
+        documentType: players.documentType,
+        documentNumber: players.documentNumber,
+        birthdate: players.birthdate,
+        photoUrl: players.photoUrl,
+        carnetNumber: players.carnetNumber,
+        gender: players.gender,
+        status: players.status,
+        clubName: clubs.name,
+        clubLogoUrl: clubs.logoUrl,
+        federationCode: clubs.federationCode,
+        leagueId: clubs.leagueId,
+        categoriaNombre: categories.name,
+        leagueName: leagues.name,
+        leagueSlug: leagues.slug,
+      })
+      .from(players)
+      .innerJoin(clubs, eq(players.clubId, clubs.id))
+      .leftJoin(categories, eq(players.categoryId, categories.id))
+      .leftJoin(leagues, eq(clubs.leagueId, leagues.id))
+      .where(eq(players.id, playerId))
+      .limit(1);
+    return row ?? null;
+  }
 }
 
 export const playerRepository = new PlayerRepository();
