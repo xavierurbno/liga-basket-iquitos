@@ -28,12 +28,15 @@ export default async function FichaCategoriaPage({
 }) {
   const { clubId, categoryId } = await params;
 
-  const [{ club, category, listaJugadores }, opContext] = await Promise.all([
+  const [loaded, opContext] = await Promise.all([
     loadFichaCategoryPage(clubId, categoryId),
     withQueryTimeout(getLigaOperationalContext(), 12_000, "ligaOperationalContext").catch(
       () => null,
     ),
   ]);
+
+  if (!loaded) redirect("/liga/clubs");
+  const { club, category, listaJugadores } = loaded;
 
   if (!club) redirect("/liga/clubs");
   if (!category) redirect(`/liga/clubs/${clubId}`);
