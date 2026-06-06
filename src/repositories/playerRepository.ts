@@ -254,6 +254,7 @@ export class PlayerRepository {
         clubLogoUrl: clubs.logoUrl,
         federationCode: clubs.federationCode,
         leagueId: clubs.leagueId,
+        joinedLeagueId: leagues.id,
         categoriaNombre: categories.name,
         leagueName: leagues.name,
         leagueSlug: leagues.slug,
