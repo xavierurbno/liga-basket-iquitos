@@ -111,15 +111,12 @@ export default async function CarnetJugadorPage({
   const credentialIssuedAt = jugador.credentialIssuedAt
     ? jugador.credentialIssuedAt.toISOString()
     : null;
-  const canEmitCarnet =
-    leagueReadiness.ready && Boolean(fotoPublica) && Boolean(carnetDisplay);
+  const canEmitCarnet = leagueReadiness.ready && Boolean(fotoPublica);
   const emitBlockReason = !leagueReadiness.ready
     ? "Completa la configuración del carnet en ajustes de liga."
     : !fotoPublica
       ? "Sube la foto del deportista."
-      : !carnetDisplay
-        ? "El deportista no tiene número de carnet."
-        : null;
+      : null;
   const settingsHref = "/liga/configuracion/#carnet-settings";
   const superAdminSettingsHref = effectiveLeagueId
     ? `/super-admin/leagues/${effectiveLeagueId}#carnet-settings`
@@ -211,6 +208,7 @@ export default async function CarnetJugadorPage({
             validationUrl={validationUrl}
             canEmit={canEmitCarnet}
             emitBlockReason={emitBlockReason}
+            needsCarnetNumber={!carnetDisplay}
             pdfProps={{
               leagueId: effectiveLeagueId,
               leagueDisplayName,

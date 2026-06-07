@@ -133,7 +133,8 @@ export function buildPlayerCarnetWarnings(input: {
   if (!input.hasCarnetNumber) {
     warnings.push({
       id: "numero",
-      message: "Aún no hay número de carnet asignado para este jugador.",
+      message:
+        "Aún no hay número de carnet en el sistema (común en jugadores registrados antes). Se asignará automáticamente al emitir, o usa «Generar número de carnet».",
       severity: "info",
     });
   }

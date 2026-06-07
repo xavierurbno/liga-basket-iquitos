@@ -9,6 +9,7 @@ import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-sc
 import type { Role } from "@/lib/auth/withAuth";
 import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
 import { readUserRole } from "@/lib/auth/read-user-role";
+import { assignPlayerCarnetNumberIfMissing } from "@/lib/carnet/assign-player-carnet-number.server";
 import { playerRepository } from "@/repositories/playerRepository";
 
 const CARNET_EMISSION_ROLES: Role[] = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"];
@@ -18,7 +19,12 @@ export type EmitirCarnetResult =
       ok: true;
       credentialVersion: number;
       credentialIssuedAt: string;
+      carnetNumber?: string;
     }
+  | { ok: false; error: string };
+
+export type AsignarNumeroCarnetResult =
+  | { ok: true; carnetNumber: string; created: boolean }
   | { ok: false; error: string };
 
 async function assertCanEmitCarnet(
@@ -83,8 +89,12 @@ export async function emitirCarnetAction(
   if (!scope.hasPhoto) {
     return { ok: false, error: "Sube la foto del deportista antes de emitir el carnet." };
   }
+
+  let assignedCarnetNumber: string | undefined;
   if (!scope.hasCarnetNumber) {
-    return { ok: false, error: "El deportista no tiene número de carnet asignado." };
+    const assigned = await assignPlayerCarnetNumberIfMissing(playerId, clubId, categoryId);
+    if (!assigned.ok) return { ok: false, error: assigned.error };
+    assignedCarnetNumber = assigned.carnetNumber;
   }
 
   try {
@@ -119,9 +129,33 @@ export async function emitirCarnetAction(
       ok: true,
       credentialVersion: row.credentialVersion,
       credentialIssuedAt: row.credentialIssuedAt.toISOString(),
+      carnetNumber: assignedCarnetNumber,
     };
   } catch (error) {
     console.error("[emitirCarnetAction]", error);
     return { ok: false, error: "Error al emitir el carnet." };
   }
+}
+
+/** Genera y guarda el número de carnet para jugadores registrados sin `carnet_number`. */
+export async function asignarNumeroCarnetAction(
+  playerId: string,
+  clubId: string,
+  categoryId: string,
+): Promise<AsignarNumeroCarnetResult> {
+  const auth = await requireAuth(CARNET_EMISSION_ROLES);
+  if (auth.denied) return { ok: false, error: auth.error };
+
+  const scope = await assertCanEmitCarnet(playerId, clubId, categoryId, auth.context);
+  if (!scope.ok) return { ok: false, error: scope.error };
+
+  const result = await assignPlayerCarnetNumberIfMissing(playerId, clubId, categoryId);
+  if (!result.ok) return result;
+
+  revalidatePath(
+    `/liga/clubs/${clubId}/categories/${categoryId}/players/${playerId}/carnet`,
+  );
+  revalidatePath(`/liga/clubs/${clubId}/categories/${categoryId}`);
+
+  return result;
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { emitirCarnetAction } from "@/lib/actions/carnet-emission";
+import { asignarNumeroCarnetAction, emitirCarnetAction } from "@/lib/actions/carnet-emission";
 import { GenerateCarnetPDF } from "@/components/carnet/GenerateCarnetPDF";
 import type { GenerateCarnetPDFProps } from "@/lib/types/carnet";
 
@@ -15,6 +15,7 @@ type CarnetEmissionPanelProps = {
   validationUrl: string | null;
   canEmit: boolean;
   emitBlockReason?: string | null;
+  needsCarnetNumber?: boolean;
   pdfProps: GenerateCarnetPDFProps;
 };
 
@@ -39,9 +40,11 @@ export function CarnetEmissionPanel({
   validationUrl,
   canEmit,
   emitBlockReason,
+  needsCarnetNumber = false,
   pdfProps,
 }: CarnetEmissionPanelProps) {
   const router = useRouter();
+  const [assigningNumber, setAssigningNumber] = useState(false);
   const [emitting, setEmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -49,6 +52,21 @@ export function CarnetEmissionPanel({
   const [issuedAt, setIssuedAt] = useState(initialIssuedAt);
 
   const isEmitted = version > 0 && Boolean(issuedAt);
+
+  async function handleAssignNumber() {
+    setAssigningNumber(true);
+    setError(null);
+    try {
+      const res = await asignarNumeroCarnetAction(playerId, clubId, categoryId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    } finally {
+      setAssigningNumber(false);
+    }
+  }
 
   async function handleEmit() {
     setEmitting(true);
@@ -115,6 +133,26 @@ export function CarnetEmissionPanel({
           <p className="mt-3 text-xs font-medium text-red-700" role="alert">
             {error}
           </p>
+        ) : null}
+
+        {needsCarnetNumber && canEmit ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-900">
+            <p>
+              Este jugador no tiene número de carnet en la base de datos (el{" "}
+              <strong>DNI en la vista previa no es el número de carnet</strong>). Puedes generarlo
+              ahora o al emitir.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void handleAssignNumber();
+              }}
+              disabled={assigningNumber}
+              className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {assigningNumber ? "Generando número…" : "Generar número de carnet"}
+            </button>
+          </div>
         ) : null}
 
         <button
