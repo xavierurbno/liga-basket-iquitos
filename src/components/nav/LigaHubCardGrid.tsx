@@ -20,8 +20,8 @@ import {
 
 /** Elevación + brillo azul institucional (#005CEE) en hover/focus. */
 const cardClass = [
-  "group relative z-0 flex min-h-[8.5rem] cursor-pointer flex-col",
-  "rounded-2xl border border-[#BFDBFE] bg-white p-5",
+  "group relative z-0 flex min-h-[6.75rem] cursor-pointer flex-col sm:min-h-[8.5rem]",
+  "rounded-2xl border border-[#BFDBFE] bg-white p-4 sm:p-5",
   "transform translate-y-0 scale-100",
   "shadow-[0_20px_50px_-35px_rgba(59,130,246,0.55)]",
   "transition-[transform,box-shadow,border-color,ring-color] duration-300 ease-out",
@@ -188,17 +188,17 @@ export function LigaHubCardGrid({
         : staffBase;
 
   return (
-    <div className="relative z-1 grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="relative z-1 grid items-stretch gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
       {items.map(({ href, icon: Icon, iconClass, title, body }) => (
         <Link key={`${href}-${title}`} href={href} className={`${cardClass} h-full`}>
           <Icon
-            className={`h-8 w-8 shrink-0 transition-transform duration-300 ease-out motion-reduce:transition-none group-hover:scale-105 motion-reduce:group-hover:scale-100 ${iconClass}`}
+            className={`h-6 w-6 shrink-0 transition-transform duration-300 ease-out motion-reduce:transition-none group-hover:scale-105 motion-reduce:group-hover:scale-100 sm:h-8 sm:w-8 ${iconClass}`}
             aria-hidden
           />
-          <h2 className="mt-3 text-lg font-bold text-slate-900 transition-colors duration-300 ease-out group-hover:text-[#005CEE]">
+          <h2 className="mt-2 text-base font-bold text-slate-900 transition-colors duration-300 ease-out group-hover:text-[#005CEE] sm:mt-3 sm:text-lg">
             {title}
           </h2>
-          <p className="mt-1 text-sm text-slate-600">{body}</p>
+          <p className="mt-1 text-xs text-slate-600 sm:text-sm">{body}</p>
         </Link>
       ))}
     </div>

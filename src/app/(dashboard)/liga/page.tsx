@@ -14,7 +14,7 @@ export default async function LigaOperationalHubPage() {
     <div className="space-y-8">
       <div>
         <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-500">PANEL OPERATIVO</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-[#0f2040]">Gestión de la liga</h1>
+        <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0f2040] sm:text-3xl">Gestión de la liga</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
           {viewerSegment === "delegate"
             ? "Como delegado gestionas el club que te asignó la administración (categorías, fichas) y puedes consultar jugadores en Búsqueda 365."

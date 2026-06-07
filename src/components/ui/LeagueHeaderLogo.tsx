@@ -22,7 +22,7 @@ const textClassBySize: Record<LeagueHeaderLogoSize, string> = {
   hero:
     "min-w-0 max-w-[11rem] text-balance text-[10px] font-bold uppercase leading-snug tracking-tight text-slate-900 sm:max-w-[16rem] sm:text-xs md:max-w-[22rem] md:text-sm lg:text-base xl:text-lg",
   compact:
-    "min-w-0 max-w-[9rem] text-balance text-[9px] font-bold uppercase leading-snug tracking-tight text-slate-900 sm:max-w-[13rem] sm:text-[10px] md:max-w-[18rem] md:text-xs lg:text-sm",
+    "min-w-0 max-w-[9rem] text-balance text-[9px] font-bold uppercase leading-snug tracking-tight text-slate-900 max-sm:sr-only sm:max-w-[13rem] sm:text-[10px] md:max-w-[18rem] md:text-xs lg:text-sm",
 };
 
 const placeholderClassBySize: Record<LeagueHeaderLogoSize, string> = {

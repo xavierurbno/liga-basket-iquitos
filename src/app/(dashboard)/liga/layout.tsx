@@ -49,7 +49,7 @@ export default async function SystemLayout({
         userEmail={user.email ?? null}
         intranetNavLabel={intranetNavLabel}
       />
-      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-10">{children}</main>
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-8 sm:px-4 sm:py-6 sm:pb-10">{children}</main>
     </div>
   );
 }

@@ -49,8 +49,9 @@ export function LigaOperationalNav({
             className={isPanelGestionPrimary(pathname) ? navBtnActive : navBtn}
             title="Panel operativo — gestión de la liga"
           >
-            <ShieldCheck className="mr-1.5 inline h-3.5 w-3.5 shrink-0" aria-hidden />
-            {intranetNavLabel.toUpperCase()}
+            <ShieldCheck className="mr-1 inline h-3.5 w-3.5 shrink-0 sm:mr-1.5" aria-hidden />
+            <span className="sm:hidden">Panel</span>
+            <span className="hidden sm:inline">{intranetNavLabel.toUpperCase()}</span>
           </Link>
         ) : null}
         <UserAccountMenu email={userEmail} profileHref="/liga/" />

@@ -64,7 +64,7 @@ export default async function AdminLayout({
         userEmail={user.email ?? null}
         intranetNavLabel={intranetPortalNavLabel(role)}
       />
-      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-10 sm:px-6 lg:px-8 animate-in fade-in duration-500">
+      <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-8 sm:px-4 sm:py-6 sm:pb-10 lg:px-8 animate-in fade-in duration-500">
         {children}
       </main>
       <footer className="relative z-10 border-t border-[#BFDBFE] bg-white/90 py-6">
