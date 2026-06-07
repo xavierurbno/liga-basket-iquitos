@@ -236,7 +236,7 @@ export function drawLddbiTemplateFotoIdentificacion(
   carnetNumber: string | null | undefined,
 ) {
   const A = LDDBI_TEMPLATE.anverso;
-  const { dniYOffsetMm, correlativoGapBelowDniMm } = A.fotoIdentificacion;
+  const { dniYOffsetMm, dniLineHeightMm, correlativoGapBelowDniMm } = A.fotoIdentificacion;
   const cx = fotoX + fotoW / 2;
   const dniY = fotoY + fotoH + dniYOffsetMm;
   const dniVal = (documentNumber ?? "").trim().toUpperCase() || "—";
@@ -247,7 +247,7 @@ export function drawLddbiTemplateFotoIdentificacion(
   doc.text(dniVal, cx, dniY, { align: "center" });
 
   const carnetVal = (carnetNumber ?? "").trim().toUpperCase() || "—";
-  const carnetY = dniY + correlativoGapBelowDniMm;
+  const carnetY = dniY + dniLineHeightMm + correlativoGapBelowDniMm;
   doc.setFontSize(carnetVal.length > 14 ? A.carnetFontPtCompact : A.carnetFontPt);
   const lines = doc.splitTextToSize(carnetVal, fotoW + 1.5);
   doc.text(lines, cx, carnetY, { align: "center" });

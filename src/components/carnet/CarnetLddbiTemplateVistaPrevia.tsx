@@ -15,6 +15,7 @@ import {
   LDDBI_TEMPLATE_ASPECT_CSS,
   LDDBI_TEMPLATE_GOLD_HEX,
   LDDBI_TEMPLATE_WHITE_HEX,
+  lddbiTemplateCorrelativoOffsetFromPhotoBottomMm,
   lddbiTemplateFotoFrameTopMm,
   lddbiTemplateFotoY,
 } from "@/lib/carnet/lddbiTemplateLayout";
@@ -363,9 +364,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
               style={{
                 left: mmX(A.foto.x),
                 width: mmW(A.foto.w),
-                top: mmY(
-                  fotoY + A.foto.h + idFoto.dniYOffsetMm + idFoto.correlativoGapBelowDniMm,
-                ),
+                top: mmY(fotoY + A.foto.h + lddbiTemplateCorrelativoOffsetFromPhotoBottomMm()),
                 fontSize:
                   carnetDisplay.length > 14
                     ? previewFontSizeCqw(ptToMm(A.carnetFontPtCompact))

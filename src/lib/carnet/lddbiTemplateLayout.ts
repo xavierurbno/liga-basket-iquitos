@@ -138,8 +138,10 @@ export const LDDBI_TEMPLATE = {
     fotoIdentificacion: {
       /** Baseline del DNI respecto al borde inferior de la foto. */
       dniYOffsetMm: 3.8,
-      /** Separación entre baseline del DNI y baseline del correlativo. */
-      correlativoGapBelowDniMm: 2.4,
+      /** Altura reservada del bloque DNI (8pt bold) desde su baseline. */
+      dniLineHeightMm: 2.65,
+      /** Aire visual entre el bloque DNI y el correlativo. */
+      correlativoGapBelowDniMm: 2.0,
     },
   },
   reverso: {
@@ -201,6 +203,12 @@ export function lddbiTemplateFotoFrameTopMm(_pageH: number = LDDBI_TEMPLATE.page
 
 export function lddbiTemplateFotoY(_pageH: number = LDDBI_TEMPLATE.pageH): number {
   return LDDBI_TEMPLATE.anverso.foto.y;
+}
+
+/** Distancia desde el borde inferior de la foto al inicio del correlativo (preview/PDF). */
+export function lddbiTemplateCorrelativoOffsetFromPhotoBottomMm(): number {
+  const id = LDDBI_TEMPLATE.anverso.fotoIdentificacion;
+  return id.dniYOffsetMm + id.dniLineHeightMm + id.correlativoGapBelowDniMm;
 }
 
 /** Borde superior del recuadro del logo de federación (cabecera). */
