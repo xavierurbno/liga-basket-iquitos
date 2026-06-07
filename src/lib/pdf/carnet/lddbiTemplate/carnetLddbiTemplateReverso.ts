@@ -1,4 +1,8 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
+import {
+  layoutCarnetFirmaSlots,
+  resolveCarnetFirmaSlots,
+} from "@/lib/carnet/carnetSignatureMode";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
@@ -79,29 +83,27 @@ export function drawCarnetLddbiTemplateReverso(
   });
 
   const firmasY = L.firmas.y;
-  const firmaW = L.firmas.w;
-  const gap = L.firmas.gap;
-  const firmasX = L.firmas.x;
-  drawFirmaTemplate(
-    doc,
-    firmasX,
-    firmasY,
-    firmaW,
-    input.presidentSignaturePngDataUrl,
-    input.presidentDisplayName,
-    "PRESIDENTE",
-    overlay,
+  const firmaLayout = layoutCarnetFirmaSlots(
+    input.theme.signatureMode,
+    resolveCarnetFirmaSlots(input.theme.signatureMode, {
+      presidentDisplayName: input.presidentDisplayName,
+      secretaryDisplayName: input.secretaryDisplayName,
+      presidentSignaturePngDataUrl: input.presidentSignaturePngDataUrl,
+      secretarySignaturePngDataUrl: input.secretarySignaturePngDataUrl,
+    }),
   );
-  drawFirmaTemplate(
-    doc,
-    firmasX + firmaW + gap,
-    firmasY,
-    firmaW,
-    input.secretarySignaturePngDataUrl,
-    input.secretaryDisplayName,
-    "SECRETARIO",
-    overlay,
-  );
+  for (const slot of firmaLayout) {
+    drawFirmaTemplate(
+      doc,
+      slot.xMm,
+      firmasY,
+      slot.wMm,
+      slot.firmaPngDataUrl,
+      slot.nombre,
+      slot.cargo,
+      overlay,
+    );
+  }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.pieVigencia.fontSizePt);

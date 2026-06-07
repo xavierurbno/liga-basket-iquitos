@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { splitApellidosParaCarnet } from "@/lib/carnet/carnetInstitucionalText";
-import { CARNET_THEME_PRESET_LABELS } from "@/lib/carnet/carnetTheme";
+import {
+  layoutCarnetFirmaSlots,
+  resolveCarnetFirmaSlots,
+} from "@/lib/carnet/carnetSignatureMode";
+import {
+  CARNET_THEME_PRESET_LABELS,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetTheme";
 import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
 import {
   createLddbiTemplateMeasureDoc,
@@ -72,6 +79,16 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
   );
   const R = LDDBI_TEMPLATE.reverso;
   const A = LDDBI_TEMPLATE.anverso;
+  const signatureMode = parseCarnetSignatureMode(props.carnetSignatureMode);
+  const firmaPreviewSlots = layoutCarnetFirmaSlots(
+    signatureMode,
+    resolveCarnetFirmaSlots(signatureMode, {
+      presidentDisplayName: props.presidentDisplayName,
+      secretaryDisplayName: props.secretaryDisplayName,
+      presidentSignatureUrl: props.presidentSignatureUrl,
+      secretarySignatureUrl: props.secretarySignatureUrl,
+    }),
+  );
 
   const { lineaFederacion, lineaLiga } = useMemo(
     () =>
@@ -451,24 +468,23 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                 {props.authorizationText}
               </p>
 
-              {(
-                [
-                  ["PRESIDENTE", props.presidentDisplayName, props.presidentSignatureUrl, 0],
-                  ["SECRETARIO", props.secretaryDisplayName, props.secretarySignatureUrl, 1],
-                ] as const
-              ).map(([cargo, nombre, firma, col]) => (
+              {firmaPreviewSlots.map((slot) => (
                 <div
-                  key={cargo}
+                  key={slot.cargo}
                   className="absolute text-center"
                   style={{
-                    left: mmX(R.firmas.x + col * (R.firmas.w + R.firmas.gap)),
+                    left: mmX(slot.xMm),
                     top: mmY(R.firmas.y),
-                    width: mmW(R.firmas.w),
+                    width: mmW(slot.wMm),
                   }}
                 >
-                  {firma ? (
+                  {slot.firmaUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={firma} alt="" className="mx-auto h-6 max-w-full object-contain" />
+                    <img
+                      src={slot.firmaUrl}
+                      alt=""
+                      className="mx-auto h-6 max-w-full object-contain"
+                    />
                   ) : null}
                   <div className="mt-1 border-b border-dotted border-white/50" />
                   <p
@@ -478,7 +494,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                       color: LDDBI_TEMPLATE_WHITE_HEX,
                     }}
                   >
-                    {(nombre || "—").toUpperCase()}
+                    {(slot.nombre || "—").toUpperCase()}
                   </p>
                   <p
                     className="mt-0.5 uppercase leading-none"
@@ -487,7 +503,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                       color: "rgba(220,228,238,0.95)",
                     }}
                   >
-                    {cargo}
+                    {slot.cargo}
                   </p>
                 </div>
               ))}

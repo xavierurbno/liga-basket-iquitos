@@ -6,6 +6,10 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { revalidatePath } from "next/cache";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
+import {
+  CARNET_SIGNATURE_MODES,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetSignatureMode";
 import { CARNET_THEME_PRESETS, parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
 import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
 import { revalidateLeagueBrandingPaths } from "@/lib/leagues/revalidate-portal-branding";
@@ -54,6 +58,13 @@ const leagueSettingsSchema = z.object({
     .refine(
       (v) => !v?.trim() || (CARNET_THEME_PRESETS as readonly string[]).includes(v.trim()),
       { message: "Plantilla de carnet inválida" },
+    ),
+  carnetSignatureMode: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v?.trim() || (CARNET_SIGNATURE_MODES as readonly string[]).includes(v.trim()),
+      { message: "Modo de firmas del carnet inválido" },
     ),
   carnetShowFederation: z.boolean().optional(),
   carnetFederationDisplayName: z.string().max(200, "Nombre de federación demasiado largo").optional(),
@@ -142,6 +153,7 @@ export const updateLeagueSettingsAction = withAuth(
       carnetValidityLabel: formData.get("carnetValidityLabel"),
       carnetAuthorizationTemplate: formData.get("carnetAuthorizationTemplate"),
       carnetThemePreset: formData.get("carnetThemePreset"),
+      carnetSignatureMode: formData.get("carnetSignatureMode"),
       carnetShowFederation: formData.get("carnetShowFederation") === "on",
       carnetFederationDisplayName: formData.get("carnetFederationDisplayName"),
       carnetSportLabel: formData.get("carnetSportLabel"),
@@ -241,6 +253,7 @@ export const updateLeagueSettingsAction = withAuth(
       data.carnetValidityLabel = (data.carnetValidityLabel ?? "").trim();
       data.carnetAuthorizationTemplate = (data.carnetAuthorizationTemplate ?? "").trim();
       data.carnetThemePreset = parseCarnetThemePreset(data.carnetThemePreset);
+      data.carnetSignatureMode = parseCarnetSignatureMode(data.carnetSignatureMode);
       data.carnetFederationDisplayName = (data.carnetFederationDisplayName ?? "").trim();
       data.carnetSportLabel = (data.carnetSportLabel ?? "").trim();
 

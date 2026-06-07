@@ -104,6 +104,7 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
         presidentSignatureUrl={settings?.presidentSignatureUrl}
         secretarySignatureUrl={settings?.secretarySignatureUrl}
         carnetValidityLabel={settings?.carnetValidityLabel}
+        carnetSignatureMode={settings?.carnetSignatureMode}
       />
 
       <section

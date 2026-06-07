@@ -380,6 +380,10 @@ export const leagueSettings = pgTable(
     secretarySignatureUrl: text("secretary_signature_url"),
     presidentDisplayName: text("president_display_name"),
     secretaryDisplayName: text("secretary_display_name"),
+    /** none | president | both — firmas en reverso del carnet CR80. */
+    carnetSignatureMode: varchar("carnet_signature_mode", { length: 16 })
+      .default("both")
+      .notNull(),
     /** Ej: "03/2026 - 03/2027" */
     carnetValidityLabel: text("carnet_validity_label"),
     /** Plantilla legal; placeholder `{ligaNombre}`. */

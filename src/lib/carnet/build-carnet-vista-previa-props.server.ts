@@ -184,6 +184,7 @@ export async function buildCarnetVistaPreviaPropsServer(
     portalPrimaryColor,
     portalAccentColor,
     carnetThemePreset: carnetTheme.preset,
+    carnetSignatureMode: carnetTheme.signatureMode,
     carnetShowFederation: showFederation,
     carnetFederationDisplayName: leagueSettings?.carnetFederationDisplayName,
     carnetSportLabel: leagueSettings?.carnetSportLabel,

@@ -1,8 +1,12 @@
-import type { CarnetThemeConfig, CarnetThemePreset } from "@/lib/carnet/carnetTheme";
+import type {
+  CarnetSignatureMode,
+  CarnetThemeConfig,
+  CarnetThemePreset,
+} from "@/lib/carnet/carnetTheme";
 
 export type CarnetPlayerGender = "MASCULINO" | "FEMENINO" | "MIXTO";
 
-export type { CarnetThemeConfig, CarnetThemePreset };
+export type { CarnetSignatureMode, CarnetThemeConfig, CarnetThemePreset };
 
 export type GenerateCarnetPDFProps = {
   leagueId?: string | null;
@@ -180,6 +184,7 @@ export type CarnetVistaPreviaProps = {
   carnetFederationDisplayName?: string | null;
   carnetSportLabel?: string | null;
   carnetSportGraphicUrl?: string | null;
+  carnetSignatureMode?: CarnetSignatureMode;
   /** `validacion`: solo anverso, sin controles de panel admin (/validar jugador). */
   presentationMode?: "admin" | "validacion";
 };

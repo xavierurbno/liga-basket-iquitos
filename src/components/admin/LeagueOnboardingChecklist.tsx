@@ -15,6 +15,7 @@ export function LeagueOnboardingChecklist({
   presidentSignatureUrl,
   secretarySignatureUrl,
   carnetValidityLabel,
+  carnetSignatureMode,
 }: {
   slug: string;
   adminCount: number;
@@ -24,6 +25,7 @@ export function LeagueOnboardingChecklist({
   presidentSignatureUrl?: string | null;
   secretarySignatureUrl?: string | null;
   carnetValidityLabel?: string | null;
+  carnetSignatureMode?: string | null;
 }) {
   const items = buildLeagueOnboardingChecklist({
     slug,
@@ -34,6 +36,7 @@ export function LeagueOnboardingChecklist({
     presidentSignatureUrl,
     secretarySignatureUrl,
     carnetValidityLabel,
+    carnetSignatureMode,
   });
   const progress = checklistProgress(items);
 

@@ -4,6 +4,13 @@ import { useActionState, useRef, useState } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
 import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
 import {
+  CARNET_SIGNATURE_MODES,
+  CARNET_SIGNATURE_MODE_LABELS,
+  carnetSignatureModeRequiresPresident,
+  carnetSignatureModeRequiresSecretary,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetSignatureMode";
+import {
   CARNET_THEME_PRESETS,
   CARNET_THEME_PRESET_LABELS,
   parseCarnetThemePreset,
@@ -43,6 +50,11 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   const [sportGraphicPreview, setSportGraphicPreview] = useState<string | null>(
     initialSettings?.carnetSportGraphicUrl || null,
   );
+  const [signatureMode, setSignatureMode] = useState(() =>
+    parseCarnetSignatureMode(initialSettings?.carnetSignatureMode),
+  );
+  const showPresidentSignature = carnetSignatureModeRequiresPresident(signatureMode);
+  const showSecretarySignature = carnetSignatureModeRequiresSecretary(signatureMode);
   const primaryColorRef = useRef<HTMLInputElement>(null);
   const accentColorRef = useRef<HTMLInputElement>(null);
 
@@ -486,8 +498,44 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             </div>
           </div>
 
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-bold text-slate-700 ml-1">
+              Firmas en el reverso del carnet
+            </label>
+            <select
+              name="carnetSignatureMode"
+              value={signatureMode}
+              onChange={(e) =>
+                setSignatureMode(parseCarnetSignatureMode(e.target.value))
+              }
+              className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium bg-white text-sm"
+            >
+              {CARNET_SIGNATURE_MODES.map((id) => (
+                <option key={id} value={id}>
+                  {CARNET_SIGNATURE_MODE_LABELS[id]}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 ml-1">
+              Algunos campeonatos no exigen firmas en el carnet físico. Elige según el reglamento del
+              torneo; puedes cambiarlo entre temporadas sin tocar cada jugador.
+            </p>
+          </div>
+
+          <p
+            className={`text-xs text-slate-500 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 ${
+              signatureMode === "none" ? "" : "hidden"
+            }`}
+            aria-hidden={signatureMode !== "none"}
+          >
+            El reverso mostrará solo el texto legal, vigencia y QR — sin bloques de firma.
+          </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
+            <div
+              className={`space-y-2 ${showPresidentSignature ? "" : "hidden"}`}
+              aria-hidden={!showPresidentSignature}
+            >
               <label className="text-sm font-bold text-slate-700 ml-1">Nombre del presidente</label>
               <input
                 type="text"
@@ -507,17 +555,20 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
               <input
                 type="hidden"
                 name="currentPresidentSignatureUrl"
-                value={initialSettings?.presidentSignatureUrl || ""}
+                value={presidentSigPreview || initialSettings?.presidentSignatureUrl || ""}
               />
-              {presidentSigPreview && (
+              {presidentSigPreview ? (
                 <img
                   src={presidentSigPreview}
                   alt="Firma presidente"
                   className="h-16 object-contain"
                 />
-              )}
+              ) : null}
             </div>
-            <div className="space-y-2">
+            <div
+              className={`space-y-2 ${showSecretarySignature ? "" : "hidden"}`}
+              aria-hidden={!showSecretarySignature}
+            >
               <label className="text-sm font-bold text-slate-700 ml-1">Nombre del secretario</label>
               <input
                 type="text"
@@ -537,19 +588,19 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
               <input
                 type="hidden"
                 name="currentSecretarySignatureUrl"
-                value={initialSettings?.secretarySignatureUrl || ""}
+                value={secretarySigPreview || initialSettings?.secretarySignatureUrl || ""}
               />
-              {secretarySigPreview && (
+              {secretarySigPreview ? (
                 <img
                   src={secretarySigPreview}
                   alt="Firma secretario"
                   className="h-16 object-contain"
                 />
-              )}
+              ) : null}
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-bold text-slate-700 ml-1">Texto de autorización (reverso)</label>
             <textarea
               name="carnetAuthorizationTemplate"

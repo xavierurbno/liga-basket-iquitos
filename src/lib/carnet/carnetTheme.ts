@@ -1,4 +1,9 @@
 import {
+  type CarnetSignatureMode,
+  DEFAULT_CARNET_SIGNATURE_MODE,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetSignatureMode";
+import {
   LDDBI_PREMIUM_ACCENT_HEX,
   LDDBI_PREMIUM_PRIMARY_HEX,
 } from "@/lib/carnet/lddbiPremiumTheme";
@@ -17,6 +22,7 @@ export type CarnetThemeSettingsSlice = {
   carnetSportGraphicUrl?: string | null;
   portalPrimaryColor?: string | null;
   portalAccentColor?: string | null;
+  carnetSignatureMode?: string | null;
 };
 
 /** Plantillas CR80 disponibles en configuración de liga. */
@@ -65,9 +71,18 @@ export type CarnetThemeConfig = {
   federationDisplayName: string | null;
   sportLabel: string | null;
   sportGraphicUrl: string | null;
+  signatureMode: CarnetSignatureMode;
   primaryRgb: [number, number, number];
   accentRgb: [number, number, number];
 };
+
+export type { CarnetSignatureMode };
+export {
+  CARNET_SIGNATURE_MODES,
+  CARNET_SIGNATURE_MODE_LABELS,
+  DEFAULT_CARNET_SIGNATURE_MODE,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetSignatureMode";
 
 export function resolveCarnetThemeConfig(
   settings: CarnetThemeSettingsSlice | null | undefined,
@@ -82,6 +97,9 @@ export function resolveCarnetThemeConfig(
     federationDisplayName: settings?.carnetFederationDisplayName?.trim() || null,
     sportLabel: settings?.carnetSportLabel?.trim() || null,
     sportGraphicUrl: settings?.carnetSportGraphicUrl?.trim() || null,
+    signatureMode: parseCarnetSignatureMode(
+      settings?.carnetSignatureMode ?? DEFAULT_CARNET_SIGNATURE_MODE,
+    ),
     primaryRgb: hexToRgbTuple(primaryHex) ?? DEFAULT_PDF_PRIMARY_RGB,
     accentRgb: hexToRgbTuple(accentHex) ?? DEFAULT_PDF_ACCENT_RGB,
   };

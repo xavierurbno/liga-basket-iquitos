@@ -200,7 +200,7 @@ export default async function CarnetJugadorPage({
               <a href={superAdminSettingsHref} className="font-bold underline">
                 ajustes de liga
               </a>{" "}
-              para un reverso con firmas oficiales.
+              para completar el reverso del carnet según la configuración de la liga.
             </p>
           ) : null}
           <CarnetEmissionPanel

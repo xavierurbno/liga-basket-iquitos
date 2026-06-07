@@ -1,6 +1,7 @@
 import type { LeagueSettings } from "@/lib/db/schema";
 import { resolveCarnetValidityLabel } from "@/lib/carnet/carnetInstitucionalText";
 import { isClasicaReversoCarnetPreset } from "@/lib/carnet/carnetPresetConfig";
+import { buildCarnetSignatureReadinessWarnings } from "@/lib/carnet/carnetSignatureMode";
 import { isLddbiCarnetPreset } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetThemePreset } from "@/lib/carnet/carnetTheme";
 
@@ -58,33 +59,8 @@ export function buildCarnetLeagueReadiness(
     });
   }
 
-  if (!hasPresidentSignature) {
-    warnings.push({
-      id: "firma-presidente",
-      message: "Falta la firma PNG del presidente en el reverso del carnet.",
-      severity: "warning",
-    });
-  }
-  if (!hasSecretarySignature) {
-    warnings.push({
-      id: "firma-secretario",
-      message: "Falta la firma PNG del secretario en el reverso del carnet.",
-      severity: "warning",
-    });
-  }
-  if (!hasPresidentName) {
-    warnings.push({
-      id: "nombre-presidente",
-      message: "Falta el nombre impreso del presidente bajo la firma.",
-      severity: "warning",
-    });
-  }
-  if (!hasSecretaryName) {
-    warnings.push({
-      id: "nombre-secretario",
-      message: "Falta el nombre impreso del secretario bajo la firma.",
-      severity: "warning",
-    });
+  for (const sigWarn of buildCarnetSignatureReadinessWarnings(settings)) {
+    warnings.push({ ...sigWarn, severity: "warning" });
   }
   if (carnetPreset && isClasicaReversoCarnetPreset(carnetPreset) && !hasLeagueMonoLogo) {
     warnings.push({

@@ -1,3 +1,8 @@
+import {
+  carnetSignatureModeRequiresPresident,
+  carnetSignatureModeRequiresSecretary,
+  parseCarnetSignatureMode,
+} from "@/lib/carnet/carnetSignatureMode";
 import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 
 const FICHA_COPY_LINK_HASH = "#league-public-link";
@@ -19,7 +24,9 @@ export function buildLeagueOnboardingChecklist(input: {
   presidentSignatureUrl?: string | null;
   secretarySignatureUrl?: string | null;
   carnetValidityLabel?: string | null;
+  carnetSignatureMode?: string | null;
 }): LeagueOnboardingChecklistItem[] {
+  const signatureMode = parseCarnetSignatureMode(input.carnetSignatureMode);
   const portalHref = leaguePortalHome(input.slug);
   const seasonOk = Boolean(input.seasonName?.trim());
   const logoOk = Boolean(input.loginLogoUrl?.trim());
@@ -76,18 +83,26 @@ export function buildLeagueOnboardingChecklist(input: {
       href: "#carnet-settings",
       hint: input.carnetValidityLabel?.trim() || "Ej. 03/2026 - 03/2027",
     },
-    {
-      id: "carnet-firma-presidente",
-      label: "Firma del presidente (reverso carnet)",
-      done: Boolean(input.presidentSignatureUrl?.trim()),
-      href: "#carnet-settings",
-    },
-    {
-      id: "carnet-firma-secretario",
-      label: "Firma del secretario (reverso carnet)",
-      done: Boolean(input.secretarySignatureUrl?.trim()),
-      href: "#carnet-settings",
-    },
+    ...(carnetSignatureModeRequiresPresident(signatureMode)
+      ? [
+          {
+            id: "carnet-firma-presidente",
+            label: "Firma del presidente (reverso carnet)",
+            done: Boolean(input.presidentSignatureUrl?.trim()),
+            href: "#carnet-settings",
+          },
+        ]
+      : []),
+    ...(carnetSignatureModeRequiresSecretary(signatureMode)
+      ? [
+          {
+            id: "carnet-firma-secretario",
+            label: "Firma del secretario (reverso carnet)",
+            done: Boolean(input.secretarySignatureUrl?.trim()),
+            href: "#carnet-settings",
+          },
+        ]
+      : []),
   ];
 }
 
