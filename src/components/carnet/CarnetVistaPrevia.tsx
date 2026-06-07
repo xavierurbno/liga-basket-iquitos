@@ -9,9 +9,7 @@ import {
   splitApellidosParaCarnet,
 } from "@/lib/carnet/carnetInstitucionalText";
 import { resolveFichaLeagueTitle } from "@/lib/pdf/fichaInstitucionalTextos";
-import { parseCarnetThemePreset, splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
-import { CarnetBarSportVistaPrevia } from "@/components/carnet/CarnetBarSportVistaPrevia";
-import { CarnetLddbiVistaPrevia } from "@/components/carnet/CarnetLddbiVistaPrevia";
+import { splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
 import { CarnetPdfVistaPrevia } from "@/components/carnet/CarnetPdfVistaPrevia";
 import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps } from "@/lib/types/carnet";
@@ -424,15 +422,5 @@ function CarnetInstitutionalSoftVistaPrevia(props: CarnetVistaPreviaProps) {
 }
 
 export function CarnetVistaPrevia(props: CarnetVistaPreviaProps) {
-  const preset = parseCarnetThemePreset(props.carnetThemePreset);
-  if (preset === "lddbi_bold") {
-    return <CarnetLddbiVistaPrevia {...props} />;
-  }
-  if (preset === "lddbi_template") {
-    return <CarnetPdfVistaPrevia {...props} />;
-  }
-  if (preset === "federation_bar_sport") {
-    return <CarnetBarSportVistaPrevia {...props} />;
-  }
-  return <CarnetInstitutionalSoftVistaPrevia {...props} />;
+  return <CarnetPdfVistaPrevia {...props} />;
 }

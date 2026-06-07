@@ -5,9 +5,7 @@ import { assertInstitutionalAssetsForLeague } from "@/lib/auth/institutional-ass
 import { requireAuth } from "@/lib/auth/require-auth";
 import type { Role } from "@/lib/auth/withAuth";
 import { buildCarnetInstitucionalContext } from "@/lib/carnet/buildCarnetInstitucionalContext";
-import { resolveDefaultLddbiBasketballWatermarkPng } from "@/lib/carnet/lddbiDefaultWatermark.server";
 import { resolveLddbiTemplatePngAssets } from "@/lib/carnet/lddbiTemplateAssets.server";
-import { parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
 import type { CarnetInstitutionalAssetsResult } from "@/lib/types/carnet";
 import {
   resolveFederationLogoForLeaguePngDataUrl,
@@ -148,14 +146,8 @@ export async function getCarnetInstitutionalAssetsAction(
       ]);
 
     const context = buildCarnetInstitucionalContext(leagueDisplayName, settings);
-    const preset = parseCarnetThemePreset(settings?.carnetThemePreset);
     let sportGraphicPng = sportGraphicFromLeague;
-    if (!sportGraphicPng && preset === "lddbi_bold") {
-      sportGraphicPng = await resolveDefaultLddbiBasketballWatermarkPng();
-    }
-
-    const templatePngs =
-      preset === "lddbi_template" ? await resolveLddbiTemplatePngAssets() : null;
+    const templatePngs = await resolveLddbiTemplatePngAssets();
 
     return {
       success: true,
@@ -167,12 +159,7 @@ export async function getCarnetInstitutionalAssetsAction(
         secretarySignatureUrl: settings?.secretarySignatureUrl?.trim() || null,
       },
       ligaLogoPngDataUrl: ligaLogoPng,
-      federacionLogoPngDataUrl:
-        theme.preset === "lddbi_bold" ||
-        theme.preset === "lddbi_template" ||
-        theme.showFederation
-          ? federacionLogoPng
-          : null,
+      federacionLogoPngDataUrl: theme.showFederation ? federacionLogoPng : null,
       sportGraphicPngDataUrl: sportGraphicPng,
       presidentSignaturePngDataUrl: presidentSignaturePng,
       secretarySignaturePngDataUrl: secretarySignaturePng,

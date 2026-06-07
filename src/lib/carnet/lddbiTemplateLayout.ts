@@ -274,7 +274,7 @@ export function buildLddbiTemplateAnversoCampos(
 }
 
 export function isLddbiCarnetPreset(preset: string | null | undefined): boolean {
-  return preset === "lddbi_bold" || preset === "lddbi_template";
+  return preset === "lddbi_template";
 }
 
 export function isLddbiTemplateCarnetPreset(preset: string | null | undefined): boolean {

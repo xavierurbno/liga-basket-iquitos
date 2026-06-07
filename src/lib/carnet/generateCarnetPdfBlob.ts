@@ -36,10 +36,8 @@ export async function generateCarnetPdfBlob(
     secretarySignaturePngDataUrl: inst.secretarySignaturePngDataUrl,
   });
 
-  if (inst.institucional.theme.preset === "lddbi_template") {
-    assets.anversoTemplatePngDataUrl = inst.anversoTemplatePngDataUrl;
-    assets.reversoTemplatePngDataUrl = inst.reversoTemplatePngDataUrl;
-  }
+  assets.anversoTemplatePngDataUrl = inst.anversoTemplatePngDataUrl;
+  assets.reversoTemplatePngDataUrl = inst.reversoTemplatePngDataUrl;
 
   const input = buildCarnetJugadorPdfInput(
     { ...props, validationUrl },
