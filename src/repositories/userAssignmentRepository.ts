@@ -8,6 +8,7 @@ export type AssignmentWithEmail = {
   clubId: string | null;
   role: UserRole;
   email: string | null;
+  rawUserMetaData: unknown;
 };
 
 function matchLeagueIdColumn(leagueId: string | null) {
@@ -27,6 +28,7 @@ export class UserAssignmentRepository {
         clubId: userAssignments.clubId,
         role: userAssignments.role,
         email: authUsers.email,
+        rawUserMetaData: authUsers.rawUserMetaData,
       })
       .from(userAssignments)
       .innerJoin(authUsers, eq(userAssignments.userId, authUsers.id))
@@ -44,6 +46,7 @@ export class UserAssignmentRepository {
         clubId: userAssignments.clubId,
         role: userAssignments.role,
         email: authUsers.email,
+        rawUserMetaData: authUsers.rawUserMetaData,
       })
       .from(userAssignments)
       .innerJoin(authUsers, eq(userAssignments.userId, authUsers.id))
@@ -104,6 +107,7 @@ export class UserAssignmentRepository {
         clubId: userAssignments.clubId,
         role: userAssignments.role,
         email: authUsers.email,
+        rawUserMetaData: authUsers.rawUserMetaData,
       })
       .from(userAssignments)
       .innerJoin(authUsers, eq(userAssignments.userId, authUsers.id))

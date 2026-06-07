@@ -21,6 +21,7 @@ export const authSchema = pgSchema("auth");
 export const authUsers = authSchema.table("users", {
   id: uuid("id").primaryKey(),
   email: varchar("email", { length: 255 }),
+  rawUserMetaData: jsonb("raw_user_meta_data"),
 });
 
 export const leagues = pgTable(

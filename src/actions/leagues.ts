@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { leagues, leagueSettings } from "@/lib/db/schema";
@@ -98,22 +99,26 @@ export const createLeagueWizardAction = withAuth(
 
       let adminMessage = "";
       if (assignAdmin && validated.data.adminFullName && validated.data.adminEmail) {
-        const adminResult = await provisionLeagueAdmin({
+        const adminPayload = {
           leagueId: newLeague.id,
           fullName: validated.data.adminFullName.trim(),
           email: validated.data.adminEmail.trim(),
+        };
+        after(async () => {
+          try {
+            const adminResult = await provisionLeagueAdmin(adminPayload);
+            if (adminResult.success) {
+              revalidatePath("/liga/perfiles/");
+              revalidatePath(`/super-admin/leagues/${newLeague.id}`);
+            } else {
+              console.error("[CREATE_LEAGUE_ADMIN_DEFERRED]", adminResult.error);
+            }
+          } catch (err) {
+            console.error("[CREATE_LEAGUE_ADMIN_DEFERRED]", err);
+          }
         });
-        if (!adminResult.success) {
-          adminMessage = ` Advertencia: la liga se creó pero el administrador no se asignó (${adminResult.error}). Añádelo desde la ficha o /liga/perfiles/.`;
-        } else {
-          adminMessage =
-            adminResult.created && adminResult.invited
-              ? " Invitación enviada al administrador por correo."
-              : adminResult.created
-                ? " Administrador creado."
-                : " Administrador vinculado a la liga.";
-          revalidatePath("/liga/perfiles/");
-        }
+        adminMessage =
+          " La invitación al administrador se está procesando; revisa la ficha de la liga en unos segundos.";
       }
 
       await persistActiveLeagueContext(user.id, newLeague.id);

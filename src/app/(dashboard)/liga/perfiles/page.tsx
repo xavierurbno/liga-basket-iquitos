@@ -11,6 +11,8 @@ import { ActiveLeagueSelector } from "@/components/liga/ActiveLeagueSelector";
 import { leagueRepository } from "@/repositories/league.repository";
 import { partitionPerfilesAssignments } from "@/lib/perfiles/perfiles-league-scope";
 
+export const maxDuration = 30;
+
 export default async function LigaPerfilesPage() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -57,11 +59,13 @@ export default async function LigaPerfilesPage() {
   }
 
   const leagueId = operationalLeagueId!;
-  const league = await leagueRepository.findById(leagueId);
+  const [league, allLeagues, perfilesData] = await Promise.all([
+    leagueRepository.findById(leagueId),
+    role === "SUPER_ADMIN" ? leagueRepository.findAll() : Promise.resolve([]),
+    loadPerfilesPageData(leagueId),
+  ]);
   const leagueName = league?.name ?? null;
-  const allLeagues = role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
-
-  const { allRows, clubRows } = await loadPerfilesPageData();
+  const { allRows, clubRows } = perfilesData;
   const { leagueRows: tableRows, orphanRows } = partitionPerfilesAssignments(allRows, leagueId);
 
   const canManageDestructive = role === "SUPER_ADMIN";
