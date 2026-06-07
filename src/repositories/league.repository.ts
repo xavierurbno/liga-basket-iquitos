@@ -54,6 +54,15 @@ export class LeagueRepository {
       .orderBy(desc(leagues.createdAt));
   }
 
+  async existsById(id: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: leagues.id })
+      .from(leagues)
+      .where(eq(leagues.id, id))
+      .limit(1);
+    return Boolean(row);
+  }
+
   /**
    * Busca una liga por su ID incluyendo su configuración.
    */

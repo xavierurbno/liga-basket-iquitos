@@ -9,7 +9,6 @@ import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { ActiveLeagueSelector } from "@/components/liga/ActiveLeagueSelector";
 import { leagueRepository } from "@/repositories/league.repository";
-import { partitionPerfilesAssignments } from "@/lib/perfiles/perfiles-league-scope";
 
 export const maxDuration = 30;
 
@@ -59,14 +58,15 @@ export default async function LigaPerfilesPage() {
   }
 
   const leagueId = operationalLeagueId!;
-  const [league, allLeagues, perfilesData] = await Promise.all([
-    leagueRepository.findById(leagueId),
+  const [allLeagues, perfilesData] = await Promise.all([
     role === "SUPER_ADMIN" ? leagueRepository.findAll() : Promise.resolve([]),
-    loadPerfilesPageData(leagueId),
+    loadPerfilesPageData(leagueId, { includeOrphans: role === "SUPER_ADMIN" }),
   ]);
+  const league =
+    allLeagues.find((l) => l.id === leagueId) ??
+    (role === "LEAGUE_ADMIN" ? await leagueRepository.findById(leagueId) : null);
   const leagueName = league?.name ?? null;
-  const { allRows, clubRows } = perfilesData;
-  const { leagueRows: tableRows, orphanRows } = partitionPerfilesAssignments(allRows, leagueId);
+  const { leagueRows: tableRows, orphanRows, clubRows } = perfilesData;
 
   const canManageDestructive = role === "SUPER_ADMIN";
   const canInviteStaff = role === "SUPER_ADMIN" || role === "LEAGUE_ADMIN";

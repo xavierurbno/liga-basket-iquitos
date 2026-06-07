@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { createBrowserClient } from "@supabase/ssr";
 import { setActiveLeagueAction } from "@/actions/active-league.actions";
 
 export type ActiveLeagueOption = { id: string; name: string };
@@ -38,11 +37,6 @@ export function ActiveLeagueSelector({
           startTransition(async () => {
             const res = await setActiveLeagueAction(value || null);
             if (!res.success) return;
-            const supabase = createBrowserClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            );
-            await supabase.auth.refreshSession();
             router.refresh();
           });
         }}

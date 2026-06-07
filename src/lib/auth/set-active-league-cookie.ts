@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { ACTIVE_LEAGUE_COOKIE } from "@/lib/auth/active-league";
@@ -28,15 +29,31 @@ export function revalidateActiveLeaguePaths(): void {
   revalidatePath("/dashboard");
 }
 
+type PersistActiveLeagueOptions = {
+  /** Solo cookie; el JWT se sincroniza en segundo plano (cambio de liga en UI). */
+  deferJwtSync?: boolean;
+};
+
 /** Cookie httpOnly + `app_metadata.active_league_id` en JWT (para RLS con supabase-js). */
 export async function persistActiveLeagueContext(
   userId: string,
   leagueId: string | null,
+  options?: PersistActiveLeagueOptions,
 ): Promise<void> {
   if (leagueId) {
     await writeActiveLeagueCookie(leagueId);
   } else {
     await clearActiveLeagueCookie();
   }
+
+  if (options?.deferJwtSync) {
+    after(() => {
+      void syncActiveLeagueToJwt(userId, leagueId).catch((err) => {
+        console.error("[SYNC_ACTIVE_LEAGUE_JWT_DEFERRED]", err);
+      });
+    });
+    return;
+  }
+
   await syncActiveLeagueToJwt(userId, leagueId);
 }

@@ -3,10 +3,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { isValidLeagueUuid } from "@/lib/auth/active-league";
-import {
-  persistActiveLeagueContext,
-  revalidateActiveLeaguePaths,
-} from "@/lib/auth/set-active-league-cookie";
+import { persistActiveLeagueContext } from "@/lib/auth/set-active-league-cookie";
 import { leagueRepository } from "@/repositories/league.repository";
 
 export type SetActiveLeagueResult =
@@ -49,20 +46,16 @@ export async function setActiveLeagueAction(
   }
 
   const resolvedId = leagueId && leagueId !== "" ? leagueId : null;
-  if (resolvedId) {
-    const league = await leagueRepository.findById(resolvedId);
-    if (!league) {
-      return { success: false, error: "La liga no existe." };
-    }
+  if (resolvedId && !(await leagueRepository.existsById(resolvedId))) {
+    return { success: false, error: "La liga no existe." };
   }
 
   try {
-    await persistActiveLeagueContext(user.id, resolvedId);
+    await persistActiveLeagueContext(user.id, resolvedId, { deferJwtSync: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "No se pudo guardar la liga activa.";
     return { success: false, error: message };
   }
 
-  revalidateActiveLeaguePaths();
   return { success: true };
 }
