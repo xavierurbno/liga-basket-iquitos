@@ -41,4 +41,5 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0031_audit_events.sql",
   "supabase/migrations/0032_player_credential_emission.sql",
   "supabase/migrations/0033_carnet_deportista_seq.sql",
+  "supabase/migrations/0034_carnet_theme_lddbi_template_only.sql",
 ];

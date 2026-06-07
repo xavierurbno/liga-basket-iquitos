@@ -382,9 +382,9 @@ export const leagueSettings = pgTable(
     carnetValidityLabel: text("carnet_validity_label"),
     /** Plantilla legal; placeholder `{ligaNombre}`. */
     carnetAuthorizationTemplate: text("carnet_authorization_template"),
-    /** institutional_soft | lddbi_bold | lddbi_template | federation_bar_sport */
+    /** lddbi_template (única plantilla CR80 activa). */
     carnetThemePreset: varchar("carnet_theme_preset", { length: 32 })
-      .default("institutional_soft")
+      .default("lddbi_template")
       .notNull(),
     carnetShowFederation: boolean("carnet_show_federation").default(true).notNull(),
     carnetFederationDisplayName: text("carnet_federation_display_name"),

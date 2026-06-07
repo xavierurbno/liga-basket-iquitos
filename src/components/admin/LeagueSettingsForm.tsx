@@ -4,9 +4,7 @@ import { useActionState, useRef, useState } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
 import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
 import {
-  CARNET_THEME_PRESETS,
   CARNET_THEME_PRESET_LABELS,
-  parseCarnetThemePreset,
 } from "@/lib/carnet/carnetTheme";
 import { LEAGUE_SOCIAL_FORM_FIELDS } from "@/lib/leagues/league-social-links";
 import { LeagueSettings } from "@/lib/db/schema";
@@ -334,28 +332,20 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             <div className="flex-1 h-px bg-slate-100" />
           </h4>
           <p className="text-[10px] text-slate-500 ml-1">
-            El logo de liga del carnet es el mismo que &quot;Logo de Login&quot; arriba. Las ligas existentes
-            siguen con plantilla <strong>institucional sobria</strong> hasta que elijas otra aquí.
+            El logo de liga del carnet es el mismo que &quot;Logo de Login&quot; arriba. Todos los carnets usan
+            la plantilla oficial LDDBI en PNG.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-bold text-slate-700 ml-1">Plantilla del carnet (CR80)</label>
-              <select
-                name="carnetThemePreset"
-                defaultValue={parseCarnetThemePreset(initialSettings?.carnetThemePreset)}
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium bg-white"
-              >
-                {CARNET_THEME_PRESETS.map((id) => (
-                  <option key={id} value={id}>
-                    {CARNET_THEME_PRESET_LABELS[id]}
-                  </option>
-                ))}
-              </select>
+              <input type="hidden" name="carnetThemePreset" value="lddbi_template" />
+              <p className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800">
+                {CARNET_THEME_PRESET_LABELS.lddbi_template}
+              </p>
               <p className="text-[10px] text-slate-400 ml-1">
-                Solo una plantilla activa por liga: <strong>lddbi_bold</strong> (diseño en código) o{" "}
-                <strong>lddbi_template</strong> (PNG en <code>public/carnet/lddbi-template/</code>).
-                No se combinan en el mismo carnet.
+                Mockup PNG en <code>public/carnet/lddbi-template/</code> (anverso y reverso). Las plantillas
+                institucional sobria, LDDBI degradado y franjas institucionales fueron retiradas del sistema.
               </p>
             </div>
             <div className="space-y-2">

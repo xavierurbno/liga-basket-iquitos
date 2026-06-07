@@ -7,7 +7,6 @@ import {
   DEFAULT_PDF_ACCENT_RGB,
   DEFAULT_PDF_PRIMARY_RGB,
 } from "@/lib/pdf/brand-colors";
-import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
 
 /** Campos de `league_settings` usados por el tema del carnet (sin importar schema en cliente). */
 export type CarnetThemeSettingsSlice = {
@@ -20,30 +19,21 @@ export type CarnetThemeSettingsSlice = {
   portalAccentColor?: string | null;
 };
 
-/** Plantillas de carnet CR80 disponibles. */
-export const CARNET_THEME_PRESETS = [
-  "institutional_soft",
-  "lddbi_bold",
-  "lddbi_template",
-  "federation_bar_sport",
-] as const;
+/** Única plantilla CR80 disponible en configuración. */
+export const CARNET_THEME_PRESETS = ["lddbi_template"] as const;
 
 export type CarnetThemePreset = (typeof CARNET_THEME_PRESETS)[number];
 
 export const CARNET_THEME_PRESET_LABELS: Record<CarnetThemePreset, string> = {
-  institutional_soft: "Institucional sobrio (predeterminado)",
-  lddbi_bold: "LDDBI — degradado diagonal (básquet)",
   lddbi_template: "LDDBI — plantilla PNG (mockup oficial)",
-  federation_bar_sport: "Franjas institucional (referencia fútbol/vóley, para básquet)",
 };
 
-const DEFAULT_PRESET: CarnetThemePreset = "institutional_soft";
+const DEFAULT_PRESET: CarnetThemePreset = "lddbi_template";
 
+/** Normaliza valores legacy retirados del configurador. */
 export function parseCarnetThemePreset(raw: string | null | undefined): CarnetThemePreset {
   const v = raw?.trim();
-  if (v && (CARNET_THEME_PRESETS as readonly string[]).includes(v)) {
-    return v as CarnetThemePreset;
-  }
+  if (v === "lddbi_template") return DEFAULT_PRESET;
   return DEFAULT_PRESET;
 }
 
@@ -62,14 +52,8 @@ export function resolveCarnetThemeConfig(
   settings: CarnetThemeSettingsSlice | null | undefined,
 ): CarnetThemeConfig {
   const preset = parseCarnetThemePreset(settings?.carnetThemePreset);
-  const lddbiPalette =
-    preset === "lddbi_bold" || preset === "lddbi_template";
-  const primaryHex = lddbiPalette
-    ? LDDBI_PREMIUM_PRIMARY_HEX
-    : normalizePortalHexColor(settings?.portalPrimaryColor, "#1e3a5f");
-  const accentHex = lddbiPalette
-    ? LDDBI_PREMIUM_ACCENT_HEX
-    : normalizePortalHexColor(settings?.portalAccentColor, "#0d9488");
+  const primaryHex = LDDBI_PREMIUM_PRIMARY_HEX;
+  const accentHex = LDDBI_PREMIUM_ACCENT_HEX;
 
   return {
     preset,
