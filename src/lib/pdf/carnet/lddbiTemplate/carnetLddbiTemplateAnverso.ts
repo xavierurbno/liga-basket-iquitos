@@ -8,7 +8,7 @@ import {
   drawLddbiTemplateAnversoFallback,
   drawLddbiTemplateCampoLinea,
   drawLddbiTemplateEncabezadoAnverso,
-  drawLddbiTemplateFotoCarnetNumero,
+  drawLddbiTemplateFotoIdentificacion,
   drawLddbiTemplateFullBleed,
 } from "@/lib/pdf/carnet/lddbiTemplate/carnetLddbiTemplateShared";
 
@@ -39,7 +39,6 @@ export function drawCarnetLddbiTemplateAnverso(
     apellidoMaterno: input.apellidoMaterno.trim().toUpperCase(),
     nombres: input.name.trim().toUpperCase(),
     fechaNacimiento: fmtFechaCarnetPeru(input.fechaNacimientoIso),
-    documentNumber: input.documentNumber.trim().toUpperCase(),
     clubName: input.clubName.trim().toUpperCase(),
     categoriaNombre: input.categoriaNombre.trim().toUpperCase(),
   });
@@ -62,5 +61,13 @@ export function drawCarnetLddbiTemplateAnverso(
   const fy = lddbiTemplateFotoY(pageH);
   drawLddbiFotoConMarco(doc, input.fotoPngDataUrl, fx, fy, fw, fh, accent);
 
-  drawLddbiTemplateFotoCarnetNumero(doc, fx, fy, fw, fh, input.carnetNumber);
+  drawLddbiTemplateFotoIdentificacion(
+    doc,
+    fx,
+    fy,
+    fw,
+    fh,
+    input.documentNumber,
+    input.carnetNumber,
+  );
 }

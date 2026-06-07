@@ -108,7 +108,6 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
       apellidoMaterno: apellidoMaterno.toUpperCase(),
       nombres: props.name.trim().toUpperCase(),
       fechaNacimiento: props.fechaNacimientoLabel,
-      documentNumber: props.documentNumber.trim().toUpperCase(),
       clubName: props.clubName.trim().toUpperCase(),
       categoriaNombre: props.categoriaNombre.trim().toUpperCase(),
     });
@@ -117,7 +116,6 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
     apellidoMaterno,
     props.name,
     props.fechaNacimientoLabel,
-    props.documentNumber,
     props.clubName,
     props.categoriaNombre,
   ]);
@@ -127,7 +125,9 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
   const fotoFrameTop = lddbiTemplateFotoFrameTopMm();
   const labelFont = previewFontSizeCqw(A.labelFontHeightMm);
   const valorFont = previewFontSizeCqw(A.valorFontHeightMm);
+  const dniFont = previewFontSizeCqw(A.dniFontHeightMm);
   const carnetFont = previewFontSizeCqw(A.carnetFontHeightMm);
+  const dniDisplay = props.documentNumber.trim().toUpperCase() || "—";
   const carnetDisplay = props.carnetNumberDisplay?.trim().toUpperCase() || "—";
   const presetLabel = CARNET_THEME_PRESET_LABELS.lddbi_template;
 
@@ -346,11 +346,26 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
             </div>
 
             <p
+              className="absolute text-center font-bold uppercase leading-none"
+              style={{
+                left: mmX(A.foto.x),
+                width: mmW(A.foto.w),
+                top: mmY(fotoY + A.foto.h + idFoto.dniYOffsetMm),
+                fontSize: dniFont,
+                color: LDDBI_TEMPLATE_WHITE_HEX,
+                textShadow: "0 0.5px 1px rgba(0,0,0,0.45)",
+              }}
+            >
+              {dniDisplay}
+            </p>
+            <p
               className="absolute text-center font-bold uppercase leading-tight"
               style={{
                 left: mmX(A.foto.x),
                 width: mmW(A.foto.w),
-                top: mmY(fotoY + A.foto.h + idFoto.carnetYOffsetMm),
+                top: mmY(
+                  fotoY + A.foto.h + idFoto.dniYOffsetMm + idFoto.correlativoGapBelowDniMm,
+                ),
                 fontSize:
                   carnetDisplay.length > 14
                     ? previewFontSizeCqw(ptToMm(A.carnetFontPtCompact))

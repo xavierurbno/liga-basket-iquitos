@@ -223,27 +223,34 @@ export function drawLddbiTemplateEncabezadoAnverso(
 }
 
 /**
- * Correlativo de carnet bajo la foto. Solo el dato dinámico, centrado, bold blanco.
+ * DNI y correlativo bajo la foto: solo números, centrados, bold blanco.
+ * Orden: DNI arriba, correlativo debajo.
  */
-export function drawLddbiTemplateFotoCarnetNumero(
+export function drawLddbiTemplateFotoIdentificacion(
   doc: JsPDFDoc,
   fotoX: number,
   fotoY: number,
   fotoW: number,
   fotoH: number,
+  documentNumber: string,
   carnetNumber: string | null | undefined,
 ) {
   const A = LDDBI_TEMPLATE.anverso;
-  const { carnetYOffsetMm } = A.fotoIdentificacion;
+  const { dniYOffsetMm, correlativoGapBelowDniMm } = A.fotoIdentificacion;
   const cx = fotoX + fotoW / 2;
-  const y = fotoY + fotoH + carnetYOffsetMm;
-  const val = (carnetNumber ?? "").trim().toUpperCase() || "—";
+  const dniY = fotoY + fotoH + dniYOffsetMm;
+  const dniVal = (documentNumber ?? "").trim().toUpperCase() || "—";
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(val.length > 14 ? A.carnetFontPtCompact : A.carnetFontPt);
+  doc.setFontSize(A.dniFontPt);
   doc.setTextColor(255, 255, 255);
-  const lines = doc.splitTextToSize(val, fotoW + 1.5);
-  doc.text(lines, cx, y, { align: "center" });
+  doc.text(dniVal, cx, dniY, { align: "center" });
+
+  const carnetVal = (carnetNumber ?? "").trim().toUpperCase() || "—";
+  const carnetY = dniY + correlativoGapBelowDniMm;
+  doc.setFontSize(carnetVal.length > 14 ? A.carnetFontPtCompact : A.carnetFontPt);
+  const lines = doc.splitTextToSize(carnetVal, fotoW + 1.5);
+  doc.text(lines, cx, carnetY, { align: "center" });
   doc.setTextColor(0);
 }
 

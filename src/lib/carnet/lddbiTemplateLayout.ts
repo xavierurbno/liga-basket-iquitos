@@ -115,11 +115,14 @@ export const LDDBI_TEMPLATE = {
     /** Tipografía anverso — impresión ZC300 (dye-sub); jerarquía por tamaño + dorado/blanco. */
     labelFontPt: 7.5,
     valorFontPt: 8.5,
-    /** Número de carnet bajo la foto (mín. 6.5pt si el correlativo es largo). */
+    /** DNI bajo la foto (solo número, sin etiqueta). */
+    dniFontPt: 8,
+    /** Correlativo debajo del DNI (mín. 6.5pt si es largo). */
     carnetFontPt: 7,
     carnetFontPtCompact: 6.5,
     labelFontHeightMm: 2.1,
     valorFontHeightMm: 2.35,
+    dniFontHeightMm: 2.2,
     carnetFontHeightMm: 2.0,
     previewCapHeightMm: 2.35,
     /** Marco foto (drawLddbiFotoConMarco): borde accent ~1,1 mm fuera del recuadro blanco. */
@@ -131,12 +134,12 @@ export const LDDBI_TEMPLATE = {
       /** Borde superior del marco alineado bajo la cabecera del PNG. */
       y: LDDBI_HEADER_MM + 2.4,
     },
-    /** Correlativo de carnet bajo la foto: solo el número, sin etiqueta. */
+    /** DNI y correlativo bajo la foto (sin etiquetas). */
     fotoIdentificacion: {
-      offsetBelowFotoMm: 2.4,
-      lineGapMm: 2.0,
-      /** Distancia del borde inferior de la foto al baseline del correlativo. */
-      carnetYOffsetMm: 4.4,
+      /** Baseline del DNI respecto al borde inferior de la foto. */
+      dniYOffsetMm: 3.8,
+      /** Separación entre baseline del DNI y baseline del correlativo. */
+      correlativoGapBelowDniMm: 2.4,
     },
   },
   reverso: {
@@ -223,7 +226,6 @@ export type LddbiTemplateAnversoFieldInput = {
   apellidoMaterno: string;
   nombres: string;
   fechaNacimiento: string;
-  documentNumber: string;
   clubName: string;
   categoriaNombre: string;
 };
@@ -248,7 +250,6 @@ export function lddbiTemplateAnversoFieldDefs(
     { id: "apellidoM", etiqueta: "APELLIDO M.", val: input.apellidoMaterno },
     { id: "nombres", etiqueta: "NOMBRES", val: input.nombres },
     { id: "fnac", etiqueta: "F. DE NAC.", val: input.fechaNacimiento },
-    { id: "dni", etiqueta: "DNI", val: input.documentNumber },
     { id: "club", etiqueta: "CLUB", val: input.clubName },
     { id: "categoria", etiqueta: "CATEGORÍA", val: input.categoriaNombre },
   ];
