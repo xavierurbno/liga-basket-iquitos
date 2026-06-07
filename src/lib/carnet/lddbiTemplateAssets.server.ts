@@ -4,20 +4,22 @@ import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import {
-  LDDBI_TEMPLATE_ANVERSO_PUBLIC_PATH,
-  LDDBI_TEMPLATE_REVERSO_PUBLIC_PATH,
-} from "@/lib/carnet/lddbiTemplatePaths";
-
-const ANVERSO_FILE = ["carnet", "lddbi-template", "anverso-template.png"];
-const REVERSO_FILE = ["carnet", "lddbi-template", "reverso-template.png"];
+  getCarnetPresetFilePaths,
+} from "@/lib/carnet/carnetPresetConfig";
+import type { CarnetThemePreset } from "@/lib/carnet/carnetTheme";
+import { parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
 
 /** CR80 @ 300 DPI */
 const TEMPLATE_PX = { w: 1011, h: 638 };
 
-let cachedAnverso: string | null | undefined;
-let cachedReverso: string | null | undefined;
+const cache = new Map<string, string | null>();
 
-async function fileToPngDataUrl(relParts: string[]): Promise<string | null> {
+async function fileToPngDataUrl(relParts: readonly string[]): Promise<string | null> {
+  const cacheKey = relParts.join("/");
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey) ?? null;
+  }
+
   try {
     const filePath = path.join(process.cwd(), "public", ...relParts);
     const buf = await fs.readFile(filePath);
@@ -25,32 +27,43 @@ async function fileToPngDataUrl(relParts: string[]): Promise<string | null> {
       .resize(TEMPLATE_PX.w, TEMPLATE_PX.h, { fit: "fill" })
       .png()
       .toBuffer();
-    return `data:image/png;base64,${png.toString("base64")}`;
+    const dataUrl = `data:image/png;base64,${png.toString("base64")}`;
+    cache.set(cacheKey, dataUrl);
+    return dataUrl;
   } catch {
+    cache.set(cacheKey, null);
     return null;
   }
 }
 
-export type LddbiTemplatePngAssets = {
+export type CarnetTemplatePngAssets = {
   anversoTemplatePngDataUrl: string | null;
   reversoTemplatePngDataUrl: string | null;
   anversoTemplatePublicPath: string;
   reversoTemplatePublicPath: string;
 };
 
-/** Plantillas PNG del mockup LDDBI (solo servidor / generación PDF). */
-export async function resolveLddbiTemplatePngAssets(): Promise<LddbiTemplatePngAssets> {
-  if (cachedAnverso === undefined) {
-    cachedAnverso = await fileToPngDataUrl(ANVERSO_FILE);
-  }
-  if (cachedReverso === undefined) {
-    cachedReverso = await fileToPngDataUrl(REVERSO_FILE);
-  }
+/** Plantillas PNG del preset activo (servidor / generación PDF). */
+export async function resolveCarnetTemplatePngAssets(
+  presetInput?: CarnetThemePreset | string | null,
+): Promise<CarnetTemplatePngAssets> {
+  const preset = parseCarnetThemePreset(presetInput ?? undefined);
+  const paths = getCarnetPresetFilePaths(preset);
+
+  const [anversoTemplatePngDataUrl, reversoTemplatePngDataUrl] = await Promise.all([
+    fileToPngDataUrl(paths.anverso),
+    fileToPngDataUrl(paths.reverso),
+  ]);
 
   return {
-    anversoTemplatePngDataUrl: cachedAnverso,
-    reversoTemplatePngDataUrl: cachedReverso,
-    anversoTemplatePublicPath: LDDBI_TEMPLATE_ANVERSO_PUBLIC_PATH,
-    reversoTemplatePublicPath: LDDBI_TEMPLATE_REVERSO_PUBLIC_PATH,
+    anversoTemplatePngDataUrl,
+    reversoTemplatePngDataUrl,
+    anversoTemplatePublicPath: paths.anversoPublicPath,
+    reversoTemplatePublicPath: paths.reversoPublicPath,
   };
+}
+
+/** @deprecated Usar `resolveCarnetTemplatePngAssets`. */
+export async function resolveLddbiTemplatePngAssets(): Promise<CarnetTemplatePngAssets> {
+  return resolveCarnetTemplatePngAssets("lddbi_template");
 }

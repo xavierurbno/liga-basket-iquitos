@@ -10,7 +10,9 @@ import type { CarnetInstitucionalInput } from "@/lib/types/carnet";
 export type CarnetInstitutionalAssetsBundle = {
   institucional: CarnetInstitucionalInput;
   ligaLogoPngDataUrl: string | null;
+  ligaLogoMonoPngDataUrl: string | null;
   federacionLogoPngDataUrl: string | null;
+  federacionLogoMonoPngDataUrl: string | null;
   sportGraphicPngDataUrl: string | null;
   presidentSignaturePngDataUrl: string | null;
   secretarySignaturePngDataUrl: string | null;
@@ -27,7 +29,9 @@ export async function loadCarnetInstitutionalAssets(
     await import("@/lib/actions/assets");
 
   let ligaLogoPngDataUrl: string | null = null;
+  let ligaLogoMonoPngDataUrl: string | null = null;
   let federacionLogoPngDataUrl: string | null = null;
+  let federacionLogoMonoPngDataUrl: string | null = null;
   let sportGraphicPngDataUrl: string | null = null;
   let presidentSignaturePngDataUrl: string | null = null;
   let secretarySignaturePngDataUrl: string | null = null;
@@ -41,7 +45,9 @@ export async function loadCarnetInstitutionalAssets(
     const inst = await getCarnetInstitutionalAssetsAction(leagueId.trim());
     if (inst.success) {
       ligaLogoPngDataUrl = inst.ligaLogoPngDataUrl;
+      ligaLogoMonoPngDataUrl = inst.ligaLogoMonoPngDataUrl ?? null;
       federacionLogoPngDataUrl = inst.federacionLogoPngDataUrl;
+      federacionLogoMonoPngDataUrl = inst.federacionLogoMonoPngDataUrl ?? null;
       sportGraphicPngDataUrl = inst.sportGraphicPngDataUrl;
       presidentSignaturePngDataUrl = inst.presidentSignaturePngDataUrl;
       secretarySignaturePngDataUrl = inst.secretarySignaturePngDataUrl;
@@ -80,7 +86,9 @@ export async function loadCarnetInstitutionalAssets(
   return {
     institucional,
     ligaLogoPngDataUrl,
+    ligaLogoMonoPngDataUrl,
     federacionLogoPngDataUrl,
+    federacionLogoMonoPngDataUrl,
     sportGraphicPngDataUrl,
     presidentSignaturePngDataUrl,
     secretarySignaturePngDataUrl,

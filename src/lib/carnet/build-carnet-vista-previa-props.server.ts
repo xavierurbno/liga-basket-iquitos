@@ -117,7 +117,7 @@ export async function buildCarnetVistaPreviaPropsServer(
   const showFederation = leagueSettings?.carnetShowFederation !== false;
   const federacionLogoUrl = showFederation
     ? resolvePublicImageUrl(leagueSettings?.carnetFederationLogoUrl ?? null) ??
-      "/logos/federacion.png"
+      "/logos/federacion-color.png"
     : null;
   const carnetSportGraphicUrl = resolvePublicImageUrl(
     leagueSettings?.carnetSportGraphicUrl ?? null,

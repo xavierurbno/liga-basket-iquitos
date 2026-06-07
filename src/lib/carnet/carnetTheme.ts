@@ -19,21 +19,42 @@ export type CarnetThemeSettingsSlice = {
   portalAccentColor?: string | null;
 };
 
-/** Única plantilla CR80 disponible en configuración. */
-export const CARNET_THEME_PRESETS = ["lddbi_template"] as const;
+/** Plantillas CR80 disponibles en configuración de liga. */
+export const CARNET_THEME_PRESETS = [
+  "lddbi_template",
+  "esquinas_color",
+  "esquinas_clasica_reverso",
+  "onda_color",
+  "onda_clasica_reverso",
+] as const;
 
 export type CarnetThemePreset = (typeof CARNET_THEME_PRESETS)[number];
 
 export const CARNET_THEME_PRESET_LABELS: Record<CarnetThemePreset, string> = {
-  lddbi_template: "LDDBI — plantilla PNG (mockup oficial)",
+  lddbi_template: "LDDBI — mockup oficial (full color)",
+  esquinas_color: "Esquinas rojas — full color (anverso y reverso)",
+  esquinas_clasica_reverso: "Esquinas rojas — dorso clásica blanco (ZC300)",
+  onda_color: "Onda roja — full color (anverso y reverso)",
+  onda_clasica_reverso: "Onda roja — dorso clásica blanco (ZC300)",
 };
 
 const DEFAULT_PRESET: CarnetThemePreset = "lddbi_template";
 
-/** Normaliza valores legacy retirados del configurador. */
+const LEGACY_PRESETS = new Set([
+  "institutional_soft",
+  "lddbi_bold",
+  "federation_bar_sport",
+]);
+
+/** Normaliza preset guardado en BD (incluye valores legacy retirados). */
 export function parseCarnetThemePreset(raw: string | null | undefined): CarnetThemePreset {
   const v = raw?.trim();
-  if (v === "lddbi_template") return DEFAULT_PRESET;
+  if (v && (CARNET_THEME_PRESETS as readonly string[]).includes(v)) {
+    return v as CarnetThemePreset;
+  }
+  if (v && LEGACY_PRESETS.has(v)) {
+    return DEFAULT_PRESET;
+  }
   return DEFAULT_PRESET;
 }
 

@@ -10,6 +10,7 @@ import {
   drawLddbiTemplateEncabezadoAnverso,
   drawLddbiTemplateFotoIdentificacion,
   drawLddbiTemplateFullBleed,
+  getCarnetOverlayColorsForInput,
 } from "@/lib/pdf/carnet/lddbiTemplate/carnetLddbiTemplateShared";
 
 export function drawCarnetLddbiTemplateAnverso(
@@ -21,6 +22,7 @@ export function drawCarnetLddbiTemplateAnverso(
   const A = LDDBI_TEMPLATE.anverso;
   const primary = input.theme.primaryRgb;
   const accent = input.theme.accentRgb;
+  const overlay = getCarnetOverlayColorsForInput(input);
 
   const painted = drawLddbiTemplateFullBleed(
     doc,
@@ -54,12 +56,13 @@ export function drawCarnetLddbiTemplateAnverso(
       campo.y,
       A.datosMaxW,
       A.valorFontPt,
+      overlay,
     );
   });
 
   const { w: fw, h: fh, x: fx } = A.foto;
   const fy = lddbiTemplateFotoY(pageH);
-  drawLddbiFotoConMarco(doc, input.fotoPngDataUrl, fx, fy, fw, fh, accent);
+  drawLddbiFotoConMarco(doc, input.fotoPngDataUrl, fx, fy, fw, fh, overlay.photoFrameRgb);
 
   drawLddbiTemplateFotoIdentificacion(
     doc,
@@ -69,5 +72,6 @@ export function drawCarnetLddbiTemplateAnverso(
     fh,
     input.documentNumber,
     input.carnetNumber,
+    overlay,
   );
 }

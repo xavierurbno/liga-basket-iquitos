@@ -374,6 +374,8 @@ export const leagueSettings = pgTable(
     isManualOverride: boolean("is_manual_override").default(false),
     /** Override opcional del logo de federación en carnet/PDF (null = global `public/logos/federacion.png`). */
     carnetFederationLogoUrl: text("carnet_federation_logo_url"),
+    /** Logo B/N de la liga solo en reverso clásico (null = `public/logos/liga-mono.png` si existe). */
+    carnetLeagueMonoLogoUrl: text("carnet_league_mono_logo_url"),
     presidentSignatureUrl: text("president_signature_url"),
     secretarySignatureUrl: text("secretary_signature_url"),
     presidentDisplayName: text("president_display_name"),
@@ -382,7 +384,7 @@ export const leagueSettings = pgTable(
     carnetValidityLabel: text("carnet_validity_label"),
     /** Plantilla legal; placeholder `{ligaNombre}`. */
     carnetAuthorizationTemplate: text("carnet_authorization_template"),
-    /** lddbi_template (única plantilla CR80 activa). */
+    /** lddbi_template | esquinas_color | esquinas_clasica_reverso | onda_color | onda_clasica_reverso */
     carnetThemePreset: varchar("carnet_theme_preset", { length: 32 })
       .default("lddbi_template")
       .notNull(),

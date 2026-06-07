@@ -97,11 +97,15 @@ export default async function CarnetJugadorPage({
   const validationUrl = carnetVistaProps.validationUrl;
   const fileName = `carnet-${club.slug}-${jugador.documentNumber}`.replace(/[^a-zA-Z0-9._-]/g, "-");
 
+  const { hasLeagueMonoLogoAvailable } = await import(
+    "@/lib/logos/resolve-league-logo-buffer"
+  );
   const leagueReadiness = buildCarnetLeagueReadiness(
     leagueSettings,
     Boolean(carnetVistaProps.leagueLogoUrl),
     Boolean(carnetVistaProps.federacionLogoUrl),
     carnetTheme.preset,
+    await hasLeagueMonoLogoAvailable(effectiveLeagueId),
   );
   const playerWarnings = buildPlayerCarnetWarnings({
     hasPhoto: Boolean(fotoPublica),

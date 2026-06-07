@@ -61,7 +61,9 @@ export async function buildCarnetPdfImageAssets(
 
   const [
     ligaLogo,
+    ligaLogoMono,
     federacionLogo,
+    federacionLogoMono,
     sportGraphic,
     clubLogo,
     fotoCarnet,
@@ -72,8 +74,14 @@ export async function buildCarnetPdfImageAssets(
     params.ligaLogoPngDataUrl
       ? escalarLogoParaPdf(params.ligaLogoPngDataUrl, 600)
       : null,
+    params.ligaLogoMonoPngDataUrl
+      ? escalarLogoParaPdf(params.ligaLogoMonoPngDataUrl, 600)
+      : null,
     params.federacionLogoPngDataUrl
       ? escalarLogoParaPdf(params.federacionLogoPngDataUrl, 400)
+      : null,
+    params.federacionLogoMonoPngDataUrl
+      ? escalarLogoParaPdf(params.federacionLogoMonoPngDataUrl, 400)
       : null,
     sportGraphicRaw ? escalarLogoParaPdf(sportGraphicRaw, 500) : null,
     clubRaw ? escalarLogoParaPdf(clubRaw, 400) : null,
@@ -93,7 +101,9 @@ export async function buildCarnetPdfImageAssets(
   return {
     fotoPngDataUrl: fotoCarnet,
     ligaLogoPngDataUrl: ligaLogo,
+    ligaLogoMonoPngDataUrl: ligaLogoMono,
     federacionLogoPngDataUrl: federacionLogo,
+    federacionLogoMonoPngDataUrl: federacionLogoMono,
     sportGraphicPngDataUrl: sportGraphic,
     clubLogoPngDataUrl: clubLogo,
     presidentSignaturePngDataUrl: presidentSignature,

@@ -4,7 +4,9 @@ import { useActionState, useRef, useState } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
 import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
 import {
+  CARNET_THEME_PRESETS,
   CARNET_THEME_PRESET_LABELS,
+  parseCarnetThemePreset,
 } from "@/lib/carnet/carnetTheme";
 import { LEAGUE_SOCIAL_FORM_FIELDS } from "@/lib/leagues/league-social-links";
 import { LeagueSettings } from "@/lib/db/schema";
@@ -28,6 +30,9 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialSettings?.loginLogoUrl || null);
   const [fedPreviewUrl, setFedPreviewUrl] = useState<string | null>(
     initialSettings?.carnetFederationLogoUrl || null,
+  );
+  const [leagueMonoPreviewUrl, setLeagueMonoPreviewUrl] = useState<string | null>(
+    initialSettings?.carnetLeagueMonoLogoUrl || null,
   );
   const [presidentSigPreview, setPresidentSigPreview] = useState<string | null>(
     initialSettings?.presidentSignatureUrl || null,
@@ -332,20 +337,28 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             <div className="flex-1 h-px bg-slate-100" />
           </h4>
           <p className="text-[10px] text-slate-500 ml-1">
-            El logo de liga del carnet es el mismo que &quot;Logo de Login&quot; arriba. Todos los carnets usan
-            la plantilla oficial LDDBI en PNG.
+            El logo de liga del carnet es el mismo que &quot;Logo de Login&quot; arriba. Elige el diseño PNG
+            según tu impresora Zebra ZC300 (full color o dorso clásica blanco).
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-bold text-slate-700 ml-1">Plantilla del carnet (CR80)</label>
-              <input type="hidden" name="carnetThemePreset" value="lddbi_template" />
-              <p className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800">
-                {CARNET_THEME_PRESET_LABELS.lddbi_template}
-              </p>
+              <select
+                name="carnetThemePreset"
+                defaultValue={parseCarnetThemePreset(initialSettings?.carnetThemePreset)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium bg-white text-sm"
+              >
+                {CARNET_THEME_PRESETS.map((id) => (
+                  <option key={id} value={id}>
+                    {CARNET_THEME_PRESET_LABELS[id]}
+                  </option>
+                ))}
+              </select>
               <p className="text-[10px] text-slate-400 ml-1">
-                Mockup PNG en <code>public/carnet/lddbi-template/</code> (anverso y reverso). Las plantillas
-                institucional sobria, LDDBI degradado y franjas institucionales fueron retiradas del sistema.
+                PNG en <code>public/carnet/presets/</code> y mockup LDDBI en{" "}
+                <code>public/carnet/lddbi-template/</code>. Los datos del jugador se superponen en código
+                (misma posición en todos los diseños).
               </p>
             </div>
             <div className="space-y-2">
@@ -437,7 +450,38 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 />
               )}
               <p className="text-[10px] text-slate-400 ml-1">
-                Solo se usa en el carrusel si no hay logo de login. Carnet y PDF pueden seguir usándolo según la plantilla.
+                En carnet full color usa la versión a color. En reverso clásico blanco (ZC300) conviene subir
+                la versión B/N; si no, se usa{" "}
+                <code>public/logos/federacion-color.png</code> (o <code>federacion.png</code>).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">
+                Logo de liga B/N (reverso clásico)
+              </label>
+              <input
+                type="file"
+                name="carnetLeagueMonoLogo"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={(e) => previewFromFile(e.target.files?.[0], setLeagueMonoPreviewUrl)}
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+              />
+              <input
+                type="hidden"
+                name="currentCarnetLeagueMonoLogoUrl"
+                value={initialSettings?.carnetLeagueMonoLogoUrl || ""}
+              />
+              {leagueMonoPreviewUrl && (
+                <img
+                  src={leagueMonoPreviewUrl}
+                  alt="Liga B/N"
+                  className="h-14 object-contain rounded-lg border border-slate-100 bg-white p-1"
+                />
+              )}
+              <p className="text-[10px] text-slate-400 ml-1">
+                Solo se usa en el <strong>reverso</strong> de las plantillas «dorso clásica blanco». El anverso
+                sigue usando el logo de login (a color). Alternativa global:{" "}
+                <code>public/logos/liga-mono.png</code>.
               </p>
             </div>
           </div>

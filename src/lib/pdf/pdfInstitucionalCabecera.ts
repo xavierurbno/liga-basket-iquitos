@@ -94,6 +94,55 @@ export function drawLogoCover(
   });
 }
 
+type LogoCoverAnchor = "center" | "top-left" | "top-right";
+
+/**
+ * object-fit: cover anclado (p. ej. top-right en logo liga derecha) para no desbordar el CR80.
+ */
+export function drawLogoCoverAnchored(
+  doc: jsPDF,
+  dataUrl: string | null,
+  x: number,
+  y: number,
+  boxW: number,
+  boxH: number,
+  anchor: LogoCoverAnchor = "center",
+) {
+  if (!dataUrl || !dataUrl.startsWith("data:image")) return;
+  let fmt: "PNG" | "JPEG" = "PNG";
+  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")) {
+    fmt = "JPEG";
+  }
+  const props = doc.getImageProperties(dataUrl);
+  const ratio = props.width / props.height;
+  let w = boxW;
+  let h = w / ratio;
+  if (h < boxH) {
+    h = boxH;
+    w = h * ratio;
+  }
+
+  let ox = x + (boxW - w) / 2;
+  let oy = y + (boxH - h) / 2;
+  if (anchor === "top-left") {
+    ox = x;
+    oy = y;
+  } else if (anchor === "top-right") {
+    ox = x + boxW - w;
+    oy = y;
+  }
+
+  doc.addImage({
+    imageData: dataUrl,
+    format: fmt,
+    x: ox,
+    y: oy,
+    width: w,
+    height: h,
+    compression: "NONE",
+  });
+}
+
 export function drawMarcaAguaCentrada(doc: jsPDF, ligaLogoDataUrl: string | null) {
   if (!ligaLogoDataUrl) return;
   const pageW = doc.internal.pageSize.getWidth();

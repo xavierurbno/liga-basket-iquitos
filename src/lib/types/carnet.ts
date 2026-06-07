@@ -72,7 +72,11 @@ export type CarnetInstitucionalInput = {
 export type CarnetPdfImageAssets = {
   fotoPngDataUrl: string | null;
   ligaLogoPngDataUrl: string | null;
+  /** Logo B/N de liga (reverso clásico); null = sin override ni archivo global. */
+  ligaLogoMonoPngDataUrl?: string | null;
   federacionLogoPngDataUrl: string | null;
+  /** Federación B/N (reverso clásico). */
+  federacionLogoMonoPngDataUrl?: string | null;
   sportGraphicPngDataUrl: string | null;
   clubLogoPngDataUrl: string | null;
   presidentSignaturePngDataUrl: string | null;
@@ -104,7 +108,10 @@ export type CarnetInstitutionalAssetsSuccess = {
   context: CarnetInstitutionalContext;
   urls: CarnetInstitutionalAssetUrls;
   ligaLogoPngDataUrl: string | null;
+  ligaLogoMonoPngDataUrl?: string | null;
   federacionLogoPngDataUrl: string | null;
+  /** Federación B/N (reverso clásico). */
+  federacionLogoMonoPngDataUrl?: string | null;
   sportGraphicPngDataUrl: string | null;
   presidentSignaturePngDataUrl: string | null;
   secretarySignaturePngDataUrl: string | null;
@@ -124,7 +131,9 @@ export type BuildCarnetPdfImageAssetsParams = {
   validationUrl?: string | null;
   baseOrigin: string;
   ligaLogoPngDataUrl: string | null;
+  ligaLogoMonoPngDataUrl?: string | null;
   federacionLogoPngDataUrl?: string | null;
+  federacionLogoMonoPngDataUrl?: string | null;
   sportGraphicPngDataUrl?: string | null;
   presidentSignaturePngDataUrl?: string | null;
   secretarySignaturePngDataUrl?: string | null;

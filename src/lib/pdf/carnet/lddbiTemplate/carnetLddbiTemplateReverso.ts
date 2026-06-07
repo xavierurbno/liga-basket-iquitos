@@ -2,12 +2,13 @@ import type { jsPDF as JsPDFDoc } from "jspdf";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
+import type { CarnetOverlayColors } from "@/lib/carnet/carnetOverlayColors";
 import {
   drawLddbiTemplateEncabezadoAnverso,
   drawLddbiTemplateFullBleed,
   drawLddbiTemplateLineaPuntos,
   drawLddbiTemplateReversoFallback,
-  LDDBI_TEMPLATE_WHITE_RGB,
+  getCarnetOverlayColorsForInput,
 } from "@/lib/pdf/carnet/lddbiTemplate/carnetLddbiTemplateShared";
 
 function drawFirmaTemplate(
@@ -18,6 +19,7 @@ function drawFirmaTemplate(
   firma: string | null,
   nombre: string,
   cargo: string,
+  overlay: CarnetOverlayColors,
 ) {
   const L = LDDBI_TEMPLATE.reverso;
   const lineY = y + 7;
@@ -28,7 +30,7 @@ function drawFirmaTemplate(
   const nombreUpper = (nombre.trim() || "—").toUpperCase();
   doc.setFont("helvetica", "bold");
   doc.setFontSize(L.firmas.nombreFontPt);
-  doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
+  doc.setTextColor(...overlay.reversoTextRgb);
   const nombreLines = doc.splitTextToSize(nombreUpper, w);
   let nombreY = lineY + 3;
   for (const line of nombreLines) {
@@ -37,7 +39,7 @@ function drawFirmaTemplate(
   }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.firmas.cargoFontPt);
-  doc.setTextColor(220, 228, 238);
+  doc.setTextColor(...overlay.reversoMutedRgb);
   doc.text(cargo, x + w / 2, nombreY + L.firmas.gapNombreCargoMm, {
     align: "center",
   });
@@ -52,6 +54,7 @@ export function drawCarnetLddbiTemplateReverso(
   const pageH = doc.internal.pageSize.getHeight();
   const L = LDDBI_TEMPLATE.reverso;
   const primary = input.theme.primaryRgb;
+  const overlay = getCarnetOverlayColorsForInput(input);
 
   const painted = drawLddbiTemplateFullBleed(
     doc,
@@ -63,12 +66,12 @@ export function drawCarnetLddbiTemplateReverso(
     drawLddbiTemplateReversoFallback(doc, primary);
   }
 
-  drawLddbiTemplateEncabezadoAnverso(doc, input);
+  drawLddbiTemplateEncabezadoAnverso(doc, input, "reverso");
 
   // Párrafo legal: 7pt, interlineado ~3.6 mm, centrado.
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.legal.fontSizePt);
-  doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
+  doc.setTextColor(...overlay.reversoTextRgb);
   const authLines = doc.splitTextToSize(input.authorizationText, L.legal.maxW);
   const lineH = L.legal.lineHeightMm;
   authLines.forEach((line: string, i: number) => {
@@ -87,6 +90,7 @@ export function drawCarnetLddbiTemplateReverso(
     input.presidentSignaturePngDataUrl,
     input.presidentDisplayName,
     "PRESIDENTE",
+    overlay,
   );
   drawFirmaTemplate(
     doc,
@@ -96,11 +100,12 @@ export function drawCarnetLddbiTemplateReverso(
     input.secretarySignaturePngDataUrl,
     input.secretaryDisplayName,
     "SECRETARIO",
+    overlay,
   );
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(L.pieVigencia.fontSizePt);
-  doc.setTextColor(...LDDBI_TEMPLATE_WHITE_RGB);
+  doc.setTextColor(...overlay.reversoTextRgb);
   const vigenciaText = `VIGENCIA HASTA: ${input.vigenciaLabel.trim().toUpperCase()}`;
   const vigenciaLines = doc.splitTextToSize(vigenciaText, L.pieVigencia.maxW);
   doc.text(vigenciaLines, L.pieVigencia.x, L.pieVigencia.y, { align: "left" });

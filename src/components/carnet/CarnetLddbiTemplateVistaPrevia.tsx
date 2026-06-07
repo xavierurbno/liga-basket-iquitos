@@ -232,12 +232,12 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                   <img
                     src={props.leagueLogoUrl}
                     alt=""
-                    className="absolute object-cover object-center"
+                    className="absolute object-cover object-top-right"
                     style={{
                       right: mmX(A.margenMm),
-                      top: mmY((A.headerMm - A.headerLogoLeagueMm) / 2),
-                      width: mmW(A.headerLogoLeagueMm),
-                      height: mmH(A.headerLogoLeagueMm),
+                      top: mmY((A.headerMm - A.headerLogoLeagueAnversoMm) / 2),
+                      width: mmW(A.headerLogoLeagueAnversoMm),
+                      height: mmH(A.headerLogoLeagueAnversoMm),
                     }}
                   />
                 ) : null}

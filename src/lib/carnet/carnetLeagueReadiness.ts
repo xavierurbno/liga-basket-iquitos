@@ -1,5 +1,6 @@
 import type { LeagueSettings } from "@/lib/db/schema";
 import { resolveCarnetValidityLabel } from "@/lib/carnet/carnetInstitucionalText";
+import { isClasicaReversoCarnetPreset } from "@/lib/carnet/carnetPresetConfig";
 import { isLddbiCarnetPreset } from "@/lib/carnet/lddbiTemplateLayout";
 import type { CarnetThemePreset } from "@/lib/carnet/carnetTheme";
 
@@ -28,6 +29,7 @@ export function buildCarnetLeagueReadiness(
   hasLeagueLogo: boolean,
   hasFederationLogo = true,
   carnetPreset?: CarnetThemePreset,
+  hasLeagueMonoLogo = false,
 ): CarnetLeagueReadiness {
   const warnings: CarnetReadinessWarning[] = [];
 
@@ -84,11 +86,20 @@ export function buildCarnetLeagueReadiness(
       severity: "warning",
     });
   }
-  if (carnetPreset === "lddbi_template") {
+  if (carnetPreset && isClasicaReversoCarnetPreset(carnetPreset) && !hasLeagueMonoLogo) {
     warnings.push({
-      id: "lddbi-template-png",
+      id: "logo-liga-mono",
       message:
-        "Plantilla PNG: anverso-template.png y reverso-template.png en public/carnet/lddbi-template/ (1011×638 px). El sistema superpone logos, textos y datos sin modificar el diseño del PNG.",
+        "Plantilla con reverso clásico: sube el logo B/N de la liga o coloca liga-mono.png en public/logos/ (ahorra cinta color en ZC300).",
+      severity: "warning",
+    });
+  }
+
+  if (isLddbiCarnetPreset(carnetPreset)) {
+    warnings.push({
+      id: "carnet-template-png",
+      message:
+        "Plantilla PNG CR80 (1011×638 px). El sistema superpone logos, datos del jugador, DNI, correlativo y QR según el diseño elegido en configuración.",
       severity: "info",
     });
   }

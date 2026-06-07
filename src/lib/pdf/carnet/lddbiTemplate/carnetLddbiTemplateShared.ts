@@ -1,11 +1,19 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
+import {
+  resolveCarnetOverlayColors,
+  type CarnetOverlayColors,
+} from "@/lib/carnet/carnetOverlayColors";
+import {
+  resolveFederacionLogoPngForCarnetFace,
+  resolveLigaLogoPngForCarnetFace,
+} from "@/lib/carnet/carnetLeagueLogos";
 import { VALOR_LINE_HEIGHT_FACTOR } from "@/lib/carnet/lddbiTemplateAnversoLayout";
 import { LDDBI_TEMPLATE } from "@/lib/carnet/lddbiTemplateLayout";
 import { LDDBI_FONT, LDDBI_HEADER_MM } from "@/lib/carnet/lddbiPremiumTheme";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { CARNET_ALTO_MM, CARNET_ANCHO_MM, CARNET_MARGEN_MM } from "@/lib/pdf/carnetLayout";
-import { drawLogoCover, drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
+import { drawLogoCoverAnchored, drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
 
 const INK: [number, number, number] = [26, 32, 48];
 const LABEL_MUTED: [number, number, number] = [92, 102, 116];
@@ -20,6 +28,12 @@ export const LDDBI_TEMPLATE_VALOR_FONT_PT = LDDBI_TEMPLATE.anverso.valorFontPt;
 export type LddbiTemplateValorStyle = "gold-bold" | "white";
 
 export { INK, LDDBI_TEMPLATE };
+
+export function getCarnetOverlayColorsForInput(
+  input: Pick<CarnetJugadorPdfInput, "theme" | "accentRgb">,
+): CarnetOverlayColors {
+  return resolveCarnetOverlayColors(input.theme.preset, input.accentRgb);
+}
 
 export function drawLddbiTemplateFullBleed(
   doc: JsPDFDoc,
@@ -112,19 +126,21 @@ export function drawLddbiTemplateCampoLinea(
   y: number,
   valorMaxW: number,
   valorFontPt = LDDBI_TEMPLATE.anverso.valorFontPt,
+  colors?: CarnetOverlayColors,
 ): number {
   const A = LDDBI_TEMPLATE.anverso;
   const colonCx = colonX + A.colonCharBoxMm / 2;
+  const overlay = colors ?? resolveCarnetOverlayColors("lddbi_template", [13, 148, 136]);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(A.labelFontPt);
-  doc.setTextColor(...GOLD);
+  doc.setTextColor(...overlay.labelRgb);
   doc.text(etiqueta, labelX, y);
   doc.text(":", colonCx, y, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(valorFontPt);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...overlay.valueRgb);
   doc.setLineHeightFactor(VALOR_LINE_HEIGHT_FACTOR);
   const lines = doc.splitTextToSize((valor || "—").toUpperCase(), valorMaxW);
   doc.text(lines, valorX, y);
@@ -154,17 +170,19 @@ export function drawLddbiTemplateCampoBlancoLinea(
 
 /**
  * Cabecera plantilla PNG: logo federación con object-fit contain (evita que se vea
- * gigante si el PNG trae poco margen), liga con cover; texto liga en negrita.
+ * gigante si el PNG trae poco margen). Liga anverso: cover anclado; reverso: contain.
  */
 export function drawLddbiTemplateEncabezadoAnverso(
   doc: JsPDFDoc,
   input: CarnetJugadorPdfInput,
+  face: "anverso" | "reverso" = "anverso",
 ): void {
   const pageW = doc.internal.pageSize.getWidth();
   const m = CARNET_MARGEN_MM;
   const A = LDDBI_TEMPLATE.anverso;
   const fedBox = A.headerLogoFedMm;
-  const leagueBox = A.headerLogoLeagueMm;
+  const leagueBox =
+    face === "anverso" ? A.headerLogoLeagueAnversoMm : A.headerLogoLeagueMm;
   const logoYFed = (LDDBI_HEADER_MM - fedBox) / 2;
   const logoYLiga = (LDDBI_HEADER_MM - leagueBox) / 2;
   const { lineaFederacion, lineaLiga } = resolveLddbiEncabezadoLineas(
@@ -172,20 +190,30 @@ export function drawLddbiTemplateEncabezadoAnverso(
     input.theme.federationDisplayName,
     input.theme.showFederation,
   );
+  const overlay = getCarnetOverlayColorsForInput(input);
 
-  const fedLogo = input.federacionLogoPngDataUrl ?? null;
+  const fedLogo = resolveFederacionLogoPngForCarnetFace(input, face);
   if (fedLogo) {
     drawLogoFit(doc, fedLogo, m, logoYFed, fedBox, fedBox);
   }
 
-  drawLogoCover(
-    doc,
-    input.ligaLogoPngDataUrl,
-    pageW - m - leagueBox,
-    logoYLiga,
-    leagueBox,
-    leagueBox,
-  );
+  const ligaLogo = resolveLigaLogoPngForCarnetFace(input, face);
+  const leagueX = pageW - m - leagueBox;
+  if (ligaLogo) {
+    if (face === "anverso") {
+      drawLogoCoverAnchored(
+        doc,
+        ligaLogo,
+        leagueX,
+        logoYLiga,
+        leagueBox,
+        leagueBox,
+        "top-right",
+      );
+    } else {
+      drawLogoFit(doc, ligaLogo, leagueX, logoYLiga, leagueBox, leagueBox);
+    }
+  }
 
   const sideReserve = Math.max(fedBox, leagueBox);
   const centerMaxW = pageW - 2 * (m + sideReserve + 2.5);
@@ -206,7 +234,7 @@ export function drawLddbiTemplateEncabezadoAnverso(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(LDDBI_FONT.headerFed);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...overlay.headerFedRgb);
   for (const line of fedLines) {
     doc.text(line, cx, y, { align: "center" });
     y += fedLineH;
@@ -214,7 +242,7 @@ export function drawLddbiTemplateEncabezadoAnverso(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(LDDBI_FONT.headerLiga);
-  doc.setTextColor(248, 252, 255);
+  doc.setTextColor(...overlay.headerLigaRgb);
   for (const line of ligaLines) {
     doc.text(line, cx, y, { align: "center" });
     y += ligaLineH;
@@ -234,16 +262,18 @@ export function drawLddbiTemplateFotoIdentificacion(
   fotoH: number,
   documentNumber: string,
   carnetNumber: string | null | undefined,
+  colors?: CarnetOverlayColors,
 ) {
   const A = LDDBI_TEMPLATE.anverso;
   const { dniYOffsetMm, dniLineHeightMm, correlativoGapBelowDniMm } = A.fotoIdentificacion;
   const cx = fotoX + fotoW / 2;
   const dniY = fotoY + fotoH + dniYOffsetMm;
   const dniVal = (documentNumber ?? "").trim().toUpperCase() || "—";
+  const overlay = colors ?? resolveCarnetOverlayColors("lddbi_template", [13, 148, 136]);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(A.dniFontPt);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...overlay.identificacionRgb);
   doc.text(dniVal, cx, dniY, { align: "center" });
 
   const carnetVal = (carnetNumber ?? "").trim().toUpperCase() || "—";

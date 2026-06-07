@@ -36,9 +36,15 @@ export default async function LigaConfiguracionPage() {
   if (!league) redirect("/liga/");
 
   const settings = await settingsRepository.getLeagueSettings(league.id);
+  const { hasLeagueMonoLogoAvailable } = await import(
+    "@/lib/logos/resolve-league-logo-buffer"
+  );
   const leagueReadiness = buildCarnetLeagueReadiness(
     settings,
     Boolean(settings?.loginLogoUrl?.trim()),
+    Boolean(settings?.carnetFederationLogoUrl?.trim()),
+    settings?.carnetThemePreset as import("@/lib/carnet/carnetTheme").CarnetThemePreset | undefined,
+    await hasLeagueMonoLogoAvailable(league.id),
   );
 
   return (

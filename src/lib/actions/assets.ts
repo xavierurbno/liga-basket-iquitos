@@ -5,12 +5,15 @@ import { assertInstitutionalAssetsForLeague } from "@/lib/auth/institutional-ass
 import { requireAuth } from "@/lib/auth/require-auth";
 import type { Role } from "@/lib/auth/withAuth";
 import { buildCarnetInstitucionalContext } from "@/lib/carnet/buildCarnetInstitucionalContext";
-import { resolveLddbiTemplatePngAssets } from "@/lib/carnet/lddbiTemplateAssets.server";
+import { resolveCarnetTemplatePngAssets } from "@/lib/carnet/lddbiTemplateAssets.server";
+import { parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
 import type { CarnetInstitutionalAssetsResult } from "@/lib/types/carnet";
 import {
   resolveFederationLogoForLeaguePngDataUrl,
+  resolveFederationMonoLogoForLeaguePngDataUrl,
   resolveImageUrlToPngDataUrl,
   resolveLeagueLogoPngDataUrl,
+  resolveLeagueMonoLogoForLeaguePngDataUrl,
 } from "@/lib/logos/resolve-league-logo-buffer";
 import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
 import {
@@ -121,11 +124,14 @@ export async function getCarnetInstitutionalAssetsAction(
 
   try {
 
-    const [settings, leagueRow, ligaLogoPng, federacionLogoPng] = await Promise.all([
+    const [settings, leagueRow, ligaLogoPng, ligaLogoMonoPng, federacionLogoPng, federacionLogoMonoPng] =
+      await Promise.all([
       settingsRepository.getLeagueSettings(leagueIdNorm),
       leagueRepository.findById(leagueIdNorm),
       resolveLeagueLogoPngDataUrl(leagueIdNorm, 600),
+      resolveLeagueMonoLogoForLeaguePngDataUrl(leagueIdNorm, 600),
       resolveFederationLogoForLeaguePngDataUrl(leagueIdNorm, 400),
+      resolveFederationMonoLogoForLeaguePngDataUrl(leagueIdNorm, 400),
     ]);
 
     const leagueDisplayName = leagueRow?.name?.trim() || "Liga deportiva";
@@ -147,7 +153,9 @@ export async function getCarnetInstitutionalAssetsAction(
 
     const context = buildCarnetInstitucionalContext(leagueDisplayName, settings);
     let sportGraphicPng = sportGraphicFromLeague;
-    const templatePngs = await resolveLddbiTemplatePngAssets();
+    const templatePngs = await resolveCarnetTemplatePngAssets(
+      parseCarnetThemePreset(settings?.carnetThemePreset),
+    );
 
     return {
       success: true,
@@ -159,7 +167,9 @@ export async function getCarnetInstitutionalAssetsAction(
         secretarySignatureUrl: settings?.secretarySignatureUrl?.trim() || null,
       },
       ligaLogoPngDataUrl: ligaLogoPng,
+      ligaLogoMonoPngDataUrl: ligaLogoMonoPng,
       federacionLogoPngDataUrl: theme.showFederation ? federacionLogoPng : null,
+      federacionLogoMonoPngDataUrl: theme.showFederation ? federacionLogoMonoPng : null,
       sportGraphicPngDataUrl: sportGraphicPng,
       presidentSignaturePngDataUrl: presidentSignaturePng,
       secretarySignaturePngDataUrl: secretarySignaturePng,

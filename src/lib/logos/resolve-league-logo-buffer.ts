@@ -77,16 +77,37 @@ export async function resolveLeagueLogoPngDataUrl(
   }
 }
 
+/** Color obligatorio para anverso; no reutilizar el PNG B/N de `federacion-mono.png`. */
+export const FEDERATION_COLOR_PUBLIC_PATHS = [
+  "/logos/federacion-color.png",
+  "/logos/federacion.png",
+] as const;
+const FEDERATION_MONO_PUBLIC_PATH = "/logos/federacion-mono.png";
+
+async function publicAssetToPngDataUrl(
+  relativeUrl: string,
+  maxWidth: number,
+): Promise<string | null> {
+  const buf = await readPublicAssetBuffer(relativeUrl);
+  if (!buf) return null;
+  const processed = await sharp(buf).resize(maxWidth).png().toBuffer();
+  return `data:image/png;base64,${processed.toString("base64")}`;
+}
+
+/** Logo de federación a color (`federacion.png` o `federacion-color.png`). */
 export async function resolveFederationLogoPngDataUrl(maxWidth = 200): Promise<string | null> {
-  try {
-    const logosDir = path.resolve(process.cwd(), "public", "logos");
-    const fedPath = path.join(logosDir, "federacion.png");
-    const buf = await fs.readFile(fedPath);
-    const processed = await sharp(buf).resize(maxWidth).png().toBuffer();
-    return `data:image/png;base64,${processed.toString("base64")}`;
-  } catch {
-    return null;
+  for (const rel of FEDERATION_COLOR_PUBLIC_PATHS) {
+    const dataUrl = await publicAssetToPngDataUrl(rel, maxWidth);
+    if (dataUrl) return dataUrl;
   }
+  return null;
+}
+
+/** Logo B/N de federación para reverso clásico. */
+export async function resolveFederationMonoLogoPngDataUrl(
+  maxWidth = 200,
+): Promise<string | null> {
+  return publicAssetToPngDataUrl(FEDERATION_MONO_PUBLIC_PATH, maxWidth);
 }
 
 /** Imagen remota o data URL → PNG base64 para PDFs. */
@@ -130,4 +151,65 @@ export async function resolveFederationLogoForLeaguePngDataUrl(
     }
   }
   return resolveFederationLogoPngDataUrl(maxWidth);
+}
+
+/** Federación B/N: `public/logos/federacion-mono.png` (reverso clásico). */
+export async function resolveFederationMonoLogoForLeaguePngDataUrl(
+  leagueId?: string | null,
+  maxWidth = 200,
+): Promise<string | null> {
+  const mono = await resolveFederationMonoLogoPngDataUrl(maxWidth);
+  if (mono) return mono;
+  return resolveFederationLogoForLeaguePngDataUrl(leagueId, maxWidth);
+}
+
+const LEAGUE_MONO_PUBLIC_PATH = "/logos/liga-mono.png";
+
+/** Logo B/N global en `public/logos/liga-mono.png` (reverso clásico). */
+export async function resolveLeagueMonoLogoPngDataUrl(
+  maxWidth = 300,
+): Promise<string | null> {
+  try {
+    const buf = await readPublicAssetBuffer(LEAGUE_MONO_PUBLIC_PATH);
+    if (!buf) return null;
+    const processed = await sharp(buf).resize(maxWidth).png().toBuffer();
+    return `data:image/png;base64,${processed.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Logo B/N de liga para reverso clásico: override por liga o `public/logos/liga-mono.png`.
+ */
+export async function resolveLeagueMonoLogoForLeaguePngDataUrl(
+  leagueId?: string | null,
+  maxWidth = 300,
+): Promise<string | null> {
+  if (leagueId?.trim()) {
+    const settings = await settingsRepository.getLeagueSettings(leagueId.trim());
+    const override = settings?.carnetLeagueMonoLogoUrl?.trim();
+    if (override) {
+      const custom = await resolveImageUrlToPngDataUrl(override, maxWidth);
+      if (custom) return custom;
+    }
+  }
+  return resolveLeagueMonoLogoPngDataUrl(maxWidth);
+}
+
+/** Override en configuración de liga o archivo global en `public/logos/liga-mono.png`. */
+export async function hasLeagueMonoLogoAvailable(
+  leagueId?: string | null,
+): Promise<boolean> {
+  if (leagueId?.trim()) {
+    const settings = await settingsRepository.getLeagueSettings(leagueId.trim());
+    if (settings?.carnetLeagueMonoLogoUrl?.trim()) return true;
+  }
+  try {
+    const rel = LEAGUE_MONO_PUBLIC_PATH.replace(/^\//, "");
+    await fs.access(path.join(process.cwd(), "public", rel));
+    return true;
+  } catch {
+    return false;
+  }
 }

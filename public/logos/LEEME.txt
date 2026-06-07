@@ -9,6 +9,23 @@ Coloca UNO de estos archivos (el sistema usa el primero que exista):
 
 Se usan en: login, cabecera del portal, PDF y marca de agua si no hay logo en BD.
 
+Carnet — logos globales (recomendado para LDDBI / ZC300)
+--------------------------------------------------------
+
+  federacion-color.png  Federación A COLOR (anverso — preferido)
+  federacion.png        Federación A COLOR (alternativa si no hay federacion-color.png)
+  federacion-mono.png   Federación B/N (solo reverso clásico)
+  liga.png              Liga a color (anverso / reverso full color)
+  liga-mono.png         Liga B/N (solo reverso clásico)
+
+Nombres exactos (el código no lee otros):
+  ✓ federacion.png / federacion-mono.png
+  ✓ liga-mono.png      ✗ liga_mono.png / carpeta liga-mono/
+
+Exporta desde tu vector a PNG (~400–800 px, fondo transparente).
+
+El anverso del carnet sigue usando el logo de login (a color) o liga.png / logo-liga.png.
+
 Otras ligas (Yurimaguas, etc.): NO usan archivos de esta carpeta.
   Sin logo en intranet → login y portal muestran solo el nombre (inicial).
   Sube el logo en intranet

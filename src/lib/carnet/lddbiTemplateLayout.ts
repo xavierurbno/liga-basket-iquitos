@@ -1,3 +1,4 @@
+import { isPngTemplateCarnetPreset } from "@/lib/carnet/carnetPresetConfig";
 import {
   createLddbiTemplateMeasureDoc,
   layoutLddbiTemplateAnversoCampos,
@@ -82,8 +83,10 @@ export const LDDBI_TEMPLATE = {
     headerMm: LDDBI_HEADER_MM,
     footerMm: 0,
     headerLogoFedMm: LDDBI_HEADER_LOGO_MM,
-    /** Liga un poco mayor (contain/cover) para equilibrar con el logo de federación. */
-    headerLogoLeagueMm: 12,
+    /** Liga anverso: cover anclado derecha (un poco mayor que federación). */
+    headerLogoLeagueAnversoMm: 11,
+    /** Liga reverso: contain dentro de la cabecera. */
+    headerLogoLeagueMm: LDDBI_HEADER_LOGO_MM,
     margenMm: CARNET_MARGEN_MM,
     /**
      * Tres columnas / dos tabulaciones (PDF y vista previa):
@@ -148,7 +151,7 @@ export const LDDBI_TEMPLATE = {
     headerMm: LDDBI_HEADER_MM,
     footerMm: 0,
     headerLogoFedMm: LDDBI_HEADER_LOGO_MM,
-    headerLogoLeagueMm: 12,
+    headerLogoLeagueMm: LDDBI_HEADER_LOGO_MM,
     qr: {
       x: LDDBI_TEMPLATE_REV_QR_X_MM,
       y: LDDBI_TEMPLATE_REV_QR_Y_MM,
@@ -274,9 +277,9 @@ export function buildLddbiTemplateAnversoCampos(
 }
 
 export function isLddbiCarnetPreset(preset: string | null | undefined): boolean {
-  return preset === "lddbi_template";
+  return isPngTemplateCarnetPreset(preset);
 }
 
 export function isLddbiTemplateCarnetPreset(preset: string | null | undefined): boolean {
-  return preset === "lddbi_template";
+  return isLddbiCarnetPreset(preset);
 }

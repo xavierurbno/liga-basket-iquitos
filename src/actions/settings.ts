@@ -41,6 +41,7 @@ const leagueSettingsSchema = z.object({
       message: "Color de acento inválido (formato #RRGGBB)",
     }),
   carnetFederationLogoUrl: z.string().optional(),
+  carnetLeagueMonoLogoUrl: z.string().optional(),
   presidentSignatureUrl: z.string().optional(),
   secretarySignatureUrl: z.string().optional(),
   presidentDisplayName: z.string().max(120, "Nombre demasiado largo").optional(),
@@ -116,6 +117,7 @@ export const updateLeagueSettingsAction = withAuth(
     const loginLogoFile = formData.get("loginLogo") as File | null;
     const loginLogoUrl = (formData.get("currentLoginLogoUrl") as string) || "";
     const carnetFederationLogoFile = formData.get("carnetFederationLogo") as File | null;
+    const carnetLeagueMonoLogoFile = formData.get("carnetLeagueMonoLogo") as File | null;
     const carnetSportGraphicFile = formData.get("carnetSportGraphic") as File | null;
     const presidentSignatureFile = formData.get("presidentSignature") as File | null;
     const secretarySignatureFile = formData.get("secretarySignature") as File | null;
@@ -132,6 +134,7 @@ export const updateLeagueSettingsAction = withAuth(
       portalPrimaryColor: formData.get("portalPrimaryColor"),
       portalAccentColor: formData.get("portalAccentColor"),
       carnetFederationLogoUrl: (formData.get("currentCarnetFederationLogoUrl") as string) || "",
+      carnetLeagueMonoLogoUrl: (formData.get("currentCarnetLeagueMonoLogoUrl") as string) || "",
       presidentSignatureUrl: (formData.get("currentPresidentSignatureUrl") as string) || "",
       secretarySignatureUrl: (formData.get("currentSecretarySignatureUrl") as string) || "",
       presidentDisplayName: formData.get("presidentDisplayName"),
@@ -198,6 +201,14 @@ export const updateLeagueSettingsAction = withAuth(
           vLeagueId,
           carnetFederationLogoFile,
           "federation-logo",
+        );
+      }
+
+      if (carnetLeagueMonoLogoFile && carnetLeagueMonoLogoFile.size > 0) {
+        data.carnetLeagueMonoLogoUrl = await uploadLeagueCarnetAsset(
+          vLeagueId,
+          carnetLeagueMonoLogoFile,
+          "league-mono-logo",
         );
       }
 
