@@ -223,27 +223,27 @@ export function drawLddbiTemplateEncabezadoAnverso(
 }
 
 /**
- * Número de DNI bajo la foto. Solo el dato dinámico, centrado, bold blanco puro.
- * (Se eliminó la etiqueta «DNI:» para máximo contraste y lectura rápida).
+ * Correlativo de carnet bajo la foto. Solo el dato dinámico, centrado, bold blanco.
  */
-export function drawLddbiTemplateFotoDni(
+export function drawLddbiTemplateFotoCarnetNumero(
   doc: JsPDFDoc,
   fotoX: number,
   fotoY: number,
   fotoW: number,
   fotoH: number,
-  documentNumber: string,
+  carnetNumber: string | null | undefined,
 ) {
   const A = LDDBI_TEMPLATE.anverso;
-  const { dniYOffsetMm } = A.fotoIdentificacion;
+  const { carnetYOffsetMm } = A.fotoIdentificacion;
   const cx = fotoX + fotoW / 2;
-  const y = fotoY + fotoH + dniYOffsetMm;
-  const val = (documentNumber ?? "").trim().toUpperCase() || "—";
+  const y = fotoY + fotoH + carnetYOffsetMm;
+  const val = (carnetNumber ?? "").trim().toUpperCase() || "—";
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(A.dniFontPt);
+  doc.setFontSize(val.length > 14 ? A.carnetFontPtCompact : A.carnetFontPt);
   doc.setTextColor(255, 255, 255);
-  doc.text(val, cx, y, { align: "center" });
+  const lines = doc.splitTextToSize(val, fotoW + 1.5);
+  doc.text(lines, cx, y, { align: "center" });
   doc.setTextColor(0);
 }
 

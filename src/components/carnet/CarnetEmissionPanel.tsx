@@ -50,6 +50,9 @@ export function CarnetEmissionPanel({
   const [copied, setCopied] = useState(false);
   const [version, setVersion] = useState(initialVersion);
   const [issuedAt, setIssuedAt] = useState(initialIssuedAt);
+  const [carnetNumberDisplay, setCarnetNumberDisplay] = useState(
+    pdfProps.carnetNumberDisplay ?? pdfProps.carnetNumber,
+  );
 
   const isEmitted = version > 0 && Boolean(issuedAt);
 
@@ -62,6 +65,7 @@ export function CarnetEmissionPanel({
         setError(res.error);
         return;
       }
+      if (res.created) setCarnetNumberDisplay(res.carnetNumber);
       router.refresh();
     } finally {
       setAssigningNumber(false);
@@ -79,6 +83,7 @@ export function CarnetEmissionPanel({
       }
       setVersion(res.credentialVersion);
       setIssuedAt(res.credentialIssuedAt);
+      if (res.carnetNumber) setCarnetNumberDisplay(res.carnetNumber);
       router.refresh();
     } finally {
       setEmitting(false);
@@ -98,6 +103,8 @@ export function CarnetEmissionPanel({
 
   const pdfPropsWithEmission: GenerateCarnetPDFProps = {
     ...pdfProps,
+    carnetNumber: carnetNumberDisplay ?? pdfProps.carnetNumber,
+    carnetNumberDisplay: carnetNumberDisplay ?? pdfProps.carnetNumberDisplay,
     validationUrl: validationUrl ?? pdfProps.validationUrl,
     credentialVersion: version,
     credentialIssuedAtIso: issuedAt,

@@ -108,6 +108,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
       apellidoMaterno: apellidoMaterno.toUpperCase(),
       nombres: props.name.trim().toUpperCase(),
       fechaNacimiento: props.fechaNacimientoLabel,
+      documentNumber: props.documentNumber.trim().toUpperCase(),
       clubName: props.clubName.trim().toUpperCase(),
       categoriaNombre: props.categoriaNombre.trim().toUpperCase(),
     });
@@ -116,6 +117,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
     apellidoMaterno,
     props.name,
     props.fechaNacimientoLabel,
+    props.documentNumber,
     props.clubName,
     props.categoriaNombre,
   ]);
@@ -125,7 +127,8 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
   const fotoFrameTop = lddbiTemplateFotoFrameTopMm();
   const labelFont = previewFontSizeCqw(A.labelFontHeightMm);
   const valorFont = previewFontSizeCqw(A.valorFontHeightMm);
-  const dniFont = previewFontSizeCqw(A.dniFontHeightMm);
+  const carnetFont = previewFontSizeCqw(A.carnetFontHeightMm);
+  const carnetDisplay = props.carnetNumberDisplay?.trim().toUpperCase() || "—";
   const presetLabel = CARNET_THEME_PRESET_LABELS.lddbi_template;
 
   const templateBg =
@@ -342,46 +345,22 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
               )}
             </div>
 
-            <div
-              className="absolute flex items-baseline justify-center uppercase leading-none"
+            <p
+              className="absolute text-center font-bold uppercase leading-tight"
               style={{
                 left: mmX(A.foto.x),
                 width: mmW(A.foto.w),
-                top: mmY(fotoY + A.foto.h + idFoto.dniYOffsetMm),
+                top: mmY(fotoY + A.foto.h + idFoto.carnetYOffsetMm),
+                fontSize:
+                  carnetDisplay.length > 14
+                    ? previewFontSizeCqw(ptToMm(A.carnetFontPtCompact))
+                    : carnetFont,
+                color: LDDBI_TEMPLATE_WHITE_HEX,
+                textShadow: "0 0.5px 1px rgba(0,0,0,0.45)",
               }}
             >
-              <span
-                className="shrink-0 font-bold"
-                style={{
-                  fontSize: labelFont,
-                  color: LDDBI_TEMPLATE_GOLD_HEX,
-                  textShadow: "0 0.5px 1px rgba(0,0,0,0.35)",
-                }}
-              >
-                DNI
-              </span>
-              <span
-                className="shrink-0 font-bold"
-                style={{
-                  marginLeft: mmW(A.tabLabelColonMm),
-                  fontSize: labelFont,
-                  color: LDDBI_TEMPLATE_GOLD_HEX,
-                }}
-              >
-                :
-              </span>
-              <span
-                className="min-w-0 truncate font-bold"
-                style={{
-                  marginLeft: mmW(A.tabColonValorMm),
-                  fontSize: dniFont,
-                  color: LDDBI_TEMPLATE_WHITE_HEX,
-                  textShadow: "0 0.5px 1px rgba(0,0,0,0.45)",
-                }}
-              >
-                {props.documentNumber || "—"}
-              </span>
-            </div>
+              {carnetDisplay}
+            </p>
             </>
           ) : (
             <>
