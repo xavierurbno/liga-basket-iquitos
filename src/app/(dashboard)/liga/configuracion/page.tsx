@@ -11,8 +11,9 @@ import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 
 export const metadata = {
-  title: "Marca e identidad | Liga",
-  description: "Logo, colores y mensaje del portal público y login de tu liga.",
+  title: "Configuración de liga | Liga",
+  description:
+    "Temporada, marca, carnet, reloj de pases y mensajes del portal público de tu liga.",
 };
 
 export default async function LigaConfiguracionPage() {
@@ -28,8 +29,8 @@ export default async function LigaConfiguracionPage() {
         role={ctx.role}
         leagues={ctx.leagues}
         activeLeagueId={ctx.leagueId}
-        title="Selecciona una liga para configurar la marca"
-        description="Logo, colores del portal y mensaje institucional se guardan por liga."
+        title="Selecciona una liga para configurar"
+        description="Temporada, marca, carnet y reloj de pases se guardan por liga."
       />
     );
   }
@@ -58,10 +59,10 @@ export default async function LigaConfiguracionPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-black text-[#0f2040]">Marca e identidad</h1>
+        <h1 className="text-2xl font-black text-[#0f2040]">Configuración de liga</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Personaliza el portal público <strong>/l/{league.slug}/</strong>, la pantalla de login, las
-          redes sociales, los documentos PDF y el <strong>carnet deportista CR80</strong> de{" "}
+          Temporada, <strong>reloj de pases</strong>, portal <strong>/l/{league.slug}/</strong>, login,
+          redes sociales, documentos PDF y <strong>carnet CR80</strong> de{" "}
           <strong>{league.name}</strong>.
         </p>
       </header>

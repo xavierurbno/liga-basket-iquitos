@@ -29,6 +29,6 @@ El anverso del carnet sigue usando el logo de login (a color) o liga.png / logo-
 Otras ligas (Yurimaguas, etc.): NO usan archivos de esta carpeta.
   Sin logo en intranet → login y portal muestran solo el nombre (inicial).
   Sube el logo en intranet
-  Liga → Marca e identidad (/liga/configuracion/)
+  Liga → Configuración de liga (/liga/configuracion/)
   o Super Admin → ficha de la liga.
 Eso guarda la imagen en Supabase (login_logo_url), no en public/.

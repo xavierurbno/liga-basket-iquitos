@@ -248,13 +248,15 @@ export function MasterClockCounter({
   const start = startRaw ? new Date(startRaw) : null;
   const isManual = settings?.isManualOverride ?? false;
 
-  const isActive = isManual || (end !== null && start !== null && now >= start && now <= end);
-  const targetDate = isActive ? end : null;
+  const isScheduledActive =
+    end !== null && start !== null && now >= start && now <= end;
+  const isActive = isManual || isScheduledActive;
+  const targetDate = isScheduledActive ? end : null;
   const countdown = useCountdown(targetDate);
 
   // ─── VALIDACIÓN CRÍTICA DE VISIBILIDAD ───
-  // El componente es "invisible por defecto". Solo aparece si está activo Y tiene tiempo restante.
-  if (!mounted || loading || !isActive || countdown.isExpired) return null;
+  if (!mounted || loading || !isActive) return null;
+  if (!isManual && (countdown.isExpired || !end)) return null;
 
   if (variant === "minimal") {
     
@@ -281,6 +283,25 @@ export function MasterClockCounter({
   }
 
   const alignStart = layoutAlign === "start";
+
+  if (isManual) {
+    return (
+      <div
+        className={
+          alignStart
+            ? "w-full rounded-2xl border border-blue-100 bg-blue-50/60 px-5 py-4 text-left"
+            : "w-full rounded-2xl border border-blue-100 bg-blue-50/60 px-6 py-5 text-center"
+        }
+      >
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#005CEE]">
+          Mercado de pases
+        </p>
+        <p className="mt-2 text-sm font-extrabold text-[#1e3a5f]">
+          {settings?.bannerText?.trim() || "Mercado de pases abierto"}
+        </p>
+      </div>
+    );
+  }
 
   // ── Render Flip Variant ──
   return (

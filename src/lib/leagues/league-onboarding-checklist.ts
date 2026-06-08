@@ -29,6 +29,8 @@ export function buildLeagueOnboardingChecklist(input: {
   carnetThemePreset?: string | null;
   documentSerialPrefix?: string | null;
   portalPrimaryColor?: string | null;
+  transferPeriodEnd?: Date | string | null;
+  isManualOverride?: boolean | null;
 }): LeagueOnboardingChecklistItem[] {
   const signatureMode = parseCarnetSignatureMode(input.carnetSignatureMode);
   const portalHref = leaguePortalHome(input.slug);
@@ -72,6 +74,20 @@ export function buildLeagueOnboardingChecklist(input: {
       done: input.clubCount > 0,
       href: "/liga/clubs/",
       hint: input.clubCount > 0 ? `${input.clubCount} club(es)` : "Registra clubes en el panel operativo",
+    },
+    {
+      id: "transfer-clock",
+      label: "Reloj de pases configurado",
+      done:
+        input.isManualOverride === true ||
+        Boolean(input.transferPeriodEnd),
+      href: "/liga/configuracion/#reloj-pases-settings",
+      hint:
+        input.isManualOverride === true
+          ? "Mercado abierto manualmente"
+          : input.transferPeriodEnd
+            ? "Periodo de mercado definido"
+            : "Define fechas o apertura manual en configuración",
     },
     {
       id: "logo",

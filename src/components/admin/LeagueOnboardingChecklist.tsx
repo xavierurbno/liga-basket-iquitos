@@ -20,6 +20,8 @@ export function LeagueOnboardingChecklist({
   carnetThemePreset,
   documentSerialPrefix,
   portalPrimaryColor,
+  transferPeriodEnd,
+  isManualOverride,
 }: {
   slug: string;
   adminCount: number;
@@ -34,6 +36,8 @@ export function LeagueOnboardingChecklist({
   carnetThemePreset?: string | null;
   documentSerialPrefix?: string | null;
   portalPrimaryColor?: string | null;
+  transferPeriodEnd?: Date | string | null;
+  isManualOverride?: boolean | null;
 }) {
   const items = buildLeagueOnboardingChecklist({
     slug,
@@ -49,6 +53,8 @@ export function LeagueOnboardingChecklist({
     carnetThemePreset,
     documentSerialPrefix,
     portalPrimaryColor,
+    transferPeriodEnd,
+    isManualOverride,
   });
   const progress = checklistProgress(items);
 

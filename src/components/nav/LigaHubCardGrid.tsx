@@ -105,8 +105,8 @@ function adminHubItems(leagueSlug: string | null): readonly LigaHubCardItem[] {
     href: "/liga/configuracion/",
     icon: Palette,
     iconClass: "text-fuchsia-600",
-    title: "Marca e identidad",
-    body: "Logo, colores del portal, mensaje en login y documentos PDF de la liga.",
+    title: "Configuración de liga",
+    body: "Temporada, reloj de pases, logo, colores del portal y carnet CR80.",
   },
   {
     href: "/liga/galeria-general/",

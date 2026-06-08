@@ -109,6 +109,8 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
         carnetThemePreset={settings?.carnetThemePreset}
         documentSerialPrefix={settings?.documentSerialPrefix}
         portalPrimaryColor={settings?.portalPrimaryColor}
+        transferPeriodEnd={settings?.transferPeriodEnd}
+        isManualOverride={settings?.isManualOverride}
       />
 
       <section

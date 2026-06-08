@@ -16,6 +16,7 @@ import {
   parseCarnetThemePreset,
 } from "@/lib/carnet/carnetTheme";
 import { LEAGUE_SOCIAL_FORM_FIELDS } from "@/lib/leagues/league-social-links";
+import { toDatetimeLocalInputValue } from "@/lib/leagues/datetime-local-input";
 import { LeagueSettings } from "@/lib/db/schema";
 
 interface Props {
@@ -57,6 +58,9 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   const showSecretarySignature = carnetSignatureModeRequiresSecretary(signatureMode);
   const primaryColorRef = useRef<HTMLInputElement>(null);
   const accentColorRef = useRef<HTMLInputElement>(null);
+  const [manualTransferOpen, setManualTransferOpen] = useState(
+    () => initialSettings?.isManualOverride === true,
+  );
 
   function previewFromFile(
     file: File | undefined,
@@ -615,18 +619,86 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
           </div>
         </div>
 
-        {/* Sección 5: Comunicación */}
+        {/* Sección: Reloj de pases */}
+        <div id="reloj-pases-settings" className="space-y-4 scroll-mt-24 pt-2">
+          <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <span>Reloj de pases</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </h4>
+          <p className="text-xs text-slate-500">
+            Controla el contador del mercado de pases en el portal público, login y cabecera de la
+            intranet. Cada liga tiene su propio periodo.
+          </p>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <input
+              type="checkbox"
+              name="isManualOverride"
+              checked={manualTransferOpen}
+              onChange={(e) => setManualTransferOpen(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-slate-800">
+                Mercado abierto manualmente
+              </span>
+              <span className="mt-1 block text-xs text-slate-500">
+                Ignora las fechas programadas. El reloj muestra el mensaje del banner institucional
+                (sección Comunicación).
+              </span>
+            </span>
+          </label>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Apertura del mercado</label>
+              <input
+                type="datetime-local"
+                name="transferPeriodStart"
+                defaultValue={toDatetimeLocalInputValue(initialSettings?.transferPeriodStart)}
+                readOnly={manualTransferOpen}
+                className={`w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium ${
+                  manualTransferOpen ? "bg-slate-100 text-slate-400 cursor-not-allowed" : ""
+                }`}
+              />
+              {(state as any).errors?.transferPeriodStart && (
+                <p className="text-[11px] text-red-500 font-bold ml-1">
+                  {(state as any).errors.transferPeriodStart[0]}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 ml-1">Cierre del mercado</label>
+              <input
+                type="datetime-local"
+                name="transferPeriodEnd"
+                defaultValue={toDatetimeLocalInputValue(initialSettings?.transferPeriodEnd)}
+                readOnly={manualTransferOpen}
+                className={`w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium ${
+                  manualTransferOpen ? "bg-slate-100 text-slate-400 cursor-not-allowed" : ""
+                }`}
+              />
+              {(state as any).errors?.transferPeriodEnd && (
+                <p className="text-[11px] text-red-500 font-bold ml-1">
+                  {(state as any).errors.transferPeriodEnd[0]}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Sección: Comunicación */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-slate-700 ml-1">Mensaje institucional (banner)</label>
           <textarea
             name="bannerText"
             defaultValue={initialSettings?.bannerText || ""}
-            placeholder="Ej: Temporada 2026 — ¡Bienvenidos al portal!"
+            placeholder="Ej: Mercado de pases abierto — Temporada 2026"
             className="w-full px-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all h-28 resize-none font-medium placeholder:text-slate-300"
           />
           <p className="text-[10px] text-slate-400 ml-1">
-            Aparece en la franja superior del portal público, bajo el título en la pantalla de login y
-            como cita en la portada de la liga.
+            Visible en el portal y login. Si el mercado está en modo manual, este texto aparece en el
+            reloj de pases.
           </p>
         </div>
 

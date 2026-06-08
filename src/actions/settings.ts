@@ -11,6 +11,7 @@ import {
   parseCarnetSignatureMode,
 } from "@/lib/carnet/carnetSignatureMode";
 import { CARNET_THEME_PRESETS, parseCarnetThemePreset } from "@/lib/carnet/carnetTheme";
+import { parseDatetimeLocalInput } from "@/lib/leagues/datetime-local-input";
 import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
 import { revalidateLeagueBrandingPaths } from "@/lib/leagues/revalidate-portal-branding";
 import { leagueRepository } from "@/repositories/league.repository";
@@ -79,6 +80,42 @@ const leagueSettingsSchema = z.object({
   socialYoutubeUrl: z.string().max(500).optional(),
   socialTiktokUrl: z.string().max(500).optional(),
   socialWhatsappUrl: z.string().max(500).optional(),
+  transferPeriodStart: z.string().optional(),
+  transferPeriodEnd: z.string().optional(),
+  isManualOverride: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  const manual = data.isManualOverride === true;
+  const startRaw = data.transferPeriodStart?.trim();
+  const endRaw = data.transferPeriodEnd?.trim();
+
+  if (manual) return;
+
+  if (!startRaw) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Indica la fecha de apertura del mercado de pases.",
+      path: ["transferPeriodStart"],
+    });
+  }
+  if (!endRaw) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Indica la fecha de cierre del mercado de pases.",
+      path: ["transferPeriodEnd"],
+    });
+  }
+
+  if (startRaw && endRaw) {
+    const start = new Date(startRaw);
+    const end = new Date(endRaw);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end <= start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La fecha de cierre debe ser posterior a la de apertura.",
+        path: ["transferPeriodEnd"],
+      });
+    }
+  }
 });
 
 const INSTITUTIONAL_ASSET_URL_FIELDS = [
@@ -190,6 +227,9 @@ export const updateLeagueSettingsAction = withAuth(
       socialYoutubeUrl: formData.get("socialYoutubeUrl"),
       socialTiktokUrl: formData.get("socialTiktokUrl"),
       socialWhatsappUrl: formData.get("socialWhatsappUrl"),
+      transferPeriodStart: formData.get("transferPeriodStart"),
+      transferPeriodEnd: formData.get("transferPeriodEnd"),
+      isManualOverride: formData.get("isManualOverride") === "on",
     };
 
     // 2. Validación
@@ -327,8 +367,20 @@ export const updateLeagueSettingsAction = withAuth(
 
       Object.assign(data, normalizedSocial);
 
+      const transferPeriodStart = parseDatetimeLocalInput(
+        validated.data.transferPeriodStart,
+      );
+      const transferPeriodEnd = parseDatetimeLocalInput(
+        validated.data.transferPeriodEnd,
+      );
+
       // 5. Persistencia
-      await settingsRepository.updateLeagueSettings(vLeagueId, data);
+      await settingsRepository.updateLeagueSettings(vLeagueId, {
+        ...data,
+        transferPeriodStart,
+        transferPeriodEnd,
+        isManualOverride: validated.data.isManualOverride ?? false,
+      });
 
       await recordAuditFromContext(context, {
         action: AUDIT_ACTIONS.settingsUpdate,
