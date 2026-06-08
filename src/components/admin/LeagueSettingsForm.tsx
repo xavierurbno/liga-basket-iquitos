@@ -492,9 +492,9 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 />
               )}
               <p className="text-[10px] text-slate-400 ml-1">
-                Solo se usa en el <strong>reverso</strong> de las plantillas «dorso clásica blanco». El anverso
-                sigue usando el logo de login (a color). Alternativa global:{" "}
-                <code>public/logos/liga-mono.png</code>.
+                Solo para <strong>LDDBI/Iquitos</strong> en el reverso de plantillas «dorso clásica blanco». Las
+                demás ligas no llevan logo en reverso; el anverso usa el logo de login (a color). Alternativa
+                global: <code>public/logos/liga-mono.png</code>.
               </p>
             </div>
           </div>

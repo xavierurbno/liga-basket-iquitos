@@ -1,3 +1,4 @@
+import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
 import type { CarnetVistaPreviaProps, GenerateCarnetPDFProps } from "@/lib/types/carnet";
 
 export type CarnetVistaPreviaPdfExtras = {
@@ -45,5 +46,6 @@ export function mapVistaPreviaToGenerateCarnetPdfProps(
     photoUrl: props.photoUrl,
     clubLogoUrl: extras.clubLogoUrl ?? null,
     validationUrl: props.validationUrl,
+    publicInstitutionalAssets: isCarnetValidacionMode(props),
   };
 }

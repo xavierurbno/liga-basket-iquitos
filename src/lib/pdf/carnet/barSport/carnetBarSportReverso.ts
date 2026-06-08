@@ -1,4 +1,8 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
+import {
+  resolveFederacionLogoPngForCarnetFace,
+  resolveLigaLogoPngForCarnetFace,
+} from "@/lib/carnet/carnetLeagueLogos";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { CARNET_MARGEN_MM, CARNET_QR_REVERSO_MM } from "@/lib/pdf/carnetLayout";
 import { drawLogoFit } from "@/lib/pdf/pdfInstitucionalCabecera";
@@ -93,15 +97,19 @@ export function drawCarnetBarSportReverso(doc: JsPDFDoc, input: CarnetJugadorPdf
   );
   doc.text(qrHint, qrX + qrSize + 1.2, qrY + 2);
 
-  const fedLogo = input.theme.showFederation ? input.federacionLogoPngDataUrl : input.ligaLogoPngDataUrl;
-  drawLogoFit(
-    doc,
-    fedLogo,
-    pageW / 2 - BAR_LOGO_MM / 2,
-    1.2,
-    BAR_LOGO_MM,
-    BAR_REV_HEADER_MM - 2,
-  );
+  const headerLogo = input.theme.showFederation
+    ? resolveFederacionLogoPngForCarnetFace(input, "reverso")
+    : resolveLigaLogoPngForCarnetFace(input, "reverso");
+  if (headerLogo) {
+    drawLogoFit(
+      doc,
+      headerLogo,
+      pageW / 2 - BAR_LOGO_MM / 2,
+      1.2,
+      BAR_LOGO_MM,
+      BAR_REV_HEADER_MM - 2,
+    );
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(5);
@@ -162,14 +170,17 @@ export function drawCarnetBarSportReverso(doc: JsPDFDoc, input: CarnetJugadorPdf
   doc.setFontSize(3.2);
   doc.setTextColor(...WHITE);
   doc.text(code, m + 0.5, bodyBottom + 3);
-  drawLogoFit(
-    doc,
-    input.ligaLogoPngDataUrl,
-    pageW - m - BAR_LOGO_MM,
-    bodyBottom + 0.4,
-    BAR_LOGO_MM,
-    BAR_REV_FOOTER_MM - 0.8,
-  );
+  const footerLogo = resolveLigaLogoPngForCarnetFace(input, "reverso");
+  if (footerLogo) {
+    drawLogoFit(
+      doc,
+      footerLogo,
+      pageW - m - BAR_LOGO_MM,
+      bodyBottom + 0.4,
+      BAR_LOGO_MM,
+      BAR_REV_FOOTER_MM - 0.8,
+    );
+  }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(3.5);
   doc.text("JUGADOR", pageW - m - 1, bodyBottom + 3, { align: "right" });

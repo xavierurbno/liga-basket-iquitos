@@ -1,5 +1,6 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
+import { resolveLigaLogoPngForCarnetFace } from "@/lib/carnet/carnetLeagueLogos";
 import {
   lddbiHeaderPdfFontPt,
   resolveLddbiReversoLineas,
@@ -85,12 +86,15 @@ export function drawCarnetLddbiReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInp
     input.leagueSlug,
     input.theme.sportLabel,
   );
-  const revLogoSlot = LDDBI_LOGO_MM - 0.5;
+  const revLigaLogo = resolveLigaLogoPngForCarnetFace(input, "reverso");
+  const revLogoSlot = revLigaLogo ? LDDBI_LOGO_MM - 0.5 : 0;
   const vigenciaW = 18;
 
   doc.setFillColor(...primary);
   doc.rect(0, 0, pageW, LDDBI_REV_TOP_MM, "F");
-  drawLogoFit(doc, input.ligaLogoPngDataUrl, m, 0.6, revLogoSlot, LDDBI_REV_TOP_MM - 1.2);
+  if (revLigaLogo) {
+    drawLogoFit(doc, revLigaLogo, m, 0.6, revLogoSlot, LDDBI_REV_TOP_MM - 1.2);
+  }
 
   const centerMaxW = pageW - m * 2 - revLogoSlot - vigenciaW - 2;
   const fedLineH = encabezado.headerLayout === "single-prominent" ? 2.75 : 2.35;
@@ -218,15 +222,17 @@ export function drawCarnetLddbiReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInp
   doc.setTextColor(...WHITE);
   doc.text(code, m + 0.5, whiteBottom + 3.5);
 
-  const pieLogoW = LDDBI_LOGO_MM;
-  drawLogoFit(
-    doc,
-    input.ligaLogoPngDataUrl,
-    pageW / 2 - pieLogoW / 2,
-    whiteBottom + 0.6,
-    pieLogoW,
-    LDDBI_REV_BOTTOM_BAR_MM - 1.2,
-  );
+  if (revLigaLogo) {
+    const pieLogoW = LDDBI_LOGO_MM;
+    drawLogoFit(
+      doc,
+      revLigaLogo,
+      pageW / 2 - pieLogoW / 2,
+      whiteBottom + 0.6,
+      pieLogoW,
+      LDDBI_REV_BOTTOM_BAR_MM - 1.2,
+    );
+  }
 
   if (fedPieLines) {
     doc.setFont("helvetica", "normal");

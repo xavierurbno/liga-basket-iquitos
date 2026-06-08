@@ -15,6 +15,7 @@ export async function generateCarnetPdfBlob(
   const inst = await loadCarnetInstitutionalAssets(
     props.leagueId,
     props.leagueDisplayName?.trim() || "Liga deportiva",
+    { publicAccess: props.publicInstitutionalAssets },
   );
 
   let validationUrl = props.validationUrl?.trim() || null;

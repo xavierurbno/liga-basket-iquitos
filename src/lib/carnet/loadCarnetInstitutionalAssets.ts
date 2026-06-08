@@ -20,13 +20,22 @@ export type CarnetInstitutionalAssetsBundle = {
   reversoTemplatePngDataUrl: string | null;
 };
 
+export type LoadCarnetInstitutionalAssetsOptions = {
+  /** `/validar` sin sesión: usa action pública con plantillas y logos de la liga. */
+  publicAccess?: boolean;
+};
+
 /** Mismos assets institucionales que el botón «Descargar PDF». */
 export async function loadCarnetInstitutionalAssets(
   leagueId: string | null | undefined,
   leagueDisplayName: string,
+  opts?: LoadCarnetInstitutionalAssetsOptions,
 ): Promise<CarnetInstitutionalAssetsBundle> {
-  const { getCarnetInstitutionalAssetsAction, getInstitutionalLogosAction } =
-    await import("@/lib/actions/assets");
+  const {
+    getCarnetInstitutionalAssetsAction,
+    getCarnetInstitutionalAssetsPublicAction,
+    getInstitutionalLogosAction,
+  } = await import("@/lib/actions/assets");
 
   let ligaLogoPngDataUrl: string | null = null;
   let ligaLogoMonoPngDataUrl: string | null = null;
@@ -42,7 +51,9 @@ export async function loadCarnetInstitutionalAssets(
   );
 
   if (leagueId?.trim()) {
-    const inst = await getCarnetInstitutionalAssetsAction(leagueId.trim());
+    const inst = opts?.publicAccess
+      ? await getCarnetInstitutionalAssetsPublicAction(leagueId.trim())
+      : await getCarnetInstitutionalAssetsAction(leagueId.trim());
     if (inst.success) {
       ligaLogoPngDataUrl = inst.ligaLogoPngDataUrl;
       ligaLogoMonoPngDataUrl = inst.ligaLogoMonoPngDataUrl ?? null;

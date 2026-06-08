@@ -8,6 +8,7 @@ import {
 } from "@/lib/carnet/carnetInstitucionalText";
 import { extractCarnetYear } from "@/lib/carnet/carnetColors";
 import { splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
+import { shouldShowCarnetLogoOnFace } from "@/lib/carnet/carnetLeagueLogos";
 import {
   resolveLddbiEncabezadoLineas,
   resolveLddbiReversoLineas,
@@ -68,6 +69,7 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
     encabezado.headerLayout === "single-prominent" ? "text-[10px]" : "text-[7.5px]";
   const headerLigaClass =
     encabezado.headerLayout === "single-prominent" ? "text-[10px]" : "text-[6.5px]";
+  const showReversoLogos = shouldShowCarnetLogoOnFace(props.leagueSlug, "reverso");
   const { apellidoPaterno, apellidoMaterno } = useMemo(
     () => splitApellidosParaCarnet(props.lastname),
     [props.lastname],
@@ -247,16 +249,20 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
             className="grid min-h-14 grid-cols-[2.5rem_1fr_auto] items-center gap-1.5 px-2.5 py-1.5"
             style={{ backgroundColor: primary }}
           >
-            <div className="flex h-9 w-10 items-center justify-center">
-              {props.leagueLogoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={props.leagueLogoUrl}
-                  alt="Logo liga"
-                  className="max-h-9 max-w-10 object-contain"
-                />
-              ) : null}
-            </div>
+            {showReversoLogos ? (
+              <div className="flex h-9 w-10 items-center justify-center">
+                {props.leagueLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={props.leagueLogoUrl}
+                    alt="Logo liga"
+                    className="max-h-9 max-w-10 object-contain"
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <div className="h-9 w-10" aria-hidden />
+            )}
             <div className="min-w-0 text-center leading-snug">
               {reversoEncabezado.lineaFederacion != null ? (
                 <p
@@ -342,13 +348,13 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
             style={{ backgroundColor: primary, height: "10%" }}
           >
             <span className="font-mono text-[5.5px] font-bold text-white">{validationCode}</span>
-            {props.leagueLogoUrl ? (
+            {showReversoLogos && props.leagueLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={props.leagueLogoUrl} alt="" className="h-6 object-contain" />
             ) : (
               <span />
             )}
-            {fedPieLines ? (
+            {showReversoLogos && fedPieLines ? (
               <div className="max-w-[38%] text-right text-[4.5px] font-medium uppercase leading-tight text-white/95">
                 <p>{fedPieLines[0]}</p>
                 {fedPieLines[1]?.trim() ? <p>{fedPieLines[1]}</p> : null}

@@ -1,4 +1,8 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
+import {
+  resolveFederacionLogoPngForCarnetFace,
+  resolveLigaLogoPngForCarnetFace,
+} from "@/lib/carnet/carnetLeagueLogos";
 import { splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import {
@@ -86,8 +90,10 @@ export function drawCarnetReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInput): 
   drawCarnetEncabezadoPremium(
     doc,
     input.leagueDisplayName,
-    input.ligaLogoPngDataUrl,
-    input.theme.showFederation ? input.federacionLogoPngDataUrl : null,
+    resolveLigaLogoPngForCarnetFace(input, "reverso"),
+    input.theme.showFederation
+      ? resolveFederacionLogoPngForCarnetFace(input, "reverso")
+      : null,
     palette,
     fedSubtitle,
   );

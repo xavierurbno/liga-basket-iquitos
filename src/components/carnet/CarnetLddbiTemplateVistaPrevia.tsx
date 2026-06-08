@@ -11,6 +11,7 @@ import {
   CARNET_THEME_PRESET_LABELS,
   parseCarnetSignatureMode,
 } from "@/lib/carnet/carnetTheme";
+import { shouldShowCarnetLogoOnFace } from "@/lib/carnet/carnetLeagueLogos";
 import {
   LDDBI_HEADER_PREVIEW_MM,
   resolveLddbiEncabezadoLineas,
@@ -167,6 +168,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
   const dniDisplay = props.documentNumber.trim().toUpperCase() || "—";
   const carnetDisplay = props.carnetNumberDisplay?.trim().toUpperCase() || "—";
   const presetLabel = CARNET_THEME_PRESET_LABELS.lddbi_template;
+  const showReversoLogos = shouldShowCarnetLogoOnFace(props.leagueSlug, "reverso");
 
   const templateBg =
     cara === "anverso"
@@ -420,7 +422,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                 className="pointer-events-none absolute left-0 right-0 top-0 flex items-center"
                 style={{ height: mmH(R.headerMm) }}
               >
-                {props.federacionLogoUrl && props.carnetShowFederation !== false ? (
+                {showReversoLogos && props.federacionLogoUrl && props.carnetShowFederation !== false ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={props.federacionLogoUrl}
@@ -434,7 +436,7 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                     }}
                   />
                 ) : null}
-                {props.leagueLogoUrl ? (
+                {showReversoLogos && props.leagueLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={props.leagueLogoUrl}
