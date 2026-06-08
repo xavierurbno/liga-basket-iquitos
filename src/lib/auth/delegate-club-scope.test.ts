@@ -30,6 +30,18 @@ describe("checkDelegateClubScope", () => {
     assert.equal(checkDelegateClubScope(context, [fd]), AUTH_ERRORS.unauthorizedClub);
   });
 
+  it("bloquea delegado sin club_id en JWT", () => {
+    const context: AuthContext = {
+      userId: "user-1",
+      role: "CLUB_DELEGATE",
+    };
+    const fd = new FormData();
+    fd.set("clubId", CLUB_A);
+    const err = checkDelegateClubScope(context, [fd]);
+    assert.ok(err);
+    assert.match(err!, /club asignado/i);
+  });
+
   it("ignora roles que no son delegado", () => {
     const context: AuthContext = {
       userId: "admin-1",

@@ -12,6 +12,8 @@ export interface MasterClockCounterProps {
   variant?: "flip" | "minimal";
   /** Alineación del bloque (portal público: `start` con el eje del carrusel). */
   layoutAlign?: "center" | "start";
+  /** Liga del portal visitado; si se omite, el servidor usa cookie o liga por defecto. */
+  leagueId?: string | null;
 }
 
 // ─── Flip Card ───────────────────────────────────────────────
@@ -199,7 +201,11 @@ function ClockSkeleton({ minimal }: { minimal?: boolean }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────
-export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }: MasterClockCounterProps) {
+export function MasterClockCounter({
+  variant = "flip",
+  layoutAlign = "center",
+  leagueId,
+}: MasterClockCounterProps) {
   const pathname = usePathname();
   const [settings, setSettings] = useState<LeagueSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -221,7 +227,7 @@ export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }:
       };
     }
 
-    void getLeagueSettingsAction()
+    void getLeagueSettingsAction(leagueId)
       .then((s) => {
         if (cancelled) return;
         setSettings(s);
@@ -233,7 +239,7 @@ export function MasterClockCounter({ variant = "flip", layoutAlign = "center" }:
     return () => {
       cancelled = true;
     };
-  }, [skipSettingsFetch]);
+  }, [skipSettingsFetch, leagueId]);
 
   const now = new Date();
   const endRaw = settings?.transferPeriodEnd ?? null;

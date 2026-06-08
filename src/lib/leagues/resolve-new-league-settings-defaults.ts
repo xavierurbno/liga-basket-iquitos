@@ -31,7 +31,7 @@ export function resolveNewLeagueSettingsDefaults(
   const prefix = resolveLeagueCarnetPrefix({ slug, name }).slice(0, 12);
 
   return {
-    carnetThemePreset: "esquinas_clasica_reverso",
+    carnetThemePreset: "lddbi_template",
     carnetShowFederation: false,
     carnetSignatureMode: "president",
     documentSerialPrefix: prefix,

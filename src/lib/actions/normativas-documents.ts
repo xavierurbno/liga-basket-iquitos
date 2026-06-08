@@ -3,7 +3,10 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { normativas } from "@/lib/db/schema";
+import { isValidUuid } from "@/lib/db/public-read-guards";
 import { isMissingNormativasRelation } from "@/lib/normativas/normativas-db-error";
+import { isAllowedInstitutionalAssetUrl } from "@/lib/security/allowed-fetch-url";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
 export type PublicNormativaDownloadResult =
   | { ok: true; url: string; title: string }
@@ -15,7 +18,10 @@ export type PublicNormativaDownloadResult =
 export async function getPublicNormativaDownloadUrl(
   documentId: string
 ): Promise<PublicNormativaDownloadResult> {
-  if (!documentId || typeof documentId !== "string") {
+  const rateError = await enforceRateLimit("normativas");
+  if (rateError) return { ok: false, error: rateError };
+
+  if (!documentId || typeof documentId !== "string" || !isValidUuid(documentId)) {
     return { ok: false, error: "Identificador no válido" };
   }
 
@@ -34,6 +40,10 @@ export async function getPublicNormativaDownloadUrl(
     const row = rows[0];
     if (!row?.urlArchivo) {
       return { ok: false, error: "Documento no disponible" };
+    }
+
+    if (!isAllowedInstitutionalAssetUrl(row.urlArchivo)) {
+      return { ok: false, error: "Enlace de documento no permitido." };
     }
 
     return { ok: true, url: row.urlArchivo, title: row.titulo };

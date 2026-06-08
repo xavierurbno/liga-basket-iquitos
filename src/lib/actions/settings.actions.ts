@@ -6,18 +6,22 @@ import { ActionResult, LeagueSettings } from "@/lib/types/league";
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { settingsRepository } from "@/repositories/settingsRepository";
+import { resolveLeagueSettingsScopeId } from "@/lib/leagues/resolve-league-settings-scope.server";
 import { User } from "@supabase/supabase-js";
 import { formatActionError } from "@/lib/actions/system-dashboard-helpers";
 
-export async function getTransferStatusAction(): Promise<{
+export async function getTransferStatusAction(
+  leagueId?: string | null,
+): Promise<{
   isOpen: boolean;
   message: string;
   start?: Date | null;
   end?: Date | null;
   isManualOverride?: boolean;
 }> {
-  const status = await assertTransferPeriodOpen();
-  const settings = await getCachedLeagueSettings();
+  const scopedId = await resolveLeagueSettingsScopeId(leagueId);
+  const status = await assertTransferPeriodOpen(null, scopedId);
+  const settings = await getCachedLeagueSettings(scopedId);
 
   return {
     isOpen: status.success,
@@ -29,8 +33,22 @@ export async function getTransferStatusAction(): Promise<{
 }
 
 export const toggleTransferOverrideAction = withAuth(
-  async (newState: boolean, _user: User, _context: AuthContext): Promise<ActionResult> => {
-    await settingsRepository.toggleOverride(newState);
+  async (
+    newState: boolean,
+    _user: User,
+    context: AuthContext,
+  ): Promise<ActionResult> => {
+    const leagueId = context.leagueId?.trim();
+    if (!leagueId) {
+      return {
+        success: false,
+        error: "Selecciona una liga activa antes de cambiar el mercado de pases.",
+      };
+    }
+
+    await settingsRepository.updateLeagueSettings(leagueId, {
+      isManualOverride: newState,
+    });
     revalidateTag("league-settings", "max");
     revalidatePath("/liga/", "page" as any);
     revalidatePath("/", "page" as any);
@@ -39,9 +57,14 @@ export const toggleTransferOverrideAction = withAuth(
   ["SUPER_ADMIN", "LEAGUE_ADMIN"],
 );
 
-export async function getLeagueSettingsAction(): Promise<LeagueSettings> {
+export async function getLeagueSettingsAction(
+  leagueId?: string | null,
+): Promise<LeagueSettings> {
   try {
-    const settings = await getCachedLeagueSettings();
+    const scopedId = await resolveLeagueSettingsScopeId(leagueId);
+    const settings = scopedId
+      ? await settingsRepository.getLeagueSettings(scopedId)
+      : null;
     if (!settings) return {};
     return {
       id: settings.id,
@@ -56,12 +79,17 @@ export async function getLeagueSettingsAction(): Promise<LeagueSettings> {
 }
 
 export const seedLeagueSettingsAction = withAuth(
-  async (): Promise<ActionResult> => {
+  async (_user: User, context: AuthContext): Promise<ActionResult> => {
     try {
-      const existing = await settingsRepository.getSettings();
+      const leagueId = context.leagueId?.trim();
+      if (!leagueId) {
+        return { success: false, error: "Selecciona una liga activa." };
+      }
+
+      const existing = await settingsRepository.getLeagueSettings(leagueId);
       if (existing) return { success: true };
 
-      await settingsRepository.upsert({
+      await settingsRepository.updateLeagueSettings(leagueId, {
         transferPeriodStart: null,
         transferPeriodEnd: null,
         bannerText: "El Mercado de Pases está cerrado temporalmente.",

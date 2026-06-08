@@ -44,6 +44,16 @@ async function assertCanIssueValidationUrl(
       if (!context.clubId || context.clubId !== row.clubId) {
         return { ok: false, error: "No puedes emitir validación para este deportista." };
       }
+    } else if (context.role === "LEAGUE_ADMIN") {
+      if (!context.leagueId?.trim()) {
+        return { ok: false, error: "Selecciona una liga activa antes de emitir validación." };
+      }
+      if (
+        !row.leagueId ||
+        !clubBelongsToOperationalLeague(row.leagueId, context.leagueId, context.role)
+      ) {
+        return { ok: false, error: "El deportista no pertenece a tu liga activa." };
+      }
     } else if (
       context.leagueId?.trim() &&
       row.leagueId &&
@@ -70,6 +80,16 @@ async function assertCanIssueValidationUrl(
   if (context.role === "CLUB_DELEGATE") {
     if (!context.clubId || context.clubId !== row.clubId) {
       return { ok: false, error: "No puedes emitir validación para esta categoría." };
+    }
+  } else if (context.role === "LEAGUE_ADMIN") {
+    if (!context.leagueId?.trim()) {
+      return { ok: false, error: "Selecciona una liga activa antes de emitir validación." };
+    }
+    if (
+      !row.leagueId ||
+      !clubBelongsToOperationalLeague(row.leagueId, context.leagueId, context.role)
+    ) {
+      return { ok: false, error: "La categoría no pertenece a tu liga activa." };
     }
   } else if (
     context.leagueId?.trim() &&
@@ -114,6 +134,10 @@ function canIssuePlayerValidationForContext(
 ): boolean {
   if (context.role === "CLUB_DELEGATE") {
     return Boolean(context.clubId && context.clubId === row.clubId);
+  }
+  if (context.role === "LEAGUE_ADMIN") {
+    if (!context.leagueId?.trim() || !row.leagueId) return false;
+    return clubBelongsToOperationalLeague(row.leagueId, context.leagueId, context.role);
   }
   if (context.leagueId?.trim() && row.leagueId) {
     return clubBelongsToOperationalLeague(row.leagueId, context.leagueId, context.role);

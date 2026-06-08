@@ -45,4 +45,5 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0035_carnet_league_mono_logo.sql",
   "supabase/migrations/0036_carnet_signature_mode.sql",
   "supabase/migrations/0037_document_serial_prefix.sql",
+  "supabase/migrations/0038_document_history_league_backfill.sql",
 ];

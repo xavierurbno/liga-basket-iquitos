@@ -10,6 +10,16 @@ export function checkDelegateClubScope(
 ): string | null {
   if (context.role !== "CLUB_DELEGATE") return null;
 
+  if (!context.clubId?.trim()) {
+    logSecurityEvent({
+      type: "auth.tenant.club_mismatch",
+      message: "Delegado sin club_id en JWT intentó una acción acotada por club",
+      userId: context.userId,
+      role: context.role,
+    });
+    return "Tu cuenta no tiene un club asignado. Contacta al administrador de la liga.";
+  }
+
   const clubIdFromArgs = extractClubIdFromActionArgs(actionArgs);
   if (clubIdFromArgs && context.clubId && clubIdFromArgs !== context.clubId) {
     logSecurityEvent({

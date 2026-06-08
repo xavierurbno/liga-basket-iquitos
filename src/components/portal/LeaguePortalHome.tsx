@@ -47,7 +47,7 @@ export function LeaguePortalHome({ league, programHome = false }: LeaguePortalHo
 
       <main className={`flex flex-1 flex-col pb-8 pt-2 ${PORTAL_SHELL_CLASS}`}>
         <div className="w-full">
-          <PublicPortalMasterClock layoutAlign="start" />
+          <PublicPortalMasterClock layoutAlign="start" leagueId={leagueId} />
         </div>
 
         <Suspense fallback={<CarouselSkeleton />}>

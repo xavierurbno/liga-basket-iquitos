@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
-import { buildDocumentClubSearchConditions } from "@/lib/auth/document-club-search-scope";
+import { buildDocumentClubSearchConditions } from "@/lib/auth/document-search-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { logDocumentClubSearch } from "@/lib/observability/pii-access-log";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";

@@ -6,6 +6,7 @@ import type { FichaVistaPreviaProps } from "@/lib/types/ficha";
 import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-institutional-branding.server";
 import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
+import { maskDocumentNumber } from "@/lib/observability/mask-document-number";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { clubRepository } from "@/repositories/clubRepository";
@@ -75,7 +76,7 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
     name: j.name,
     lastname: j.lastname,
     documentType: j.documentType,
-    documentNumber: j.documentNumber,
+    documentNumber: maskDocumentNumber(j.documentNumber),
     fechaNacimientoIso: aIso(j.birthdate),
     photoUrl: resolvePublicImageUrl(j.photoUrl),
     jerseyNumber: j.jerseyNumber,
@@ -100,14 +101,14 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
         name: staff.coachName,
         lastname: staff.coachLastname,
         documentType: staff.coachDocumentType,
-        documentNumber: staff.coachDocumentNumber,
+        documentNumber: maskDocumentNumber(staff.coachDocumentNumber),
         photoUrl: resolvePublicImageUrl(staff.coachPhotoUrl),
       },
       delegado: {
         name: staff.delegateName,
         lastname: staff.delegateLastname,
         documentType: staff.delegateDocumentType,
-        documentNumber: staff.delegateDocumentNumber,
+        documentNumber: maskDocumentNumber(staff.delegateDocumentNumber),
         photoUrl: resolvePublicImageUrl(staff.delegatePhotoUrl),
       },
     },

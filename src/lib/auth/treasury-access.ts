@@ -107,7 +107,18 @@ export async function assertTreasuryWriteClubAccess(
   if (isSystemOwnerEmail(email)) return { ok: true };
 
   const scopeLeagueId = operationalLeagueId?.trim();
-  if (!scopeLeagueId || !club.leagueId || club.leagueId === scopeLeagueId) {
+  if (!scopeLeagueId) {
+    return {
+      ok: false,
+      error: "Selecciona una liga activa antes de registrar movimientos de tesorería.",
+    };
+  }
+
+  if (!club.leagueId) {
+    return { ok: false, error: "El club no tiene liga asignada." };
+  }
+
+  if (club.leagueId === scopeLeagueId) {
     return { ok: true };
   }
 

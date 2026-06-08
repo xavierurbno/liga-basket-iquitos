@@ -1,13 +1,11 @@
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 
 export async function assertTransferPeriodOpen(
-  orgId?: string | null
+  _orgId?: string | null,
+  leagueId?: string | null,
 ): Promise<{ success: boolean; overrideIsOpen?: boolean; error?: string }> {
-  // En un sistema real, el clubId / orgId podría utilizarse si la configuración fuera por club,
-  // pero los pases son globales para la liga entera. Así que verificaremos la configuración general.
-
   try {
-    const settings = await getCachedLeagueSettings();
+    const settings = await getCachedLeagueSettings(leagueId);
 
     if (!settings) {
       // Si no hay configuración, por defecto cerrado.

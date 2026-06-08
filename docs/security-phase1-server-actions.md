@@ -10,6 +10,8 @@ Actualizado tras Fases 1–5 (aislamiento documental, validación QR, multi-liga
 | `validation-url.ts` — URL QR | `requireAuth` + scope jugador/categoría |
 | `system-dashboard.ts` | `withAuth` |
 | `buscarJugadorPorDocumento` | `withAuth` + scope por liga + rate limit `documentos` |
+| `getLeagueSettingsAction` / transferencias | Scope por `leagueId` (portal, cookie activa o default) |
+| `normativas-documents.ts` | Público + UUID + allowlist URL + rate limit `normativas` |
 | `buscarClubParaDocumento` | `requireAuth` + scope por liga + rate limit `documentos` |
 | `documentHistory.ts` | `requireAuth` + scope emisión + rate limit `documentos` |
 | `gallery.ts`, `tournaments.ts`, `sponsors.ts` | `withAuth` |
@@ -42,6 +44,7 @@ Actualizado tras Fases 1–5 (aislamiento documental, validación QR, multi-liga
 | `validar` | 20 / min |
 | `validarAssets` | 10 / min |
 | `documentos` | 30 / min |
+| `normativas` | 20 / min |
 | `busqueda365` | 40 / min |
 
 ## Multi-liga (Fases 3–5)

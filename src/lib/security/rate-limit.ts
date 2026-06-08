@@ -3,6 +3,7 @@ export type RateLimitScope =
   | "validar"
   | "validarAssets"
   | "documentos"
+  | "normativas"
   | "busqueda365";
 
 export type RateLimitConfig = {
@@ -17,6 +18,7 @@ export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   validarAssets: { limit: 10, windowMs: 60 * 1000 },
   /** Búsqueda y emisión en /liga/documentos/. */
   documentos: { limit: 30, windowMs: 60 * 1000 },
+  normativas: { limit: 20, windowMs: 60 * 1000 },
   busqueda365: { limit: 40, windowMs: 60 * 1000 },
 };
 
