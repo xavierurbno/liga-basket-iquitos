@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
 import {
@@ -174,7 +174,14 @@ export type SettingsActionState = {
   message?: string;
   error?: string;
   errors?: Record<string, string[]>;
+  isManualOverride?: boolean;
 };
+
+function parseManualOverrideFormValue(value: FormDataEntryValue | null): boolean {
+  if (value === "on" || value === "true") return true;
+  if (value === "off" || value === "false") return false;
+  return false;
+}
 
 /**
  * Server Action para actualizar las configuraciones globales de una liga.
@@ -229,7 +236,7 @@ export const updateLeagueSettingsAction = withAuth(
       socialWhatsappUrl: formData.get("socialWhatsappUrl"),
       transferPeriodStart: formData.get("transferPeriodStart"),
       transferPeriodEnd: formData.get("transferPeriodEnd"),
-      isManualOverride: formData.get("isManualOverride") === "on",
+      isManualOverride: parseManualOverrideFormValue(formData.get("isManualOverride")),
     };
 
     // 2. Validación
@@ -375,11 +382,13 @@ export const updateLeagueSettingsAction = withAuth(
       );
 
       // 5. Persistencia
+      const isManualOverride = validated.data.isManualOverride ?? false;
+
       await settingsRepository.updateLeagueSettings(vLeagueId, {
         ...data,
         transferPeriodStart,
         transferPeriodEnd,
-        isManualOverride: validated.data.isManualOverride ?? false,
+        isManualOverride,
       });
 
       await recordAuditFromContext(context, {
@@ -393,15 +402,18 @@ export const updateLeagueSettingsAction = withAuth(
       });
 
       const leagueRow = await leagueRepository.findById(vLeagueId);
+
+      revalidateTag("league-settings", "max");
       revalidateLeagueBrandingPaths(leagueRow?.slug);
       revalidatePath("/liga/");
       revalidatePath("/liga/configuracion/");
       revalidatePath("/super-admin/leagues");
       revalidatePath(`/super-admin/leagues/${vLeagueId}`);
-      
+
       return {
         success: true,
         message: "Configuración actualizada correctamente.",
+        isManualOverride,
       };
     } catch (error: unknown) {
       console.error("[SETTINGS_ACTION_ERROR]", error);

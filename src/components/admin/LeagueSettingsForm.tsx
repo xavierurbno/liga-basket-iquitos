@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
 import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
 import {
@@ -61,6 +61,21 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   const [manualTransferOpen, setManualTransferOpen] = useState(
     () => initialSettings?.isManualOverride === true,
   );
+
+  useEffect(() => {
+    setManualTransferOpen(initialSettings?.isManualOverride === true);
+  }, [initialSettings?.isManualOverride]);
+
+  useEffect(() => {
+    if (!state.success) return;
+    const savedManual =
+      "isManualOverride" in state && typeof state.isManualOverride === "boolean"
+        ? state.isManualOverride
+        : undefined;
+    if (savedManual !== undefined) {
+      setManualTransferOpen(savedManual);
+    }
+  }, [state]);
 
   function previewFromFile(
     file: File | undefined,
@@ -630,11 +645,14 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             intranet. Cada liga tiene su propio periodo.
           </p>
 
+          <input
+            type="hidden"
+            name="isManualOverride"
+            value={manualTransferOpen ? "on" : "off"}
+          />
           <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <input
               type="checkbox"
-              name="isManualOverride"
-              value="on"
               checked={manualTransferOpen}
               onChange={(e) => setManualTransferOpen(e.target.checked)}
               className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
