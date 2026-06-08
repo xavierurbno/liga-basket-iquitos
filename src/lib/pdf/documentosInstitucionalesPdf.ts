@@ -11,6 +11,8 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { resolveFichaCabeceraLineas } from "@/lib/pdf/fichaInstitucionalTextos";
+import { formatDocumentSerialText } from "@/lib/leagues/resolve-document-serial-prefix";
+import { resolveDocumentValidationUrl } from "@/lib/pdf/resolve-document-validation-url";
 
 // ─── TIPOS ────────────────────────────────────────────────────
 
@@ -20,7 +22,7 @@ export type DocumentoInput = {
   type: TipoDocumento;
   /** ID del jugador o club (registro interno). */
   entityId: string;
-  /** URL pública de validación (token firmado); si falta, se usa legado con `entityId`. */
+  /** URL pública de validación con token firmado (`/validar/v1…`). Obligatoria en carta/constancia. */
   validationUrl?: string | null;
   // ── Jugador (CARTA_PASE / CONSTANCIA) ──
   name?: string;
@@ -57,6 +59,8 @@ export type DocumentoInput = {
   showFederation?: boolean;
   leagueSlug?: string | null;
   federationDisplayName?: string | null;
+  /** Prefijo serial PDF (ej. LDDBI, COPA). */
+  documentSerialPrefix?: string | null;
 };
 
 // ─── PALETA ───────────────────────────────────────────────────
@@ -194,9 +198,11 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   } = input;
 
   const generatedAt = generatedAtIso ?? new Date().toISOString();
-  const validUrl =
-    input.validationUrl?.trim() ||
-    `${siteUrl.replace(/\/+$/, "")}/validar/${encodeURIComponent(entityId)}`;
+  const validationResolved = resolveDocumentValidationUrl(input);
+  if (!validationResolved.ok) {
+    throw new Error(validationResolved.error);
+  }
+  const validUrl = validationResolved.url;
   const esSolvencia = type === "SOLVENCIA_CLUB";
   const leagueName = resolveLeagueName(input);
   const seasonLabel = resolveSeasonLabel(input);
@@ -211,7 +217,7 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   let fotoDataUrl: string | null = fotoRaw ?? null;
   if (!fotoDataUrl && fotoRemoteUrl) fotoDataUrl = await fetchBase64(fotoRemoteUrl);
 
-  const qrDataUrl = await genQr(validUrl);
+  const qrDataUrl = validUrl ? await genQr(validUrl) : null;
 
   const accentRgb = input.brandAccentRgb ?? CELESTE;
   const primaryRgb = input.brandPrimaryRgb ?? NAVY;
@@ -391,7 +397,13 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   if (qrDataUrl) {
     doc.addImage({ imageData: qrDataUrl, format: "PNG", x: QR_X, y: QR_Y, width: QR_SIZE, height: QR_SIZE, compression: "NONE" });
     if (shortIdentifier && correlative) {
-      const serialText = `LDDBI - ${shortIdentifier} - ${esCopia ? "C" : ""}${correlative}`;
+      const prefix = input.documentSerialPrefix?.trim() || "LDDBI";
+      const serialText = formatDocumentSerialText(
+        prefix,
+        shortIdentifier,
+        correlative,
+        esCopia,
+      );
       doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...GRAY_500);
       doc.text(serialText, QR_X + QR_SIZE / 2, QR_Y + QR_SIZE + 3, { align: "center" });
     } else {
@@ -405,16 +417,18 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   doc.rect(0, PAGE_H - BAND_H, PAGE_W, BAND_H, "F");
   doc.setFont("helvetica", "normal"); doc.setFontSize(6); doc.setTextColor(220, 235, 255);
   
+  const footerValidationSuffix = validUrl ? ` | ${stripProtocol(validUrl)}` : "";
+
   if (esCopia && fechaOriginal) {
     doc.text(
-      `Emitido originalmente: ${fechaPeru(fechaOriginal)} | Reimpresión: ${fechaPeru(generatedAt)} | ${stripProtocol(validUrl)}`,
+      `Emitido originalmente: ${fechaPeru(fechaOriginal)} | Reimpresión: ${fechaPeru(generatedAt)}${footerValidationSuffix}`,
       CX, PAGE_H - 2.5, { align: "center" }
     );
   } else {
     const footerLeague =
       input.leagueDisplayName?.trim() || "Liga deportiva";
     doc.text(
-      `${footerLeague} | Generado el: ${fechaPeru(generatedAt)} | ${stripProtocol(validUrl)}`,
+      `${footerLeague} | Generado el: ${fechaPeru(generatedAt)}${footerValidationSuffix}`,
       CX, PAGE_H - 2.5, { align: "center" }
     );
   }

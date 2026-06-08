@@ -29,7 +29,7 @@ if (target === "development" && ref && isProdProjectRef(ref)) {
 async function main() {
   const sql = await connectPostgres();
   try {
-    const tables = ["leagues", "clubs", "players", "categories"];
+    const tables = ["leagues", "clubs", "players", "categories", "league_settings"];
     for (const name of tables) {
       const [{ exists }] = await sql`
         SELECT EXISTS (
@@ -38,6 +38,23 @@ async function main() {
         ) AS exists
       `;
       console.log(`${exists ? "✓" : "✗"} tabla ${name}`);
+      if (!exists) process.exitCode = 1;
+    }
+
+    const expectedColumns = [
+      { table: "league_settings", column: "document_serial_prefix" },
+      { table: "league_settings", column: "carnet_signature_mode" },
+    ];
+    for (const { table, column } of expectedColumns) {
+      const [{ exists }] = await sql`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = ${table}
+            AND column_name = ${column}
+        ) AS exists
+      `;
+      console.log(`${exists ? "✓" : "✗"} columna ${table}.${column}`);
       if (!exists) process.exitCode = 1;
     }
   } finally {

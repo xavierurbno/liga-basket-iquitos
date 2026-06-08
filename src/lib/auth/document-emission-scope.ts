@@ -127,5 +127,44 @@ export async function assertDocumentEmissionAllowed(
     };
   }
 
+  if (PLAYER_DOC_TYPES.has(data.type) && leagueId) {
+    const entityId = data.entityId.trim();
+    const [playerRow] = await db
+      .select({ clubLeagueId: clubs.leagueId })
+      .from(players)
+      .innerJoin(clubs, eq(players.clubId, clubs.id))
+      .where(eq(players.id, entityId))
+      .limit(1);
+
+    if (!playerRow?.clubLeagueId) {
+      return { ok: false, error: "Jugador no encontrado o sin liga asignada." };
+    }
+    if (playerRow.clubLeagueId !== leagueId) {
+      return {
+        ok: false,
+        error: "El jugador no pertenece a la liga de este documento.",
+      };
+    }
+  }
+
+  if (CLUB_DOC_TYPES.has(data.type) && leagueId) {
+    const entityId = data.entityId.trim();
+    const [clubRow] = await db
+      .select({ leagueId: clubs.leagueId })
+      .from(clubs)
+      .where(eq(clubs.id, entityId))
+      .limit(1);
+
+    if (!clubRow?.leagueId) {
+      return { ok: false, error: "Club no encontrado o sin liga asignada." };
+    }
+    if (clubRow.leagueId !== leagueId) {
+      return {
+        ok: false,
+        error: "El club no pertenece a la liga de este documento.",
+      };
+    }
+  }
+
   return { ok: true, leagueId };
 }

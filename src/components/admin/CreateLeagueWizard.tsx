@@ -40,6 +40,7 @@ function CreateLeagueWizardPanel({ onRequestClose }: { onRequestClose: () => voi
   const [leagueName, setLeagueName] = useState("");
   const [slugValue, setSlugValue] = useState("");
   const [seasonName, setSeasonName] = useState(defaultSeasonName);
+  const [leagueKind, setLeagueKind] = useState<"federated" | "tournament">("tournament");
   const [manuallyEdited, setManuallyEdited] = useState(false);
   const [assignAdmin, setAssignAdmin] = useState(true);
   const successHandledRef = useRef(false);
@@ -147,6 +148,7 @@ function CreateLeagueWizardPanel({ onRequestClose }: { onRequestClose: () => voi
           <input type="hidden" name="name" value={leagueName} readOnly />
           <input type="hidden" name="slug" value={slugValue} readOnly />
           <input type="hidden" name="seasonName" value={seasonName} readOnly />
+          <input type="hidden" name="leagueKind" value={leagueKind} readOnly />
           <input type="hidden" name="assignAdmin" value={assignAdmin ? "true" : "false"} />
 
           {!isPending && !state.success && "message" in state && state.message ? (
@@ -223,6 +225,49 @@ function CreateLeagueWizardPanel({ onRequestClose }: { onRequestClose: () => voi
                   placeholder={defaultSeasonName()}
                   className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
+              </div>
+              <div className="space-y-2">
+                <p className="ml-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Tipo de liga
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        value: "tournament" as const,
+                        title: "Torneo local",
+                        hint: "Sin federación en carnet/PDF; serial y colores propios.",
+                      },
+                      {
+                        value: "federated" as const,
+                        title: "Liga federada",
+                        hint: "Plantilla LDDBI: FDPB, firmas presidente y secretario.",
+                      },
+                    ] as const
+                  ).map(({ value, title, hint }) => {
+                    const active = leagueKind === value;
+                    return (
+                      <label
+                        key={value}
+                        className={`flex cursor-pointer flex-col rounded-2xl border px-4 py-3 transition ${
+                          active
+                            ? "border-blue-500 bg-blue-50/50"
+                            : "border-slate-200 hover:border-blue-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="leagueKindChoice"
+                          className="sr-only"
+                          checked={active}
+                          onChange={() => setLeagueKind(value)}
+                        />
+                        <span className="text-sm font-bold text-slate-800">{title}</span>
+                        <span className="mt-1 text-xs text-slate-500">{hint}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

@@ -16,6 +16,10 @@ export function LeagueOnboardingChecklist({
   secretarySignatureUrl,
   carnetValidityLabel,
   carnetSignatureMode,
+  carnetShowFederation,
+  carnetThemePreset,
+  documentSerialPrefix,
+  portalPrimaryColor,
 }: {
   slug: string;
   adminCount: number;
@@ -26,6 +30,10 @@ export function LeagueOnboardingChecklist({
   secretarySignatureUrl?: string | null;
   carnetValidityLabel?: string | null;
   carnetSignatureMode?: string | null;
+  carnetShowFederation?: boolean | null;
+  carnetThemePreset?: string | null;
+  documentSerialPrefix?: string | null;
+  portalPrimaryColor?: string | null;
 }) {
   const items = buildLeagueOnboardingChecklist({
     slug,
@@ -37,6 +45,10 @@ export function LeagueOnboardingChecklist({
     secretarySignatureUrl,
     carnetValidityLabel,
     carnetSignatureMode,
+    carnetShowFederation,
+    carnetThemePreset,
+    documentSerialPrefix,
+    portalPrimaryColor,
   });
   const progress = checklistProgress(items);
 

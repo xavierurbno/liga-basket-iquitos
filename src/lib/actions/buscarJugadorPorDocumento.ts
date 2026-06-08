@@ -2,10 +2,12 @@
 
 import { db } from "@/lib/db/client";
 import { players, clubs, categories } from "@/lib/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { createClient, User } from "@supabase/supabase-js";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import { buildDocumentPlayerSearchConditions } from "@/lib/auth/document-search-scope";
 import { logDocumentSearchByPlayer } from "@/lib/observability/pii-access-log";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
 // ─────────────────────────────────────────────────────────────
 // TIPOS DE RETORNO
@@ -67,8 +69,7 @@ function getPublicFotoUrl(storagePath: string | null): string | null {
 
 // ─────────────────────────────────────────────────────────────
 // SERVER ACTION PRINCIPAL
-// Busca en TODOS los clubs (cross-club) para Gestión Documental.
-// Devuelve la afiliación más reciente del deportista.
+// Búsqueda acotada por liga operativa (LEAGUE_ADMIN / super-admin con liga activa).
 // ─────────────────────────────────────────────────────────────
 
 export const buscarJugadorPorDocumento = withAuth(
@@ -78,9 +79,21 @@ export const buscarJugadorPorDocumento = withAuth(
     user: User,
     context: AuthContext
   ): Promise<BusquedaResult> => {
+    const rateError = await enforceRateLimit("documentos");
+    if (rateError) return { ok: false, error: rateError };
+
     const docNumFmt = documentNumber.trim();
     if (!docNumFmt) {
       return { ok: false, error: "El número de documento es obligatorio." };
+    }
+
+    const whereClause = buildDocumentPlayerSearchConditions(
+      documentType,
+      docNumFmt,
+      context,
+    );
+    if (typeof whereClause === "object" && "error" in whereClause) {
+      return { ok: false, error: whereClause.error };
     }
 
     try {
@@ -100,15 +113,9 @@ export const buscarJugadorPorDocumento = withAuth(
           leagueId: clubs.leagueId,
         })
         .from(players)
-        .leftJoin(clubs, eq(players.clubId, clubs.id))
+        .innerJoin(clubs, eq(players.clubId, clubs.id))
         .leftJoin(categories, eq(players.categoryId, categories.id))
-        .where(
-          and(
-            eq(players.documentType, documentType as any),
-            eq(players.documentNumber, docNumFmt)
-          )
-        )
-        // Más reciente primero — garantiza afiliación vigente
+        .where(whereClause)
         .orderBy(desc(players.createdAt))
         .limit(1);
 
@@ -123,7 +130,7 @@ export const buscarJugadorPorDocumento = withAuth(
         });
         return {
           ok: false,
-          error: `No se encontró ningún jugador con el documento indicado (${documentType}).`,
+          error: `No se encontró ningún jugador con el documento indicado (${documentType}) en tu liga.`,
         };
       }
 

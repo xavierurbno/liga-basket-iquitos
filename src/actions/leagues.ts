@@ -16,6 +16,10 @@ import {
 import { leagueRepository } from "@/repositories/league.repository";
 import { provisionLeagueAdmin } from "@/lib/leagues/provision-league-admin";
 import { revalidateLeaguePortalBySlug } from "@/lib/portal/revalidate-league-portal";
+import {
+  resolveNewLeagueSettingsDefaults,
+  type NewLeagueKind,
+} from "@/lib/leagues/resolve-new-league-settings-defaults";
 
 const createLeagueSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
@@ -24,6 +28,7 @@ const createLeagueSchema = z.object({
 
 const createLeagueWizardSchema = createLeagueSchema.extend({
   seasonName: z.string().max(120).optional(),
+  leagueKind: z.enum(["federated", "tournament"]).optional(),
   assignAdmin: z.enum(["true", "false"]).optional(),
   adminFullName: z.string().max(120).optional(),
   adminEmail: z.string().max(255).optional(),
@@ -50,6 +55,7 @@ export const createLeagueWizardAction = withAuth(
       name: formData.get("name"),
       slug: formData.get("slug"),
       seasonName: formData.get("seasonName") || undefined,
+      leagueKind: (formData.get("leagueKind") as NewLeagueKind | null) || undefined,
       assignAdmin: assignAdmin ? "true" : "false",
       adminFullName: formData.get("adminFullName") || undefined,
       adminEmail: formData.get("adminEmail") || undefined,
@@ -92,9 +98,20 @@ export const createLeagueWizardAction = withAuth(
         })
         .returning();
 
+      const leagueKind: NewLeagueKind = validated.data.leagueKind ?? "tournament";
+      const settingsDefaults = resolveNewLeagueSettingsDefaults(
+        validated.data.slug,
+        validated.data.name,
+        leagueKind,
+      );
+
       await db.insert(leagueSettings).values({
         leagueId: newLeague.id,
         seasonName,
+        carnetThemePreset: settingsDefaults.carnetThemePreset,
+        carnetShowFederation: settingsDefaults.carnetShowFederation,
+        carnetSignatureMode: settingsDefaults.carnetSignatureMode,
+        documentSerialPrefix: settingsDefaults.documentSerialPrefix,
       });
 
       let adminMessage = "";

@@ -5,6 +5,7 @@ import { clubs } from "@/lib/db/schema";
 import { buildDocumentClubSearchConditions } from "@/lib/auth/document-club-search-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { logDocumentClubSearch } from "@/lib/observability/pii-access-log";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
 export type ClubDocumental = {
   id: string;
@@ -26,6 +27,9 @@ const DOCUMENT_SEARCH_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] a
 export async function buscarClubParaDocumento(
   query: string
 ): Promise<BusquedaClubResult> {
+  const rateError = await enforceRateLimit("documentos");
+  if (rateError) return { ok: false, error: rateError };
+
   const auth = await requireAuth([...DOCUMENT_SEARCH_ROLES]);
   if (auth.denied) return { ok: false, error: auth.error };
 

@@ -7,6 +7,7 @@ import {
   LDDBI_PREMIUM_ACCENT_HEX,
   LDDBI_PREMIUM_PRIMARY_HEX,
 } from "@/lib/carnet/lddbiPremiumTheme";
+import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
 import { hexToRgbTuple } from "@/lib/pdf/brand-colors";
 import {
   DEFAULT_PDF_ACCENT_RGB,
@@ -88,8 +89,14 @@ export function resolveCarnetThemeConfig(
   settings: CarnetThemeSettingsSlice | null | undefined,
 ): CarnetThemeConfig {
   const preset = parseCarnetThemePreset(settings?.carnetThemePreset);
-  const primaryHex = LDDBI_PREMIUM_PRIMARY_HEX;
-  const accentHex = LDDBI_PREMIUM_ACCENT_HEX;
+  const primaryHex = normalizePortalHexColor(
+    settings?.portalPrimaryColor,
+    LDDBI_PREMIUM_PRIMARY_HEX,
+  );
+  const accentHex = normalizePortalHexColor(
+    settings?.portalAccentColor,
+    LDDBI_PREMIUM_ACCENT_HEX,
+  );
 
   return {
     preset,

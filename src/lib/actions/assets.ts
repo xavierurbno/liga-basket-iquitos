@@ -12,6 +12,7 @@ import {
   resolveLeagueLogoPngDataUrl,
 } from "@/lib/logos/resolve-league-logo-buffer";
 import { normalizePortalHexColor } from "@/lib/leagues/league-branding";
+import { resolveDocumentSerialPrefix } from "@/lib/leagues/resolve-document-serial-prefix";
 import {
   DEFAULT_PDF_ACCENT_RGB,
   DEFAULT_PDF_PRIMARY_RGB,
@@ -53,6 +54,7 @@ export type InstitutionalLogosResult =
       showFederation: boolean;
       leagueSlug: string | null;
       federationDisplayName: string | null;
+      documentSerialPrefix: string;
     }
   | { success: false; error: string };
 
@@ -102,6 +104,11 @@ export async function getInstitutionalLogosAction(
       showFederation,
       leagueSlug: leagueRow?.slug ?? null,
       federationDisplayName: settings?.carnetFederationDisplayName?.trim() || null,
+      documentSerialPrefix: resolveDocumentSerialPrefix({
+        slug: leagueRow?.slug,
+        name: leagueRow?.name,
+        documentSerialPrefix: settings?.documentSerialPrefix,
+      }),
     };
   } catch (error) {
     console.error("Error cargando logos institucionales:", error);

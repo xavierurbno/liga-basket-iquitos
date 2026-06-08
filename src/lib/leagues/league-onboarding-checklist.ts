@@ -25,6 +25,10 @@ export function buildLeagueOnboardingChecklist(input: {
   secretarySignatureUrl?: string | null;
   carnetValidityLabel?: string | null;
   carnetSignatureMode?: string | null;
+  carnetShowFederation?: boolean | null;
+  carnetThemePreset?: string | null;
+  documentSerialPrefix?: string | null;
+  portalPrimaryColor?: string | null;
 }): LeagueOnboardingChecklistItem[] {
   const signatureMode = parseCarnetSignatureMode(input.carnetSignatureMode);
   const portalHref = leaguePortalHome(input.slug);
@@ -103,6 +107,32 @@ export function buildLeagueOnboardingChecklist(input: {
           },
         ]
       : []),
+    {
+      id: "carnet-branding",
+      label: input.carnetShowFederation
+        ? "Branding federado (FDPB en carnet)"
+        : "Branding local (sin federación en carnet)",
+      done: input.carnetShowFederation === false || input.carnetShowFederation === true,
+      href: "#carnet-settings",
+      hint:
+        input.carnetShowFederation === false
+          ? "Torneo local: solo logo y nombre de la liga"
+          : "Liga federada: logo FDPB + liga",
+    },
+    {
+      id: "document-serial",
+      label: "Prefijo de serial documental",
+      done: Boolean(input.documentSerialPrefix?.trim()),
+      href: "#carnet-settings",
+      hint: input.documentSerialPrefix?.trim() || "Define prefijo en configuración (ej. COPA)",
+    },
+    {
+      id: "portal-colors",
+      label: "Colores del portal y carnet",
+      done: Boolean(input.portalPrimaryColor?.trim()),
+      href: "#carnet-settings",
+      hint: input.portalPrimaryColor?.trim() || "Color primario en ajustes de la liga",
+    },
   ];
 }
 

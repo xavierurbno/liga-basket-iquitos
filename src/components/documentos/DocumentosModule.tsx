@@ -23,6 +23,8 @@ import {
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
 import { getInstitutionalLogosAction } from "@/lib/actions/assets";
 import { getEntityValidationUrlAction } from "@/lib/actions/validation-url";
+import { formatDocumentSerialText } from "@/lib/leagues/resolve-document-serial-prefix";
+import { isSignedValidationUrl } from "@/lib/validation/is-signed-validation-url";
 
 interface EmisionDocumento {
   id: string;
@@ -207,6 +209,7 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
             showFederation: logosRes.showFederation,
             leagueSlug: logosRes.leagueSlug,
             federationDisplayName: logosRes.federationDisplayName,
+            documentSerialPrefix: logosRes.documentSerialPrefix,
           }
         : {};
 
@@ -233,11 +236,19 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
         };
       } else if (jugador) {
         const validationRes = await getEntityValidationUrlAction(jugador.id, "player");
+        if (!validationRes.ok) {
+          setPdfError(
+            validationRes.error ||
+              "No se pudo generar el enlace de validación firmado. Revisa VALIDATION_TOKEN_SECRET y NEXT_PUBLIC_SITE_URL.",
+          );
+          setIsGenerando(false);
+          return;
+        }
         const fotoDataUrl = jugador.photoUrl ? await urlToDataUrl(jugador.photoUrl) : null;
         inputData = {
           type: tipoDoc as "CARTA_PASE" | "CONSTANCIA",
           entityId: jugador.id,
-          validationUrl: validationRes.ok ? validationRes.url : null,
+          validationUrl: validationRes.url,
           shortIdentifier: jugador.documentNumber,
           name: jugador.name,
           lastname: jugador.lastname,
@@ -294,6 +305,15 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
   const handleReimprimir = useCallback(async (hist: any) => {
     try {
       const snap: DocumentoInput = hist.snapshot;
+      if (
+        snap.type !== "SOLVENCIA_CLUB" &&
+        !isSignedValidationUrl(snap.validationUrl)
+      ) {
+        alert(
+          "Este documento tiene un QR desactualizado (formato anterior). Busca al jugador de nuevo y emite un documento nuevo con QR firmado.",
+        );
+        return;
+      }
       const blob = await generarDocumentoInstitucional({
         ...snap,
         esCopia: true,
@@ -309,7 +329,11 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
       a.click(); URL.revokeObjectURL(url);
     } catch (error: unknown) {
       console.error(error);
-      alert("Error al reimprimir documento.");
+      const msg =
+        error instanceof Error && error.message.includes("validación")
+          ? error.message
+          : "Error al reimprimir documento.";
+      alert(msg);
     }
   }, []);
 
@@ -502,7 +526,14 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
                       {historial.map((h) => {
                         return (
                           <tr key={h.id} className="hover:bg-slate-50/50">
-                            <td className="px-6 py-3 font-mono text-[11px] font-bold text-[#005CEE]">{`LDDBI - ${h.shortIdentifier} - ${h.correlative}`}</td>
+                            <td className="px-6 py-3 font-mono text-[11px] font-bold text-[#005CEE]">
+                              {formatDocumentSerialText(
+                                h.snapshot?.documentSerialPrefix ?? "LDDBI",
+                                h.shortIdentifier,
+                                h.correlative,
+                                h.snapshot?.esCopia,
+                              )}
+                            </td>
                             <td className="px-6 py-3 font-medium text-slate-900">
                               {h.type === "CARTA_PASE" ? "CARTA DE PASE" : h.type === "CONSTANCIA" ? "CONSTANCIA" : "NO ADEUDO"}
                             </td>

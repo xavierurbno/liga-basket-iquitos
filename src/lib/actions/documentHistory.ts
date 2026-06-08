@@ -11,6 +11,7 @@ import {
 import { requireAuth } from "@/lib/auth/require-auth";
 import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
 import { readUserRole } from "@/lib/auth/read-user-role";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
 
 const DOCUMENT_HISTORY_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
@@ -22,6 +23,9 @@ export type RegistroEmisionResult =
 export async function registrarEmisionDocumento(
   data: DocumentoInput & { shortIdentifier: string },
 ): Promise<RegistroEmisionResult> {
+  const rateError = await enforceRateLimit("documentos");
+  if (rateError) return { ok: false, error: rateError };
+
   const auth = await requireAuth([...DOCUMENT_HISTORY_ROLES]);
   if (auth.denied) return { ok: false, error: auth.error };
 

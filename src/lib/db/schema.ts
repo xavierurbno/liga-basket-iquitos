@@ -397,6 +397,8 @@ export const leagueSettings = pgTable(
     carnetFederationDisplayName: text("carnet_federation_display_name"),
     carnetSportLabel: varchar("carnet_sport_label", { length: 40 }),
     carnetSportGraphicUrl: text("carnet_sport_graphic_url"),
+    /** Prefijo serial documentos (carta/constancia/solvencia); null = derivado del slug. */
+    documentSerialPrefix: varchar("document_serial_prefix", { length: 12 }),
     socialFacebookUrl: text("social_facebook_url"),
     socialInstagramUrl: text("social_instagram_url"),
     socialYoutubeUrl: text("social_youtube_url"),

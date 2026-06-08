@@ -47,3 +47,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Assets carnet en tránsito (no versionar)
+/public/carnet/_incoming/
