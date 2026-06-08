@@ -12,6 +12,7 @@ export function SiteTopNav({
   leagueSlug,
   leagueName,
   leagueLogoUrl,
+  leagueId,
 }: {
   variant?: PortalSiteHeaderVariant;
   hidePanelGestión?: boolean;
@@ -19,6 +20,7 @@ export function SiteTopNav({
   leagueSlug?: string;
   leagueName?: string;
   leagueLogoUrl?: string | null;
+  leagueId?: string | null;
 }) {
   return (
     <Suspense
@@ -30,6 +32,7 @@ export function SiteTopNav({
           leagueSlug={leagueSlug}
           leagueName={leagueName}
           leagueLogoUrl={leagueLogoUrl}
+          leagueId={leagueId}
         />
       }
     >
@@ -39,6 +42,7 @@ export function SiteTopNav({
         leagueSlug={leagueSlug}
         leagueName={leagueName}
         leagueLogoUrl={leagueLogoUrl}
+        leagueId={leagueId}
       />
     </Suspense>
   );

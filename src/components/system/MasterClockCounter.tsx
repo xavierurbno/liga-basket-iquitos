@@ -7,9 +7,10 @@ import { useCountdown } from "@/hooks/useCountdown";
 
 // ─── Types ───────────────────────────────────────────────────
 import { LeagueSettings } from "@/lib/types/league";
+import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 
 export interface MasterClockCounterProps {
-  variant?: "flip" | "minimal";
+  variant?: "flip" | "minimal" | "banner";
   /** Alineación del bloque (portal público: `start` con el eje del carrusel). */
   layoutAlign?: "center" | "start";
   /** Liga del portal visitado; si se omite, el servidor usa cookie o liga por defecto. */
@@ -259,7 +260,6 @@ export function MasterClockCounter({
   if (!isManual && (countdown.isExpired || !end)) return null;
 
   if (variant === "minimal") {
-    
     return (
       <div className="flex items-center gap-2">
         <span className="relative flex h-2 w-2 shrink-0">
@@ -278,6 +278,40 @@ export function MasterClockCounter({
             </>
           )}
         </span>
+      </div>
+    );
+  }
+
+  if (variant === "banner") {
+    return (
+      <div className="w-full border-t border-blue-100/80 bg-blue-50/90">
+        <div
+          className={`${PORTAL_SHELL_CLASS} flex min-h-10 items-center justify-center gap-2 py-2 sm:justify-start sm:py-2.5`}
+        >
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#005CEE] opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#005CEE]" />
+          </span>
+          <p className="text-center text-xs font-bold leading-snug text-[#1e3a5f] sm:text-left sm:text-sm">
+            <span className="uppercase tracking-wide text-[#005CEE]">Mercado de pases</span>
+            <span className="mx-1.5 text-slate-300" aria-hidden>
+              ·
+            </span>
+            {isManual ? (
+              <span className="font-extrabold tracking-tight">
+                {settings?.bannerText?.trim() || "Abierto"}
+              </span>
+            ) : (
+              <span className="font-extrabold">
+                Cierra en{" "}
+                <span className="tabular-nums tracking-wide text-[#005CEE]">
+                  {String(countdown.days).padStart(2, "0")}d : {String(countdown.hours).padStart(2, "0")}h :{" "}
+                  {String(countdown.minutes).padStart(2, "0")}m
+                </span>
+              </span>
+            )}
+          </p>
+        </div>
       </div>
     );
   }

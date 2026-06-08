@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import { canAccessIntranet } from "@/lib/auth/intranet-gate";
 import { SiteTopNav } from "@/components/layout/SiteTopNav";
 import { LoginForm } from "@/components/auth/LoginForm";
-import { PublicPortalMasterClock } from "@/components/portal/PublicPortalMasterClock";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { StaleSessionCleanup } from "@/components/auth/StaleSessionCleanup";
 import { resolveLoginPortalLeague } from "@/lib/portal/resolve-login-league";
@@ -91,11 +90,10 @@ export default async function LoginPage({ searchParams }: Props) {
         leagueSlug={league?.slug}
         leagueName={league?.name}
         leagueLogoUrl={league?.logoUrl}
+        leagueId={league?.leagueId}
       />
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="flex w-full max-w-[1000px] flex-col items-center space-y-8">
-          <PublicPortalMasterClock />
-
           <div className="w-full text-center">
             <div className="mb-8 flex justify-center animate-in fade-in zoom-in duration-700">
               {heroLogoUrl ? (

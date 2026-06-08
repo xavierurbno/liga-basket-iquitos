@@ -7,7 +7,6 @@ import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 import { PublicPortalCarouselSection } from "@/components/portal/PublicPortalCarouselSection";
 import { PublicPortalTournamentsAsync } from "@/components/portal/PublicPortalTournamentsAsync";
 import { PublicTournamentsSkeleton } from "@/components/portal/PublicTournamentsSkeleton";
-import { PublicPortalMasterClock } from "@/components/portal/PublicPortalMasterClock";
 import type { LeaguePortalBranding } from "@/lib/leagues/league-branding";
 import { PortalLeagueTheme } from "@/components/portal/PortalLeagueTheme";
 
@@ -43,13 +42,10 @@ export function LeaguePortalHome({ league, programHome = false }: LeaguePortalHo
         leagueSlug={programHome ? undefined : league.slug}
         leagueName={programHome ? undefined : league.name}
         leagueLogoUrl={programHome ? undefined : league.logoUrl}
+        leagueId={leagueId}
       />
 
       <main className={`flex flex-1 flex-col pb-8 pt-2 ${PORTAL_SHELL_CLASS}`}>
-        <div className="w-full">
-          <PublicPortalMasterClock layoutAlign="start" leagueId={leagueId} />
-        </div>
-
         <Suspense fallback={<CarouselSkeleton />}>
           <PublicPortalCarouselSection leagueId={leagueId} leagueSlug={league.slug} />
         </Suspense>

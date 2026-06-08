@@ -18,6 +18,7 @@ import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { PortalSocialLinks } from "@/components/layout/PortalSocialLinks";
 import { buildLeagueSocialLinks, type LeagueSocialLink } from "@/lib/leagues/league-social-links";
 import { settingsRepository } from "@/repositories/settingsRepository";
+import { PublicPortalTransferClockBar } from "@/components/portal/PublicPortalTransferClockBar";
 
 const navBtnClass =
   "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition hover:border-[#1e3a5f] hover:text-[#1e3a5f]";
@@ -102,6 +103,7 @@ export function PortalSiteHeaderBar({
   leagueName,
   leagueLogoUrl,
   socialLinks = [],
+  leagueId,
 }: {
   variant?: PortalSiteHeaderVariant;
   panelHref?: string;
@@ -111,6 +113,7 @@ export function PortalSiteHeaderBar({
   leagueName?: string;
   leagueLogoUrl?: string | null;
   socialLinks?: LeagueSocialLink[];
+  leagueId?: string | null;
 }) {
   const showGestiónLink =
     !hidePanelGestión && (variant === "busqueda365" || variant === "normativas");
@@ -168,6 +171,7 @@ export function PortalSiteHeaderBar({
           ) : null}
         </nav>
       </div>
+      {leagueId?.trim() ? <PublicPortalTransferClockBar leagueId={leagueId.trim()} /> : null}
     </header>
   );
 }
@@ -183,24 +187,34 @@ export async function PortalSiteHeader({
   leagueSlug,
   leagueName,
   leagueLogoUrl,
+  leagueId: explicitLeagueId,
 }: {
   variant?: PortalSiteHeaderVariant;
   hidePanelGestión?: boolean;
   leagueSlug?: string;
   leagueName?: string;
   leagueLogoUrl?: string | null;
+  leagueId?: string | null;
 }) {
   const panelHref = await resolvePortalPanelHref();
   const socialLinks = await resolvePortalSocialLinks(leagueSlug);
   let resolvedName = leagueName;
   let resolvedLogo = leagueLogoUrl;
+  let resolvedLeagueId = explicitLeagueId?.trim() || null;
 
-  if (leagueSlug?.trim() && (!resolvedName || resolvedLogo === undefined)) {
+  if (leagueSlug?.trim()) {
     const branding = await fetchPortalLeagueBranding(leagueSlug.trim());
     if (branding) {
       resolvedName = resolvedName ?? branding.name;
       if (resolvedLogo === undefined) resolvedLogo = branding.logoUrl;
+      resolvedLeagueId = resolvedLeagueId ?? branding.leagueId?.trim() ?? null;
     }
+    if (!resolvedLeagueId) {
+      const league = await fetchPortalLeagueBySlug(leagueSlug.trim());
+      resolvedLeagueId = league?.id?.trim() ?? null;
+    }
+  } else if (!resolvedLeagueId) {
+    resolvedLeagueId = (await resolveDefaultPortalLeagueId())?.trim() ?? null;
   }
 
   return (
@@ -212,6 +226,7 @@ export async function PortalSiteHeader({
       leagueName={resolvedName}
       leagueLogoUrl={resolvedLogo}
       socialLinks={socialLinks}
+      leagueId={resolvedLeagueId}
     />
   );
 }
