@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { CarnetConfigAlert } from "@/components/carnet/CarnetConfigAlert";
 import { LeagueSettingsForm } from "@/components/admin/LeagueSettingsForm";
 import { buildCarnetLeagueReadiness } from "@/lib/carnet/carnetLeagueReadiness";
+import { isLddbiCarnetPreset } from "@/lib/carnet/lddbiTemplateLayout";
+import type { CarnetThemePreset } from "@/lib/carnet/carnetTheme";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
@@ -39,11 +41,17 @@ export default async function LigaConfiguracionPage() {
   const { hasLeagueMonoLogoAvailable } = await import(
     "@/lib/logos/resolve-league-logo-buffer"
   );
+  const carnetPreset = settings?.carnetThemePreset as CarnetThemePreset | undefined;
+  const showFederation = settings?.carnetShowFederation !== false;
+  const hasFederationLogo =
+    !showFederation ||
+    Boolean(settings?.carnetFederationLogoUrl?.trim()) ||
+    isLddbiCarnetPreset(carnetPreset);
   const leagueReadiness = buildCarnetLeagueReadiness(
     settings,
     Boolean(settings?.loginLogoUrl?.trim()),
-    Boolean(settings?.carnetFederationLogoUrl?.trim()),
-    settings?.carnetThemePreset as import("@/lib/carnet/carnetTheme").CarnetThemePreset | undefined,
+    hasFederationLogo,
+    carnetPreset,
     await hasLeagueMonoLogoAvailable(league.id),
   );
 

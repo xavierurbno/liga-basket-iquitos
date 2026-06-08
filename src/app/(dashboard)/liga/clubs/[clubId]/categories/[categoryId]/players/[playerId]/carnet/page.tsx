@@ -115,9 +115,12 @@ export default async function CarnetJugadorPage({
   const credentialIssuedAt = jugador.credentialIssuedAt
     ? jugador.credentialIssuedAt.toISOString()
     : null;
+  const blockingWarnings = leagueReadiness.warnings.filter((w) => w.severity === "warning");
   const canEmitCarnet = leagueReadiness.ready && Boolean(fotoPublica);
   const emitBlockReason = !leagueReadiness.ready
-    ? "Completa la configuración del carnet en ajustes de liga."
+    ? blockingWarnings.length > 0
+      ? `Falta en configuración: ${blockingWarnings.map((w) => w.message).join(" · ")}`
+      : "Completa la configuración del carnet en ajustes de liga."
     : !fotoPublica
       ? "Sube la foto del deportista."
       : null;

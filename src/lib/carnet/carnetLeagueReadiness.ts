@@ -48,13 +48,13 @@ export function buildCarnetLeagueReadiness(
     });
   }
 
-  if (
-    (isLddbiCarnetPreset(carnetPreset) || settings?.carnetShowFederation !== false) &&
-    !hasFederationLogo
-  ) {
+  const showFederation = settings?.carnetShowFederation !== false;
+  if (showFederation && !hasFederationLogo) {
     warnings.push({
       id: "logo-federacion",
-      message: "Sube el logo de la federación para el carnet LDDBI (cabecera derecha).",
+      message: isLddbiCarnetPreset(carnetPreset)
+        ? "Sube el logo de la federación para el carnet LDDBI (cabecera derecha), o activa el logo por defecto del sistema."
+        : "Sube el logo de la federación para el carnet (cabecera).",
       severity: "warning",
     });
   }
