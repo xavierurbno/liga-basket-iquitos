@@ -39,8 +39,8 @@ export type GenerateCarnetPDFProps = {
   label?: string;
   className?: string;
   disabled?: boolean;
-  /** Consulta pública /validar: carga assets sin sesión de panel. */
-  publicInstitutionalAssets?: boolean;
+  /** Consulta pública /validar: token firmado del QR para cargar assets sin sesión. */
+  validationTokenForPublicAssets?: string | null;
 };
 
 /** Datos del deportista para el motor PDF (sin assets rasterizados). */

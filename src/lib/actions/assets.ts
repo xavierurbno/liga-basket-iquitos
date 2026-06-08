@@ -1,10 +1,11 @@
 "use server";
 
 import sharp from "sharp";
-import { assertInstitutionalAssetsForLeague } from "@/lib/auth/institutional-assets-access";
+import { assertInstitutionalAssetsForLeague, isLeagueUuid } from "@/lib/auth/institutional-assets-access";
 import { requireAuth } from "@/lib/auth/require-auth";
 import type { Role } from "@/lib/auth/withAuth";
 import { loadCarnetInstitutionalAssetsCore } from "@/lib/carnet/load-carnet-institutional-assets-core.server";
+import { toPublicCarnetAssetsResult } from "@/lib/carnet/sanitize-public-carnet-assets.server";
 import type { CarnetInstitutionalAssetsResult } from "@/lib/types/carnet";
 import {
   resolveFederationLogoForLeaguePngDataUrl,
@@ -16,6 +17,8 @@ import {
   DEFAULT_PDF_PRIMARY_RGB,
   hexToRgbTuple,
 } from "@/lib/pdf/brand-colors";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
+import { resolveLeagueIdFromValidationToken } from "@/lib/validation/resolve-league-from-validation-token.server";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import { leagueRepository } from "@/repositories/league.repository";
 
@@ -110,19 +113,34 @@ export async function getInstitutionalLogosAction(
 }
 
 /**
- * Assets del carnet para consulta pública (/validar jugador). Sin autenticación.
- * Solo expone lo que ya figura en el carnet impreso.
+ * Assets del carnet para consulta pública (/validar). Requiere token firmado del QR.
+ * Solo expone raster y textos visibles en el carnet impreso (sin URLs crudas).
  */
 export async function getCarnetInstitutionalAssetsPublicAction(
-  leagueId: string,
+  validationToken: string,
 ): Promise<CarnetInstitutionalAssetsResult> {
-  const leagueIdNorm = leagueId?.trim();
-  if (!leagueIdNorm) {
+  const rateLimited = await enforceRateLimit("validarAssets");
+  if (rateLimited) {
+    return { success: false, error: rateLimited };
+  }
+
+  const token = validationToken?.trim();
+  if (!token) {
+    return { success: false, error: "Token de validación requerido." };
+  }
+
+  const leagueRes = await resolveLeagueIdFromValidationToken(token);
+  if (!leagueRes.ok) {
+    return { success: false, error: leagueRes.error };
+  }
+
+  if (!isLeagueUuid(leagueRes.leagueId)) {
     return { success: false, error: "ID de liga inválido." };
   }
 
   try {
-    return await loadCarnetInstitutionalAssetsCore(leagueIdNorm);
+    const loaded = await loadCarnetInstitutionalAssetsCore(leagueRes.leagueId);
+    return toPublicCarnetAssetsResult(loaded);
   } catch (error) {
     console.error("[getCarnetInstitutionalAssetsPublicAction]", error);
     return {
@@ -140,6 +158,10 @@ export async function getCarnetInstitutionalAssetsAction(
 ): Promise<CarnetInstitutionalAssetsResult> {
   const leagueIdNorm = leagueId?.trim();
   if (!leagueIdNorm) {
+    return { success: false, error: "ID de liga inválido." };
+  }
+
+  if (!isLeagueUuid(leagueIdNorm)) {
     return { success: false, error: "ID de liga inválido." };
   }
 

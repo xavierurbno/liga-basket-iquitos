@@ -1,4 +1,5 @@
 import { isCarnetValidacionMode } from "@/lib/carnet/isCarnetValidacionMode";
+import { extractValidationTokenFromUrl } from "@/lib/validation/extract-validation-token";
 import type { CarnetVistaPreviaProps, GenerateCarnetPDFProps } from "@/lib/types/carnet";
 
 export type CarnetVistaPreviaPdfExtras = {
@@ -25,6 +26,10 @@ export function mapVistaPreviaToGenerateCarnetPdfProps(
     extras.fileName ??
     `carnet-${props.documentNumber}`.replace(/[^a-zA-Z0-9._-]/g, "-");
 
+  const validationTokenForPublicAssets = isCarnetValidacionMode(props)
+    ? extractValidationTokenFromUrl(props.validationUrl)
+    : null;
+
   return {
     leagueId: extras.leagueId,
     leagueDisplayName: props.leagueDisplayName,
@@ -46,6 +51,6 @@ export function mapVistaPreviaToGenerateCarnetPdfProps(
     photoUrl: props.photoUrl,
     clubLogoUrl: extras.clubLogoUrl ?? null,
     validationUrl: props.validationUrl,
-    publicInstitutionalAssets: isCarnetValidacionMode(props),
+    validationTokenForPublicAssets,
   };
 }

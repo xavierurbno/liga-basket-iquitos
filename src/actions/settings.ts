@@ -19,6 +19,10 @@ import {
   normalizeLeagueSocialSettings,
 } from "@/lib/leagues/league-social-links";
 import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
+import {
+  institutionalAssetUrlError,
+  isAllowedInstitutionalAssetUrl,
+} from "@/lib/security/allowed-fetch-url";
 
 /**
  * Esquema de validación para las configuraciones de la liga.
@@ -76,6 +80,29 @@ const leagueSettingsSchema = z.object({
   socialTiktokUrl: z.string().max(500).optional(),
   socialWhatsappUrl: z.string().max(500).optional(),
 });
+
+const INSTITUTIONAL_ASSET_URL_FIELDS = [
+  { key: "loginLogoUrl" as const, label: "Logo de login" },
+  { key: "carnetFederationLogoUrl" as const, label: "Logo federación (carnet)" },
+  { key: "carnetLeagueMonoLogoUrl" as const, label: "Logo liga B/N" },
+  { key: "presidentSignatureUrl" as const, label: "Firma presidente" },
+  { key: "secretarySignatureUrl" as const, label: "Firma secretario" },
+  { key: "carnetSportGraphicUrl" as const, label: "Gráfico deportivo" },
+];
+
+function validateInstitutionalAssetUrls(
+  data: z.infer<typeof leagueSettingsSchema>,
+): Record<string, string[]> | null {
+  const errors: Record<string, string[]> = {};
+  for (const { key, label } of INSTITUTIONAL_ASSET_URL_FIELDS) {
+    const value = data[key]?.trim();
+    if (!value) continue;
+    if (!isAllowedInstitutionalAssetUrl(value)) {
+      errors[key] = [institutionalAssetUrlError(label)];
+    }
+  }
+  return Object.keys(errors).length > 0 ? errors : null;
+}
 
 async function uploadLeagueCarnetAsset(
   leagueId: string,
@@ -173,6 +200,15 @@ export const updateLeagueSettingsAction = withAuth(
         success: false,
         message: "Error de validación: Por favor revisa los campos marcados.",
         errors: validated.error.flatten().fieldErrors,
+      };
+    }
+
+    const assetUrlErrors = validateInstitutionalAssetUrls(validated.data);
+    if (assetUrlErrors) {
+      return {
+        success: false,
+        message: "Una o más URLs de assets institucionales no están permitidas.",
+        errors: assetUrlErrors,
       };
     }
 

@@ -95,10 +95,3 @@ export function buildPublicValidationUrl(
     return null;
   }
 }
-
-/** UUID v4 en carnets/fichas impresos antes de Fase 1 seguridad. */
-export function isLegacyValidationUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value.trim(),
-  );
-}

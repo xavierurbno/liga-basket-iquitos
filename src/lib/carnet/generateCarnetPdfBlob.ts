@@ -3,6 +3,7 @@ import { buildCarnetJugadorPdfInput } from "@/lib/carnet/buildCarnetJugadorPdfIn
 import { buildCarnetPdfImageAssets } from "@/lib/carnet/buildCarnetPdfImageAssets";
 import { loadCarnetInstitutionalAssets } from "@/lib/carnet/loadCarnetInstitutionalAssets";
 import { generarCarnetJugadorPdf } from "@/lib/pdf/carnetJugadorPdf";
+import { extractValidationTokenFromUrl } from "@/lib/validation/extract-validation-token";
 import type { GenerateCarnetPDFProps } from "@/lib/types/carnet";
 
 /** Genera el mismo Blob que descarga «Carnet PDF» (WYSIWYG). */
@@ -12,10 +13,14 @@ export async function generateCarnetPdfBlob(
   const base =
     typeof window !== "undefined" ? window.location.origin : "";
 
+  const validationToken =
+    props.validationTokenForPublicAssets?.trim() ||
+    extractValidationTokenFromUrl(props.validationUrl);
+
   const inst = await loadCarnetInstitutionalAssets(
     props.leagueId,
     props.leagueDisplayName?.trim() || "Liga deportiva",
-    { publicAccess: props.publicInstitutionalAssets },
+    validationToken ? { validationToken } : undefined,
   );
 
   let validationUrl = props.validationUrl?.trim() || null;

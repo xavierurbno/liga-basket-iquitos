@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
+import { isAllowedInstitutionalAssetUrl } from "@/lib/security/allowed-fetch-url";
 import { DEFAULT_PUBLIC_LEAGUE_LOGO } from "@/lib/logos/public-league-logo";
 import { resolvePublicLeagueLogoUrlFromDisk } from "@/lib/logos/resolve-public-league-logo.server";
 import { resolveWatermarkLogoPath } from "@/lib/logos/resolve-watermark-logo";
@@ -18,6 +19,10 @@ async function readPublicAssetBuffer(relativeUrl: string): Promise<Buffer | null
 }
 
 async function fetchRemoteImageBuffer(url: string): Promise<Buffer | null> {
+  if (!isAllowedInstitutionalAssetUrl(url)) {
+    console.warn("[fetchRemoteImageBuffer] URL bloqueada por allowlist:", url);
+    return null;
+  }
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;

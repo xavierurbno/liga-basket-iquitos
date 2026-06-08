@@ -1,4 +1,4 @@
-export type RateLimitScope = "login" | "validar" | "busqueda365";
+export type RateLimitScope = "login" | "validar" | "validarAssets" | "busqueda365";
 
 export type RateLimitConfig = {
   limit: number;
@@ -8,6 +8,8 @@ export type RateLimitConfig = {
 export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   login: { limit: 10, windowMs: 15 * 60 * 1000 },
   validar: { limit: 60, windowMs: 10 * 60 * 1000 },
+  /** Server action pública de assets del carnet en /validar. */
+  validarAssets: { limit: 10, windowMs: 60 * 1000 },
   busqueda365: { limit: 40, windowMs: 60 * 1000 },
 };
 

@@ -7,7 +7,6 @@ import {
 } from "@/lib/validar/build-validation-presentation.server";
 import { logValidarView } from "@/lib/observability/pii-access-log";
 import {
-  isLegacyValidationUuid,
   verifyEntityValidationToken,
 } from "@/lib/validation/entity-validation-token";
 
@@ -38,10 +37,6 @@ function resolveValidationTarget(segment: string): {
       entityId: verified.entityId,
       lookup: verified.kind === "player" ? "player" : "category",
     };
-  }
-
-  if (isLegacyValidationUuid(raw)) {
-    return { entityId: raw, lookup: "player" };
   }
 
   return null;

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   createEntityValidationToken,
-  isLegacyValidationUuid,
   verifyEntityValidationToken,
 } from "./entity-validation-token";
 
@@ -34,10 +33,5 @@ describe("entity-validation-token", () => {
     const parts = token.split(".");
     const tampered = `${parts[0]}.${parts[1]}.invalidsig`;
     assert.equal(verifyEntityValidationToken(tampered), null);
-  });
-
-  it("detecta UUID legado", () => {
-    assert.equal(isLegacyValidationUuid(PLAYER_ID), true);
-    assert.equal(isLegacyValidationUuid("v1.abc.def"), false);
   });
 });

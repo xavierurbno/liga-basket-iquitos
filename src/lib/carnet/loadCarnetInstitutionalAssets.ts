@@ -21,8 +21,8 @@ export type CarnetInstitutionalAssetsBundle = {
 };
 
 export type LoadCarnetInstitutionalAssetsOptions = {
-  /** `/validar` sin sesión: usa action pública con plantillas y logos de la liga. */
-  publicAccess?: boolean;
+  /** Token firmado del QR `/validar` (ruta pública sin sesión). */
+  validationToken?: string | null;
 };
 
 /** Mismos assets institucionales que el botón «Descargar PDF». */
@@ -51,8 +51,9 @@ export async function loadCarnetInstitutionalAssets(
   );
 
   if (leagueId?.trim()) {
-    const inst = opts?.publicAccess
-      ? await getCarnetInstitutionalAssetsPublicAction(leagueId.trim())
+    const validationToken = opts?.validationToken?.trim();
+    const inst = validationToken
+      ? await getCarnetInstitutionalAssetsPublicAction(validationToken)
       : await getCarnetInstitutionalAssetsAction(leagueId.trim());
     if (inst.success) {
       ligaLogoPngDataUrl = inst.ligaLogoPngDataUrl;
@@ -65,7 +66,7 @@ export async function loadCarnetInstitutionalAssets(
       anversoTemplatePngDataUrl = inst.anversoTemplatePngDataUrl ?? null;
       reversoTemplatePngDataUrl = inst.reversoTemplatePngDataUrl ?? null;
       institucional = inst.context;
-    } else {
+    } else if (!validationToken) {
       const logosRes = await getInstitutionalLogosAction(leagueId);
       if (logosRes.success) {
         ligaLogoPngDataUrl = logosRes.ligaBase64;
