@@ -1,6 +1,9 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
 import { splitFederationDisplayLines } from "@/lib/carnet/carnetTheme";
-import { resolveLddbiReversoLineas } from "@/lib/carnet/lddbiEncabezadoText";
+import {
+  lddbiHeaderPdfFontPt,
+  resolveLddbiReversoLineas,
+} from "@/lib/carnet/lddbiEncabezadoText";
 import { LDDBI_FONT_REV, LDDBI_QR_REVERSO_MM } from "@/lib/carnet/lddbiPremiumTheme";
 import type { CarnetJugadorPdfInput } from "@/lib/types/carnet";
 import { CARNET_MARGEN_MM } from "@/lib/pdf/carnetLayout";
@@ -75,7 +78,13 @@ export function drawCarnetLddbiReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInp
   const watermarkPng =
     input.sportGraphicPngDataUrl ?? input.federacionLogoPngDataUrl ?? input.ligaLogoPngDataUrl;
 
-  const { lineaFederacion, lineaLiga } = resolveLddbiReversoLineas(input.leagueDisplayName);
+  const encabezado = resolveLddbiReversoLineas(
+    input.leagueDisplayName,
+    input.theme.federationDisplayName,
+    input.theme.showFederation,
+    input.leagueSlug,
+    input.theme.sportLabel,
+  );
   const revLogoSlot = LDDBI_LOGO_MM - 0.5;
   const vigenciaW = 18;
 
@@ -84,30 +93,36 @@ export function drawCarnetLddbiReverso(doc: JsPDFDoc, input: CarnetJugadorPdfInp
   drawLogoFit(doc, input.ligaLogoPngDataUrl, m, 0.6, revLogoSlot, LDDBI_REV_TOP_MM - 1.2);
 
   const centerMaxW = pageW - m * 2 - revLogoSlot - vigenciaW - 2;
-  const fedLineH = 2.35;
-  const ligaLineH = 2.1;
+  const fedLineH = encabezado.headerLayout === "single-prominent" ? 2.75 : 2.35;
+  const ligaLineH = encabezado.headerLayout === "single-prominent" ? 2.75 : 2.1;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT_REV.reversoFed);
-  const reversoFedLines = doc.splitTextToSize(lineaFederacion, centerMaxW);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(LDDBI_FONT_REV.reversoLiga);
-  const reversoLigaLines = doc.splitTextToSize(lineaLiga, centerMaxW);
+  let reversoFedLines: string[] = [];
+  if (encabezado.lineaFederacion != null) {
+    doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "fed"));
+    reversoFedLines = doc.splitTextToSize(encabezado.lineaFederacion, centerMaxW);
+  }
+  doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "liga"));
+  const reversoLigaLines = doc.splitTextToSize(encabezado.lineaLiga, centerMaxW);
 
   const textBlockH = reversoFedLines.length * fedLineH + reversoLigaLines.length * ligaLineH;
   let textY = (LDDBI_REV_TOP_MM - textBlockH) / 2 + 1.2;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT_REV.reversoFed);
-  doc.setTextColor(255, 255, 255);
-  for (const line of reversoFedLines) {
-    doc.text(line, pageW / 2, textY, { align: "center" });
-    textY += fedLineH;
+  if (reversoFedLines.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "fed"));
+    doc.setTextColor(255, 255, 255);
+    for (const line of reversoFedLines) {
+      doc.text(line, pageW / 2, textY, { align: "center" });
+      textY += fedLineH;
+    }
   }
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(LDDBI_FONT_REV.reversoLiga);
+  doc.setFont(
+    "helvetica",
+    encabezado.headerLayout === "single-prominent" ? "bold" : "normal",
+  );
+  doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "liga"));
   doc.setTextColor(248, 252, 255);
   for (const line of reversoLigaLines) {
     doc.text(line, pageW / 2, textY, { align: "center" });

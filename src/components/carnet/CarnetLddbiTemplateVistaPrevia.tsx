@@ -11,7 +11,10 @@ import {
   CARNET_THEME_PRESET_LABELS,
   parseCarnetSignatureMode,
 } from "@/lib/carnet/carnetTheme";
-import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
+import {
+  LDDBI_HEADER_PREVIEW_MM,
+  resolveLddbiEncabezadoLineas,
+} from "@/lib/carnet/lddbiEncabezadoText";
 import {
   createLddbiTemplateMeasureDoc,
   layoutLddbiTemplateAnversoCampos,
@@ -90,15 +93,31 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
     }),
   );
 
-  const { lineaFederacion, lineaLiga } = useMemo(
+  const encabezado = useMemo(
     () =>
       resolveLddbiEncabezadoLineas(
         props.leagueDisplayName,
         props.carnetFederationDisplayName,
         props.carnetShowFederation !== false,
+        props.leagueSlug,
+        props.carnetSportLabel,
       ),
-    [props.leagueDisplayName, props.carnetFederationDisplayName, props.carnetShowFederation],
+    [
+      props.leagueDisplayName,
+      props.carnetFederationDisplayName,
+      props.carnetShowFederation,
+      props.leagueSlug,
+      props.carnetSportLabel,
+    ],
   );
+  const headerFedMm =
+    encabezado.headerLayout === "single-prominent"
+      ? LDDBI_HEADER_PREVIEW_MM.singleProminent
+      : LDDBI_HEADER_PREVIEW_MM.dualFed;
+  const headerLigaMm =
+    encabezado.headerLayout === "single-prominent"
+      ? LDDBI_HEADER_PREVIEW_MM.singleProminent
+      : LDDBI_HEADER_PREVIEW_MM.dualLiga;
 
   useEffect(() => {
     if (!props.validationUrl) {
@@ -262,23 +281,25 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                   className="absolute inset-x-0 flex flex-col items-center justify-center px-[18%] text-center leading-tight"
                   style={{ top: mmY(1.2), bottom: mmY(0.6) }}
                 >
+                  {encabezado.lineaFederacion != null ? (
+                    <p
+                      className="font-bold uppercase"
+                      style={{
+                        fontSize: previewFontSizeCqw(headerFedMm),
+                        color: LDDBI_TEMPLATE_WHITE_HEX,
+                      }}
+                    >
+                      {encabezado.lineaFederacion}
+                    </p>
+                  ) : null}
                   <p
-                    className="font-bold uppercase"
+                    className={`font-bold uppercase ${encabezado.lineaFederacion != null ? "mt-[0.15em]" : ""}`}
                     style={{
-                      fontSize: previewFontSizeCqw(1.85),
-                      color: LDDBI_TEMPLATE_WHITE_HEX,
-                    }}
-                  >
-                    {lineaFederacion}
-                  </p>
-                  <p
-                    className="mt-[0.15em] font-bold uppercase"
-                    style={{
-                      fontSize: previewFontSizeCqw(1.65),
+                      fontSize: previewFontSizeCqw(headerLigaMm),
                       color: "rgba(248,252,255,0.95)",
                     }}
                   >
-                    {lineaLiga}
+                    {encabezado.lineaLiga}
                   </p>
                 </div>
               </div>
@@ -431,23 +452,25 @@ export function CarnetLddbiTemplateVistaPrevia(props: CarnetVistaPreviaProps) {
                   className="absolute inset-x-0 flex flex-col items-center justify-center px-[18%] text-center leading-tight"
                   style={{ top: mmY(1.2), bottom: mmY(0.6) }}
                 >
+                  {encabezado.lineaFederacion != null ? (
+                    <p
+                      className="font-bold uppercase"
+                      style={{
+                        fontSize: previewFontSizeCqw(headerFedMm),
+                        color: LDDBI_TEMPLATE_WHITE_HEX,
+                      }}
+                    >
+                      {encabezado.lineaFederacion}
+                    </p>
+                  ) : null}
                   <p
-                    className="font-bold uppercase"
+                    className={`font-bold uppercase ${encabezado.lineaFederacion != null ? "mt-[0.15em]" : ""}`}
                     style={{
-                      fontSize: previewFontSizeCqw(1.85),
-                      color: LDDBI_TEMPLATE_WHITE_HEX,
-                    }}
-                  >
-                    {lineaFederacion}
-                  </p>
-                  <p
-                    className="mt-[0.15em] font-bold uppercase"
-                    style={{
-                      fontSize: previewFontSizeCqw(1.65),
+                      fontSize: previewFontSizeCqw(headerLigaMm),
                       color: "rgba(248,252,255,0.95)",
                     }}
                   >
-                    {lineaLiga}
+                    {encabezado.lineaLiga}
                   </p>
                 </div>
               </div>

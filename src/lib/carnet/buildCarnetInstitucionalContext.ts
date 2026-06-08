@@ -10,12 +10,14 @@ import type { CarnetInstitucionalInput } from "@/lib/types/carnet";
 export function buildCarnetInstitucionalContext(
   leagueDisplayName: string,
   settings: LeagueSettings | null | undefined,
+  leagueSlug?: string | null,
 ): CarnetInstitucionalInput {
   const name = leagueDisplayName.trim() || "Liga deportiva";
   const theme = resolveCarnetThemeConfig(settings);
 
   return {
     leagueDisplayName: name,
+    leagueSlug: leagueSlug?.trim() || null,
     vigenciaLabel: resolveCarnetValidityLabel(
       settings?.carnetValidityLabel,
       settings?.seasonName,

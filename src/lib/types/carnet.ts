@@ -63,6 +63,7 @@ export type CarnetDeportistaInput = {
 /** Textos y autoridades de la liga (reverso / encabezado). */
 export type CarnetInstitucionalInput = {
   leagueDisplayName: string;
+  leagueSlug?: string | null;
   vigenciaLabel: string;
   presidentDisplayName: string;
   secretaryDisplayName: string;
@@ -149,6 +150,7 @@ export type BuildCarnetPdfImageAssetsResult = CarnetPdfImageAssets;
 export type CarnetVistaPreviaProps = {
   /** Liga operativa (assets institucionales / plantillas PNG). */
   leagueId?: string | null;
+  leagueSlug?: string | null;
   playerId: string;
   leagueDisplayName: string;
   leagueLogoUrl: string | null;

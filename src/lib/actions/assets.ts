@@ -151,7 +151,11 @@ export async function getCarnetInstitutionalAssetsAction(
         resolveImageUrlToPngDataUrl(settings?.carnetSportGraphicUrl, 500),
       ]);
 
-    const context = buildCarnetInstitucionalContext(leagueDisplayName, settings);
+    const context = buildCarnetInstitucionalContext(
+      leagueDisplayName,
+      settings,
+      leagueRow?.slug,
+    );
     let sportGraphicPng = sportGraphicFromLeague;
     const templatePngs = await resolveCarnetTemplatePngAssets(
       parseCarnetThemePreset(settings?.carnetThemePreset),

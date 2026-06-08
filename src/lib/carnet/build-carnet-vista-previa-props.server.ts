@@ -155,6 +155,7 @@ export async function buildCarnetVistaPreviaPropsServer(
 
   return {
     leagueId: effectiveLeagueId,
+    leagueSlug: leagueRow?.slug ?? input.leagueSlug ?? null,
     playerId: input.jugador.id,
     leagueDisplayName,
     clubLogoUrl: resolvePublicImageUrl(input.club.logoUrl),

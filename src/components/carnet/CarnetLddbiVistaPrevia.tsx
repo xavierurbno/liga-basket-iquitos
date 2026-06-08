@@ -50,12 +50,24 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
   const primaryRgb = hexRgb(primary);
   const accentRgb = hexRgb(accent);
   const showFed = props.carnetShowFederation !== false;
-  const { lineaFederacion, lineaLiga } = resolveLddbiEncabezadoLineas(
+  const encabezado = resolveLddbiEncabezadoLineas(
     props.leagueDisplayName,
     props.carnetFederationDisplayName,
     showFed,
+    props.leagueSlug,
+    props.carnetSportLabel,
   );
-  const reversoLineas = resolveLddbiReversoLineas(props.leagueDisplayName);
+  const reversoEncabezado = resolveLddbiReversoLineas(
+    props.leagueDisplayName,
+    props.carnetFederationDisplayName,
+    showFed,
+    props.leagueSlug,
+    props.carnetSportLabel,
+  );
+  const headerFedClass =
+    encabezado.headerLayout === "single-prominent" ? "text-[10px]" : "text-[7.5px]";
+  const headerLigaClass =
+    encabezado.headerLayout === "single-prominent" ? "text-[10px]" : "text-[6.5px]";
   const { apellidoPaterno, apellidoMaterno } = useMemo(
     () => splitApellidosParaCarnet(props.lastname),
     [props.lastname],
@@ -144,11 +156,15 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
               )}
             </div>
             <div className="flex min-h-12 flex-col items-center justify-center text-center leading-snug">
-              <p className="text-[7.5px] font-bold uppercase tracking-tight text-white">
-                {lineaFederacion}
-              </p>
-              <p className="mt-0.5 text-[6.5px] font-medium uppercase text-white">
-                {lineaLiga}
+              {encabezado.lineaFederacion != null ? (
+                <p className={`${headerFedClass} font-bold uppercase tracking-tight text-white`}>
+                  {encabezado.lineaFederacion}
+                </p>
+              ) : null}
+              <p
+                className={`${headerLigaClass} font-bold uppercase text-white ${encabezado.lineaFederacion != null ? "mt-0.5" : ""}`}
+              >
+                {encabezado.lineaLiga}
               </p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center">
@@ -242,11 +258,17 @@ export function CarnetLddbiVistaPrevia(props: CarnetVistaPreviaProps) {
               ) : null}
             </div>
             <div className="min-w-0 text-center leading-snug">
-              <p className="text-[6px] font-bold uppercase tracking-tight text-white">
-                {reversoLineas.lineaFederacion}
-              </p>
-              <p className="mt-0.5 text-[5.5px] font-medium uppercase text-white/95">
-                {reversoLineas.lineaLiga}
+              {reversoEncabezado.lineaFederacion != null ? (
+                <p
+                  className={`${reversoEncabezado.headerLayout === "single-prominent" ? "text-[8px]" : "text-[6px]"} font-bold uppercase tracking-tight text-white`}
+                >
+                  {reversoEncabezado.lineaFederacion}
+                </p>
+              ) : null}
+              <p
+                className={`${reversoEncabezado.headerLayout === "single-prominent" ? "text-[8px]" : "text-[5.5px]"} font-bold uppercase text-white/95 ${reversoEncabezado.lineaFederacion != null ? "mt-0.5" : ""}`}
+              >
+                {reversoEncabezado.lineaLiga}
               </p>
             </div>
             <div className="shrink-0 text-right text-[7px] font-bold uppercase text-white">

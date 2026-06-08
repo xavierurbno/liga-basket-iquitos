@@ -1,5 +1,8 @@
 import type { jsPDF as JsPDFDoc } from "jspdf";
-import { resolveLddbiEncabezadoLineas } from "@/lib/carnet/lddbiEncabezadoText";
+import {
+  lddbiHeaderPdfFontPt,
+  resolveLddbiEncabezadoLineas,
+} from "@/lib/carnet/lddbiEncabezadoText";
 import {
   resolveCarnetOverlayColors,
   type CarnetOverlayColors,
@@ -185,10 +188,12 @@ export function drawLddbiTemplateEncabezadoAnverso(
     face === "anverso" ? A.headerLogoLeagueAnversoMm : A.headerLogoLeagueMm;
   const logoYFed = (LDDBI_HEADER_MM - fedBox) / 2;
   const logoYLiga = (LDDBI_HEADER_MM - leagueBox) / 2;
-  const { lineaFederacion, lineaLiga } = resolveLddbiEncabezadoLineas(
+  const encabezado = resolveLddbiEncabezadoLineas(
     input.leagueDisplayName,
     input.theme.federationDisplayName,
     input.theme.showFederation,
+    input.leagueSlug,
+    input.theme.sportLabel,
   );
   const overlay = getCarnetOverlayColorsForInput(input);
 
@@ -218,31 +223,38 @@ export function drawLddbiTemplateEncabezadoAnverso(
   const sideReserve = Math.max(fedBox, leagueBox);
   const centerMaxW = pageW - 2 * (m + sideReserve + 2.5);
   const cx = pageW / 2;
-  const fedLineH = 2.65;
-  const ligaLineH = 2.35;
+  const fedLineH = encabezado.headerLayout === "single-prominent" ? 3.1 : 2.65;
+  const ligaLineH = encabezado.headerLayout === "single-prominent" ? 3.1 : 2.35;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT.headerFed);
-  const fedLines = doc.splitTextToSize(lineaFederacion, centerMaxW);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT.headerLiga);
-  const ligaLines = doc.splitTextToSize(lineaLiga, centerMaxW);
+  let fedLines: string[] = [];
+  if (encabezado.lineaFederacion != null) {
+    doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "fed"));
+    fedLines = doc.splitTextToSize(encabezado.lineaFederacion, centerMaxW);
+  }
+  doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "liga"));
+  const ligaLines = doc.splitTextToSize(encabezado.lineaLiga, centerMaxW);
 
   const textBlockH = fedLines.length * fedLineH + ligaLines.length * ligaLineH;
   let y = Math.max(1.8, (LDDBI_HEADER_MM - textBlockH) / 2 + 1.1);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT.headerFed);
-  doc.setTextColor(...overlay.headerFedRgb);
-  for (const line of fedLines) {
-    doc.text(line, cx, y, { align: "center" });
-    y += fedLineH;
+  if (fedLines.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "fed"));
+    doc.setTextColor(...overlay.headerFedRgb);
+    for (const line of fedLines) {
+      doc.text(line, cx, y, { align: "center" });
+      y += fedLineH;
+    }
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(LDDBI_FONT.headerLiga);
-  doc.setTextColor(...overlay.headerLigaRgb);
+  doc.setFontSize(lddbiHeaderPdfFontPt(encabezado.headerLayout, "liga"));
+  doc.setTextColor(
+    ...(encabezado.headerLayout === "single-prominent"
+      ? overlay.headerFedRgb
+      : overlay.headerLigaRgb),
+  );
   for (const line of ligaLines) {
     doc.text(line, cx, y, { align: "center" });
     y += ligaLineH;

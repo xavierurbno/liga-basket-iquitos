@@ -391,7 +391,8 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-sm"
               />
               <p className="text-[10px] text-slate-400 ml-1">
-                Desmarca para torneos particulares sin federación. Deja vacío para texto FDPB por defecto.
+                Desmarca para torneos particulares sin federación. En LDDBI/Iquitos, vacío usa FDPB por
+                defecto; en otras ligas solo se muestra el nombre del campeonato.
               </p>
             </div>
             <div className="space-y-2">
