@@ -17,6 +17,9 @@ export type GenerateFichaPDFProps = {
   leagueLogoUrl?: string | null;
   /** Nombre oficial de la liga (cabecera PDF). */
   leagueDisplayName: string;
+  leagueSlug?: string | null;
+  showFederation?: boolean;
+  federationDisplayName?: string | null;
   fileName: string;
   teamId: string;
   clubName: string;
@@ -60,6 +63,11 @@ export type FichaVistaPreviaProps = {
   leagueDisplayName: string;
   /** Logo de la liga (cabecera y marca de agua). */
   leagueLogoUrl: string;
+  leagueSlug?: string | null;
+  showFederation?: boolean;
+  federationDisplayName?: string | null;
+  /** Logo federación (vista previa); null = no mostrar. */
+  federacionLogoUrl?: string | null;
   clubName: string;
   clubLogoUrl: string | null;
   categoriaDetalle: string;

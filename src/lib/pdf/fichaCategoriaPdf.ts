@@ -42,6 +42,9 @@ export type FichaPdfStaffInput = {
 export type FichaCategoriaPdfInput = {
   /** Nombre oficial de la liga (cabecera T2 y pie de página). */
   leagueDisplayName: string;
+  leagueSlug?: string | null;
+  showFederation?: boolean;
+  federationDisplayName?: string | null;
   /** Nombre del club (línea "CLUB: …" en cabecera) */
   clubName: string;
   /** Ej. "U9 - MIXTO" (se imprime como CATEGORÍA: …) */
@@ -70,15 +73,16 @@ const FOOTER_TEXT_COLOR: [number, number, number] = [75, 85, 99];
 
 function calcCabeceraCompactaMetrics(
   doc: jsPDF,
-  categoriaDetalle: string,
-  clubName: string,
-  leagueDisplayName: string
+  input: FichaCategoriaPdfInput,
 ): CabeceraInstitucionalMetrics {
   return calcCabeceraInstitucionalMetrics(doc, {
-    leagueTitleLine: leagueDisplayName,
+    leagueTitleLine: input.leagueDisplayName,
+    leagueSlug: input.leagueSlug,
+    showFederation: input.showFederation,
+    federationDisplayName: input.federationDisplayName,
     identityLines: [
-      `CLUB: ${clubName.trim().toUpperCase()}`,
-      `CATEGORÍA: ${categoriaDetalle.toUpperCase()}`,
+      `CLUB: ${input.clubName.trim().toUpperCase()}`,
+      `CATEGORÍA: ${input.categoriaDetalle.toUpperCase()}`,
     ],
   });
 }
@@ -92,9 +96,12 @@ function drawCabeceraPrimerPagina(
   drawCabeceraInstitucional(
     doc,
     {
-      federacionLogoPngDataUrl: input.federacionLogoPngDataUrl,
+      federacionLogoPngDataUrl: input.showFederation !== false ? input.federacionLogoPngDataUrl : null,
       ligaLogoPngDataUrl: input.ligaLogoPngDataUrl,
       leagueTitleLine: input.leagueDisplayName,
+      leagueSlug: input.leagueSlug,
+      showFederation: input.showFederation,
+      federationDisplayName: input.federationDisplayName,
       identityLines: [
         `CLUB: ${input.clubName.trim().toUpperCase()}`,
         `CATEGORÍA: ${input.categoriaDetalle.toUpperCase()}`,
@@ -262,12 +269,7 @@ export function generarFichaCategoriaPdf(input: FichaCategoriaPdfInput): Blob {
   const pageW = doc.internal.pageSize.getWidth();
   const innerW = pageW - 2 * PAGE_X_MARGIN_MM;
   const columnStylesTabla = buildColumnStylesFullWidth(innerW);
-  const cabeceraMetrics = calcCabeceraCompactaMetrics(
-    doc,
-    input.categoriaDetalle,
-    input.clubName,
-    input.leagueDisplayName,
-  );
+  const cabeceraMetrics = calcCabeceraCompactaMetrics(doc, input);
   const generatedAtIso = input.generatedAtIso ?? new Date().toISOString();
   /** Posición Y donde debe empezar la tabla (sin conflicto con otros `startY` legacy). */
   const tablaStartY = headerTop + cabeceraMetrics.alturaHastaInicioTabla;

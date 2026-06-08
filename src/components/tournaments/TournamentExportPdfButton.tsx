@@ -34,6 +34,9 @@ export function TournamentExportPdfButton({ tournamentId }: { tournamentId: stri
       downloadTournamentFixturePdf(res.data, {
         federacionLogoPngDataUrl: fedUrl,
         ligaLogoPngDataUrl: ligaUrl,
+        showFederation: logosRes.success ? logosRes.showFederation : true,
+        leagueSlug: logosRes.success ? logosRes.leagueSlug : null,
+        federationDisplayName: logosRes.success ? logosRes.federationDisplayName : null,
       });
       toast.success("PDF descargado");
     } catch {

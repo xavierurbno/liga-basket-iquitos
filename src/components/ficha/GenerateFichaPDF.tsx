@@ -115,7 +115,7 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
         clubRaw ? escalarLogoParaPdf(clubRaw, 1200) : null,
       ]);
 
-      if (!fedUrl) {
+      if (!fedUrl && logosRes.showFederation) {
         toast.error("No se pudo cargar el logo de la federación.");
         return;
       }
@@ -210,6 +210,10 @@ export function GenerateFichaPDF(props: GenerateFichaPDFProps) {
 
       const input: FichaCategoriaPdfInput = {
         leagueDisplayName: leagueTitle,
+        leagueSlug: logosRes.leagueSlug ?? props.leagueSlug ?? null,
+        showFederation: logosRes.showFederation ?? props.showFederation,
+        federationDisplayName:
+          logosRes.federationDisplayName ?? props.federationDisplayName ?? null,
         clubName: props.clubName,
         categoriaDetalle: props.categoriaDetalle,
         federacionLogoPngDataUrl: fedUrl,

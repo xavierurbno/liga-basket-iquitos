@@ -2,10 +2,20 @@
  * Textos de cabecera y columnas compartidos entre el PDF y la vista previa en pantalla.
  */
 
+import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
+
 export const FICHA_T1 = "FEDERACIÓN DEPORTIVA PERUANA DE BASKETBALL";
 export const FICHA_T2 = "LIGA DEPORTIVA DISTRITAL DE BASKET DE IQUITOS";
 export const FICHA_T2_AFILIACION = "Afiliada a la Federación Deportiva Peruana de Basketball";
 export const FICHA_T3 = "FICHA DE INSCRIPCIÓN";
+
+export type FichaCabeceraLayout = "dual" | "single-prominent";
+
+export type FichaCabeceraLineas = {
+  lineaFederacion: string | null;
+  lineaLiga: string;
+  layout: FichaCabeceraLayout;
+};
 
 /** Nombres históricos o de BD que deben mostrarse con el título institucional de Iquitos. */
 const IQUITOS_LEAGUE_TITLE_ALIASES = new Set([
@@ -23,6 +33,43 @@ export function resolveFichaLeagueTitle(leagueDisplayName?: string | null): stri
     return FICHA_T2;
   }
   return name.toUpperCase();
+}
+
+/**
+ * Cabecera institucional (ficha, fixture, documentos): misma regla que el carnet.
+ * LDDBI/Iquitos → FDPB + liga; torneos sin federación → solo nombre del campeonato.
+ */
+export function resolveFichaCabeceraLineas(
+  leagueDisplayName: string,
+  federationDisplayName?: string | null,
+  showFederation = true,
+  leagueSlug?: string | null,
+): FichaCabeceraLineas {
+  const lineaLiga = resolveFichaLeagueTitle(leagueDisplayName);
+  const customFed = federationDisplayName?.trim();
+  const isPrimary = isPrimaryPortalLeagueSlug(leagueSlug);
+
+  if (!showFederation) {
+    return { lineaFederacion: null, lineaLiga, layout: "single-prominent" };
+  }
+
+  if (customFed) {
+    return {
+      lineaFederacion: customFed.toUpperCase(),
+      lineaLiga,
+      layout: "dual",
+    };
+  }
+
+  if (isPrimary) {
+    return {
+      lineaFederacion: FICHA_T1,
+      lineaLiga,
+      layout: "dual",
+    };
+  }
+
+  return { lineaFederacion: null, lineaLiga, layout: "single-prominent" };
 }
 
 /** Encabezados de tabla (orden idéntico al PDF). */

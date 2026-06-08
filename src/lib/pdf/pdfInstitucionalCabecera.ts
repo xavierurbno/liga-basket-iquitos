@@ -6,8 +6,8 @@ import {
   FICHA_HEADER_LOGO_W_MM,
 } from "@/lib/pdf/fichaHeaderLayout";
 import {
-  FICHA_T1,
   FICHA_T3,
+  resolveFichaCabeceraLineas,
   resolveFichaLeagueTitle,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
@@ -195,6 +195,9 @@ export type PdfCabeceraInstitucionalInput = {
   identityLines: string[];
   /** Logo a la derecha de la fila identidad (sello club o logo liga). */
   rightLogoPngDataUrl?: string | null;
+  leagueSlug?: string | null;
+  showFederation?: boolean;
+  federationDisplayName?: string | null;
 };
 
 export type CabeceraInstitucionalMetrics = {
@@ -226,25 +229,43 @@ export type CabeceraInstitucionalMetrics = {
 
 export function calcCabeceraInstitucionalMetrics(
   doc: jsPDF,
-  input: Pick<PdfCabeceraInstitucionalInput, "identityLines" | "documentTitle" | "leagueTitleLine">
+  input: Pick<
+    PdfCabeceraInstitucionalInput,
+    | "identityLines"
+    | "documentTitle"
+    | "leagueTitleLine"
+    | "leagueSlug"
+    | "showFederation"
+    | "federationDisplayName"
+  >,
 ): CabeceraInstitucionalMetrics {
   const documentTitle = input.documentTitle ?? FICHA_T3;
   const leagueTitleLine = resolveFichaLeagueTitle(input.leagueTitleLine);
+  const cabecera = resolveFichaCabeceraLineas(
+    leagueTitleLine,
+    input.federationDisplayName,
+    input.showFederation !== false,
+    input.leagueSlug,
+  );
   const pageW = doc.internal.pageSize.getWidth();
   const margin = PAGE_X_MARGIN_MM;
   const sideW = 30;
   const centerX = pageW / 2;
   const centerMaxW = pageW - margin * 2 - sideW * 2 - 10;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  const lines1 = doc.splitTextToSize(FICHA_T1, centerMaxW);
-  doc.setFontSize(12);
-  const lines2 = doc.splitTextToSize(leagueTitleLine, centerMaxW);
+  const singleProminent = cabecera.layout === "single-prominent" && !cabecera.lineaFederacion;
+  const lineH14 = singleProminent ? 6.2 : 5.5;
+  const lineH12 = singleProminent ? 6.2 : 4.8;
 
-  const lineH14 = 5.5;
-  const lineH12 = 4.8;
-  const gapTitulos = 3.5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(singleProminent && !cabecera.lineaFederacion ? 14 : 14);
+  const lines1 = cabecera.lineaFederacion
+    ? doc.splitTextToSize(cabecera.lineaFederacion, centerMaxW)
+    : [];
+  doc.setFontSize(singleProminent && lines1.length === 0 ? 14 : 12);
+  const lines2 = doc.splitTextToSize(cabecera.lineaLiga, centerMaxW);
+
+  const gapTitulos = lines1.length > 0 ? 3.5 : 0;
   const gapAfterLiga = 1.2;
   const gapBeforeT3 = 1.4;
   const lineT3 = 5.2;
@@ -323,16 +344,18 @@ export function drawCabeceraInstitucional(
   const textBlockTop = y0 + (m.bandH - m.blockH) / 2;
   const logoBoxTop = textBlockTop + FICHA_HEADER_LOGO_TOP_OFFSET_MM;
 
-  drawLogoFit(
-    doc,
-    input.federacionLogoPngDataUrl,
-    m.margin,
-    logoBoxTop,
-    FICHA_HEADER_LOGO_W_MM,
-    FICHA_HEADER_LOGO_H_MM,
-    FICHA_HEADER_FEDERATION_LOGO_SCALE,
-    "top",
-  );
+  if (input.federacionLogoPngDataUrl) {
+    drawLogoFit(
+      doc,
+      input.federacionLogoPngDataUrl,
+      m.margin,
+      logoBoxTop,
+      FICHA_HEADER_LOGO_W_MM,
+      FICHA_HEADER_LOGO_H_MM,
+      FICHA_HEADER_FEDERATION_LOGO_SCALE,
+      "top",
+    );
+  }
   drawLogoFit(
     doc,
     input.ligaLogoPngDataUrl,
@@ -348,10 +371,12 @@ export function drawCabeceraInstitucional(
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(14);
-  doc.text(m.lines1, m.centerX, yy, { align: "center" });
-  yy += m.lines1.length * m.lineH14 + m.gapTitulos;
-  doc.setFontSize(12);
+  if (m.lines1.length > 0) {
+    doc.setFontSize(14);
+    doc.text(m.lines1, m.centerX, yy, { align: "center" });
+    yy += m.lines1.length * m.lineH14 + m.gapTitulos;
+  }
+  doc.setFontSize(m.lines1.length === 0 ? 14 : 12);
   doc.text(m.lines2, m.centerX, yy, { align: "center" });
   yy += m.lines2.length * m.lineH12 + m.gapAfterLiga;
   yy += m.gapBeforeT3;

@@ -3,16 +3,12 @@ import "server-only";
 import { buildCarnetVistaPreviaPropsServer } from "@/lib/carnet/build-carnet-vista-previa-props.server";
 import type { CarnetPlayerGender } from "@/lib/types/carnet";
 import type { FichaVistaPreviaProps } from "@/lib/types/ficha";
-import { loadLeaguePortalBranding } from "@/lib/leagues/league-branding";
+import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-institutional-branding.server";
 import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
-import { resolveLeagueDisplayLogoUrl } from "@/lib/logos/resolve-public-league-logo.server";
-import { FICHA_T2 } from "@/lib/pdf/fichaInstitucionalTextos";
-import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { clubRepository } from "@/repositories/clubRepository";
-import { leagueRepository } from "@/repositories/league.repository";
 import { playerRepository } from "@/repositories/playerRepository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import type { PlayerStatus } from "@/lib/db/schema";
@@ -25,26 +21,7 @@ function aIso(date: Date | null | undefined): string {
 }
 
 async function resolveLeagueFichaBranding(leagueId: string | null | undefined) {
-  let leagueDisplayName = FICHA_T2;
-  let leagueLogoUrl = "/logos/liga.png";
-
-  if (!leagueId?.trim()) {
-    return { leagueDisplayName, leagueLogoUrl };
-  }
-
-  const leagueRow = await leagueRepository.findById(leagueId);
-  if (!leagueRow) return { leagueDisplayName, leagueLogoUrl };
-
-  const branding = await loadLeaguePortalBranding(leagueRow);
-  leagueDisplayName = branding.name;
-  const resolvedLogo = await resolveLeagueDisplayLogoUrl({
-    slug: leagueRow.slug,
-    loginLogoUrl: branding.logoUrl,
-  });
-  leagueLogoUrl =
-    resolvedLogo ?? (isPrimaryPortalLeagueSlug(leagueRow.slug) ? "/logos/liga.png" : "");
-
-  return { leagueDisplayName, leagueLogoUrl };
+  return resolveFichaInstitutionalBranding(leagueId);
 }
 
 export async function loadCategoryFichaValidation(categoryId: string): Promise<{
@@ -67,7 +44,15 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
   const clubRow = await clubRepository.findFichaClub(context.clubId);
 
   const effectiveLeagueId = clubRow?.leagueId?.trim() || null;
-  const { leagueDisplayName, leagueLogoUrl } = await resolveLeagueFichaBranding(effectiveLeagueId);
+  const fichaBranding = await resolveLeagueFichaBranding(effectiveLeagueId);
+  const {
+    leagueDisplayName,
+    leagueLogoUrl,
+    leagueSlug,
+    showFederation,
+    federationDisplayName,
+    federacionLogoUrl,
+  } = fichaBranding;
 
   let accentColor = "#0d9488";
   if (effectiveLeagueId) {
@@ -103,6 +88,10 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
     ficha: {
       leagueDisplayName,
       leagueLogoUrl,
+      leagueSlug,
+      showFederation,
+      federationDisplayName,
+      federacionLogoUrl,
       clubName: context.clubName,
       clubLogoUrl: resolvePublicImageUrl(clubRow?.logoUrl ?? null),
       categoriaDetalle,

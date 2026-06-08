@@ -188,14 +188,27 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
       const logosRes = await getInstitutionalLogosAction(docLeagueId);
       const federacionDataUrl = logosRes.success ? logosRes.federacionBase64 : null;
       const ligaDataUrl = logosRes.success ? logosRes.ligaBase64 : null;
-      if (!federacionDataUrl || !ligaDataUrl) {
+      if (!ligaDataUrl) {
         setPdfError("No se pudieron cargar los logos de la liga.");
+        setIsGenerando(false);
+        return;
+      }
+      if (logosRes.success && logosRes.showFederation && !federacionDataUrl) {
+        setPdfError("No se pudo cargar el logo de la federación.");
         setIsGenerando(false);
         return;
       }
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       
       let inputData: DocumentoInput & { shortIdentifier: string };
+
+      const docBrandingFields = logosRes.success
+        ? {
+            showFederation: logosRes.showFederation,
+            leagueSlug: logosRes.leagueSlug,
+            federationDisplayName: logosRes.federationDisplayName,
+          }
+        : {};
 
       if (isClub && clubSeleccionado) {
         inputData = {
@@ -214,6 +227,7 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
           brandAccentRgb: logosRes.success ? logosRes.accentRgb : undefined,
           leagueDisplayName: logosRes.success ? logosRes.leagueDisplayName : undefined,
           seasonLabel: logosRes.success ? logosRes.seasonLabel : undefined,
+          ...docBrandingFields,
           siteUrl,
           generatedAtIso: new Date().toISOString(),
         };
@@ -240,6 +254,7 @@ export function DocumentosModule({ filterLeagueId }: DocumentosModuleProps = {})
           brandAccentRgb: logosRes.success ? logosRes.accentRgb : undefined,
           leagueDisplayName: logosRes.success ? logosRes.leagueDisplayName : undefined,
           seasonLabel: logosRes.success ? logosRes.seasonLabel : undefined,
+          ...docBrandingFields,
           siteUrl,
           generatedAtIso: new Date().toISOString(),
         };

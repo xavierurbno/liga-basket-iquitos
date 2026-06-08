@@ -12,6 +12,9 @@ import type { TournamentExportPayload } from "@/lib/tournaments/export-types";
 export type TournamentFixturePdfAssets = {
   federacionLogoPngDataUrl: string | null;
   ligaLogoPngDataUrl: string | null;
+  showFederation?: boolean;
+  leagueSlug?: string | null;
+  federationDisplayName?: string | null;
 };
 
 /** Encabezado de tabla alineado con la ficha (#2563eb). */
@@ -23,11 +26,16 @@ type AutoTableDoc = jsPDF & { lastAutoTable: { finalY: number } };
 
 function buildCabeceraInput(
   data: TournamentExportPayload,
-  assets: TournamentFixturePdfAssets
+  assets: TournamentFixturePdfAssets,
 ) {
   return {
-    federacionLogoPngDataUrl: assets.federacionLogoPngDataUrl,
+    federacionLogoPngDataUrl:
+      assets.showFederation !== false ? assets.federacionLogoPngDataUrl : null,
     ligaLogoPngDataUrl: assets.ligaLogoPngDataUrl,
+    leagueTitleLine: data.leagueName,
+    leagueSlug: assets.leagueSlug,
+    showFederation: assets.showFederation,
+    federationDisplayName: assets.federationDisplayName,
     documentTitle: data.tournamentName.trim(),
     identityLines: [`Formato: ${data.format}`],
     rightLogoPngDataUrl: assets.ligaLogoPngDataUrl,

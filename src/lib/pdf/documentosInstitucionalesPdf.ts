@@ -10,6 +10,7 @@
 
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { resolveFichaCabeceraLineas } from "@/lib/pdf/fichaInstitucionalTextos";
 
 // ─── TIPOS ────────────────────────────────────────────────────
 
@@ -53,6 +54,9 @@ export type DocumentoInput = {
   leagueDisplayName?: string | null;
   /** Etiqueta de temporada en textos (p. ej. «Temporada 2026»). */
   seasonLabel?: string | null;
+  showFederation?: boolean;
+  leagueSlug?: string | null;
+  federationDisplayName?: string | null;
 };
 
 // ─── PALETA ───────────────────────────────────────────────────
@@ -196,6 +200,12 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
   const esSolvencia = type === "SOLVENCIA_CLUB";
   const leagueName = resolveLeagueName(input);
   const seasonLabel = resolveSeasonLabel(input);
+  const cabecera = resolveFichaCabeceraLineas(
+    leagueName,
+    input.federationDisplayName,
+    input.showFederation !== false,
+    input.leagueSlug,
+  );
 
   // Resolución de foto (doble capa)
   let fotoDataUrl: string | null = fotoRaw ?? null;
@@ -217,16 +227,22 @@ export async function generarDocumentoInstitucional(input: DocumentoInput): Prom
 
   // ── 3. ENCABEZADO ─────────────────────────────────────────
   const LOGO_W = 28, LOGO_H = 22, HTOP = BAND_H + 4;
-  drawLogo(doc, federacionLogoPngDataUrl, MARGIN, HTOP, LOGO_W, LOGO_H, "FDPB");
+  if (input.showFederation !== false && federacionLogoPngDataUrl) {
+    drawLogo(doc, federacionLogoPngDataUrl, MARGIN, HTOP, LOGO_W, LOGO_H, "FDPB");
+  }
   drawLogo(doc, ligaLogoPngDataUrl, PAGE_W - MARGIN - LOGO_W, HTOP, LOGO_W, LOGO_H, "Liga");
 
   let hY = HTOP + 5;
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...primaryRgb);
-  doc.text("FEDERACIÓN DEPORTIVA PERUANA DE BASKETBALL", CX, hY, { align: "center" });
+  if (cabecera.lineaFederacion) {
+    doc.text(cabecera.lineaFederacion, CX, hY, { align: "center" });
+    hY += 6;
+  }
 
-  hY += 6;
-  doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(...BLUE_700);
-  const leagueHeaderLines = doc.splitTextToSize(leagueName.toUpperCase(), INNER_W - 10);
+  doc.setFontSize(cabecera.lineaFederacion ? 10 : 12);
+  doc.setFont("helvetica", cabecera.lineaFederacion ? "normal" : "bold");
+  doc.setTextColor(...BLUE_700);
+  const leagueHeaderLines = doc.splitTextToSize(cabecera.lineaLiga, INNER_W - 10);
   doc.text(leagueHeaderLines, CX, hY, { align: "center" });
   hY += leagueHeaderLines.length * 4.5;
 

@@ -40,13 +40,16 @@ async function gateInstitutionalAssets(
 export type InstitutionalLogosResult =
   | {
       success: true;
-      federacionBase64: string;
+      federacionBase64: string | null;
       ligaBase64: string | null;
       primaryRgb: [number, number, number];
       accentRgb: [number, number, number];
       /** Nombre oficial para encabezados y textos del PDF. */
       leagueDisplayName: string;
       seasonLabel: string;
+      showFederation: boolean;
+      leagueSlug: string | null;
+      federationDisplayName: string | null;
     }
   | { success: false; error: string };
 
@@ -70,7 +73,9 @@ export async function getInstitutionalLogosAction(
       leagueIdNorm ? leagueRepository.findById(leagueIdNorm) : Promise.resolve(null),
     ]);
 
-    if (!fed) {
+    const showFederation = settings?.carnetShowFederation !== false;
+
+    if (showFederation && !fed) {
       return {
         success: false,
         error: "No se pudo cargar el logo de la federación.",
@@ -85,12 +90,15 @@ export async function getInstitutionalLogosAction(
 
     return {
       success: true,
-      federacionBase64: fed,
+      federacionBase64: showFederation ? fed : null,
       ligaBase64: liga,
       primaryRgb: hexToRgbTuple(primaryHex) ?? DEFAULT_PDF_PRIMARY_RGB,
       accentRgb: hexToRgbTuple(accentHex) ?? DEFAULT_PDF_ACCENT_RGB,
       leagueDisplayName,
       seasonLabel,
+      showFederation,
+      leagueSlug: leagueRow?.slug ?? null,
+      federationDisplayName: settings?.carnetFederationDisplayName?.trim() || null,
     };
   } catch (error) {
     console.error("Error cargando logos institucionales:", error);

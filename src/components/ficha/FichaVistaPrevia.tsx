@@ -5,9 +5,8 @@ import { calcularEdad } from "@/lib/utils/age";
 import {
   FICHA_COLUMNAS_TABLA,
   FICHA_COLUMNAS_VALIDACION,
-  FICHA_T1,
   FICHA_T3,
-  resolveFichaLeagueTitle,
+  resolveFichaCabeceraLineas,
 } from "@/lib/pdf/fichaInstitucionalTextos";
 
 import { FICHA_HEADER_FEDERATION_LOGO_SCALE } from "@/lib/pdf/fichaHeaderLayout";
@@ -56,6 +55,10 @@ const ROW_TONE_BORDER: Record<string, string> = {
 export function FichaVistaPrevia({
   leagueDisplayName,
   leagueLogoUrl,
+  leagueSlug,
+  showFederation = true,
+  federationDisplayName,
+  federacionLogoUrl,
   clubName,
   clubLogoUrl,
   categoriaDetalle,
@@ -67,8 +70,14 @@ export function FichaVistaPrevia({
   resaltarJugadorIds,
 }: FichaVistaPreviaProps) {
   const filas = useMemo(() => ordenarJugadores(players), [players]);
-  const leagueTitle = resolveFichaLeagueTitle(leagueDisplayName);
+  const cabecera = resolveFichaCabeceraLineas(
+    leagueDisplayName,
+    federationDisplayName,
+    showFederation,
+    leagueSlug,
+  );
   const hasLeagueLogo = Boolean(leagueLogoUrl?.trim());
+  const showFedLogo = showFederation !== false && Boolean(federacionLogoUrl?.trim());
   const esValidacion = variant === "validacion";
   const columnas = esValidacion ? FICHA_COLUMNAS_VALIDACION : FICHA_COLUMNAS_TABLA;
   const resaltarSet = useMemo(
@@ -97,24 +106,32 @@ export function FichaVistaPrevia({
         {/* Cabecera institucional */}
         <header className="flex items-start gap-2">
           <div className={HEADER_LOGO_BOX_CLASS}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logos/federacion.png"
-              alt="Federación Deportiva Peruana de Basketball"
-              className="max-h-full max-w-full object-contain object-top"
-              style={{
-                width: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
-                height: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
-              }}
-            />
+            {showFedLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={federacionLogoUrl!}
+                alt=""
+                className="max-h-full max-w-full object-contain object-top"
+                style={{
+                  width: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
+                  height: `${FICHA_HEADER_FEDERATION_LOGO_SCALE * 100}%`,
+                }}
+              />
+            ) : (
+              <span className="sr-only">Sin logo federación</span>
+            )}
           </div>
 
           <div className="min-w-0 flex-1 space-y-1.5 text-center">
-            <p className="text-[11px] font-bold uppercase leading-tight text-slate-900 sm:text-xs md:text-[13px]">
-              {FICHA_T1}
-            </p>
-            <p className="text-[11px] font-bold uppercase leading-tight text-slate-900 sm:text-xs md:text-[12px]">
-              {leagueTitle}
+            {cabecera.lineaFederacion ? (
+              <p className="text-[11px] font-bold uppercase leading-tight text-slate-900 sm:text-xs md:text-[13px]">
+                {cabecera.lineaFederacion}
+              </p>
+            ) : null}
+            <p
+              className={`text-[11px] font-bold uppercase leading-tight text-slate-900 sm:text-xs ${cabecera.layout === "single-prominent" ? "md:text-[14px]" : "md:text-[12px]"}`}
+            >
+              {cabecera.lineaLiga}
             </p>
             <p className="pt-0 text-[11px] font-bold uppercase text-slate-900 sm:text-xs md:text-[12px]">
               {FICHA_T3}

@@ -7,11 +7,7 @@ import { GenerateFichaPDF } from "@/components/ficha/GenerateFichaPDF";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
-import { leagueRepository } from "@/repositories/league.repository";
-import { loadLeaguePortalBranding } from "@/lib/leagues/league-branding";
-import { resolveLeagueDisplayLogoUrl } from "@/lib/logos/resolve-public-league-logo.server";
-import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
-import { FICHA_T2 } from "@/lib/pdf/fichaInstitucionalTextos";
+import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-institutional-branding.server";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 
 function aIso(transactionDate: Date | null | undefined): string | null {
@@ -44,23 +40,15 @@ export default async function FichaCategoriaPage({
 
   const effectiveLeagueId = club.leagueId?.trim() || opContext?.leagueId || null;
 
-  let leagueDisplayName = FICHA_T2;
-  let leagueLogoUrl = "/logos/liga.png";
-
-  if (effectiveLeagueId) {
-    const leagueRow = await leagueRepository.findById(effectiveLeagueId);
-    if (leagueRow) {
-      const branding = await loadLeaguePortalBranding(leagueRow);
-      leagueDisplayName = branding.name;
-      const resolvedLogo = await resolveLeagueDisplayLogoUrl({
-        slug: leagueRow.slug,
-        loginLogoUrl: branding.logoUrl,
-      });
-      leagueLogoUrl =
-        resolvedLogo ??
-        (isPrimaryPortalLeagueSlug(leagueRow.slug) ? "/logos/liga.png" : "");
-    }
-  }
+  const fichaBranding = await resolveFichaInstitutionalBranding(effectiveLeagueId);
+  const {
+    leagueDisplayName,
+    leagueLogoUrl,
+    leagueSlug,
+    showFederation,
+    federationDisplayName,
+    federacionLogoUrl,
+  } = fichaBranding;
 
   const categoriaDetalle = lineaCategoriaInstitucional(
     category.name,
@@ -100,6 +88,9 @@ export default async function FichaCategoriaPage({
           leagueId={effectiveLeagueId}
           leagueLogoUrl={leagueLogoUrl || null}
           leagueDisplayName={leagueDisplayName}
+          leagueSlug={leagueSlug}
+          showFederation={showFederation}
+          federationDisplayName={federationDisplayName}
           fileName={fileName}
           teamId={categoryId}
           clubName={club.name}
@@ -122,6 +113,10 @@ export default async function FichaCategoriaPage({
       <FichaVistaPrevia
         leagueDisplayName={leagueDisplayName}
         leagueLogoUrl={leagueLogoUrl}
+        leagueSlug={leagueSlug}
+        showFederation={showFederation}
+        federationDisplayName={federationDisplayName}
+        federacionLogoUrl={federacionLogoUrl}
         clubName={club.name}
         clubLogoUrl={clubLogoPublic}
         categoriaDetalle={categoriaDetalle}
