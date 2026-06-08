@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { logSecurityEvent } from "@/lib/observability/security-log";
 import { Role } from "@/lib/auth/withAuth";
 import { OperationalAppHeader } from "@/components/layout/OperationalAppHeader";
+import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
+import { resolveOperationalHeaderHomeHref } from "@/lib/portal/operational-header-home";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,9 @@ export default async function AdminLayout({
 
   const role = user.app_metadata?.role as Role;
 
+  const ctx = await getLigaOperationalContext();
+  const headerHomeHref = await resolveOperationalHeaderHomeHref(ctx.activeLeagueSlug);
+
   if (role !== "SUPER_ADMIN") {
     logSecurityEvent({
       type: "auth.route.forbidden",
@@ -63,6 +68,8 @@ export default async function AdminLayout({
       <OperationalAppHeader
         userEmail={user.email ?? null}
         intranetNavLabel={intranetPortalNavLabel(role)}
+        activeLeagueId={ctx.leagueId}
+        headerHomeHref={headerHomeHref}
       />
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-8 sm:px-4 sm:py-6 sm:pb-10 lg:px-8 animate-in fade-in duration-500">
         {children}

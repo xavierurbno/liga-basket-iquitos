@@ -634,6 +634,7 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
             <input
               type="checkbox"
               name="isManualOverride"
+              value="on"
               checked={manualTransferOpen}
               onChange={(e) => setManualTransferOpen(e.target.checked)}
               className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"

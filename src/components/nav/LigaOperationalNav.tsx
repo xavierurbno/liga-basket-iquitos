@@ -25,9 +25,11 @@ function isPanelGestionPrimary(pathname: string) {
 export function LigaOperationalNav({
   userEmail,
   intranetNavLabel,
+  headerHomeHref = "/",
 }: {
   userEmail: string | null;
   intranetNavLabel: string | null;
+  headerHomeHref?: string;
   role?: Role;
   leagues?: { id: string; name: string }[];
   activeLeagueId?: string | null;
@@ -39,7 +41,12 @@ export function LigaOperationalNav({
   return (
     <div className="relative flex w-full min-h-12 flex-wrap items-center justify-between gap-3 md:min-h-13">
       <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-3 lg:gap-4">
-        <LeagueHeaderLogo size="compact" className="min-w-0" href="/liga/" linkTitle="Panel operativo" />
+        <LeagueHeaderLogo
+          size="compact"
+          className="min-w-0"
+          href={headerHomeHref}
+          linkTitle="Portal público — inicio"
+        />
       </div>
 
       <div className="relative z-20 flex flex-wrap items-center justify-end gap-2">

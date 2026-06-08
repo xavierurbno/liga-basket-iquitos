@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { OperationalAppHeader } from "@/components/layout/OperationalAppHeader";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { hasIntranetAccess, intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
+import { resolveOperationalHeaderHomeHref } from "@/lib/portal/operational-header-home";
 import type { Role } from "@/lib/auth/withAuth";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,8 @@ export default async function SystemLayout({
 
   const appRole = user.app_metadata?.role as Role | undefined;
   const intranetNavLabel = hasIntranetAccess(appRole) ? intranetPortalNavLabel(appRole) : null;
-  await getLigaOperationalContext();
+  const ctx = await getLigaOperationalContext();
+  const headerHomeHref = await resolveOperationalHeaderHomeHref(ctx.activeLeagueSlug);
 
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
@@ -48,6 +50,8 @@ export default async function SystemLayout({
       <OperationalAppHeader
         userEmail={user.email ?? null}
         intranetNavLabel={intranetNavLabel}
+        activeLeagueId={ctx.leagueId}
+        headerHomeHref={headerHomeHref}
       />
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-3 py-4 pb-8 sm:px-4 sm:py-6 sm:pb-10">{children}</main>
     </div>
