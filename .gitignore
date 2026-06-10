@@ -50,3 +50,5 @@ next-env.d.ts
 
 # Assets carnet en tránsito (no versionar)
 /public/carnet/_incoming/
+
+.env*.local

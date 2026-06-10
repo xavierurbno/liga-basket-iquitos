@@ -642,7 +642,11 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
           </h4>
           <p className="text-xs text-slate-500">
             Controla el contador del mercado de pases en el portal público, login y cabecera de la
-            intranet. Cada liga tiene su propio periodo.
+            intranet. Cada liga tiene su propio periodo.{" "}
+            <strong className="font-semibold text-slate-600">
+              Las fechas son opcionales
+            </strong>{" "}
+            hasta que programes un mercado de pases; sin fechas ni modo manual, el reloj no se muestra.
           </p>
 
           <input

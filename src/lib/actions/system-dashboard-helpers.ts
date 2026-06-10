@@ -102,6 +102,33 @@ export async function resolveLeagueAndClubForPlayerAction(
   return { leagueId, clubId };
 }
 
+/** Valida que el club pertenece a la liga operativa y al delegado autenticado. */
+export async function assertClubInOperationalScope(
+  context: AuthContext,
+  clubId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const club = await clubRepository.findById(clubId);
+  if (!club?.leagueId) {
+    return { ok: false, error: "Club no encontrado." };
+  }
+
+  if (!clubBelongsToOperationalLeague(club.leagueId, context.leagueId, context.role)) {
+    return {
+      ok: false,
+      error:
+        context.role === "SUPER_ADMIN"
+          ? "Este club no pertenece a la liga activa. Elige la liga correcta en el panel."
+          : "No puedes operar sobre este club.",
+    };
+  }
+
+  if (context.role === "CLUB_DELEGATE" && context.clubId && clubId !== context.clubId) {
+    return { ok: false, error: "Acceso denegado: club no autorizado." };
+  }
+
+  return { ok: true };
+}
+
 export function buildRegistroJugadorRawData(formData: FormData) {
   const jerseyRaw = pickFormText(formData, "jerseyNumber", "numeroPolo");
   return {

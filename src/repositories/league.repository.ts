@@ -1,5 +1,8 @@
 import { db } from "@/lib/db/client";
-import { PRIMARY_PORTAL_LEAGUE_SLUGS } from "@/lib/portal/portal-league-constants";
+import {
+  getPlatformDefaultLeagueId,
+  getPlatformDefaultLeagueSlug,
+} from "@/lib/platform/platform-config";
 import {
   categories,
   clubs,
@@ -13,9 +16,7 @@ import {
   treasury,
   userAssignments,
 } from "@/lib/db/schema";
-import { asc, desc, eq, ilike, or } from "drizzle-orm";
-
-export { PRIMARY_PORTAL_LEAGUE_SLUGS };
+import { asc, desc, eq } from "drizzle-orm";
 
 export class LeagueRepository {
   /**
@@ -101,40 +102,25 @@ export class LeagueRepository {
   }
 
   /**
-   * Liga de la portada `/` (Iquitos / LDDBI). No usar la liga creada más reciente.
+   * Liga por defecto para redirecciones legadas y contexto sin slug.
+   * 1. PLATFORM_DEFAULT_LEAGUE_SLUG
+   * 2. NEXT_PUBLIC_DEFAULT_LEAGUE_ID
+   * 3. Primera liga por createdAt
    */
   async findDefaultForPortal() {
-    for (const slug of PRIMARY_PORTAL_LEAGUE_SLUGS) {
-      const row = await this.findBySlug(slug);
+    const envSlug = getPlatformDefaultLeagueSlug();
+    if (envSlug) {
+      const row = await this.findBySlug(envSlug);
       if (row) return row;
     }
 
-    const envId = process.env.NEXT_PUBLIC_DEFAULT_LEAGUE_ID?.trim();
+    const envId = getPlatformDefaultLeagueId();
     if (envId) {
       const row = await this.findById(envId);
       if (row) {
         return { id: row.id, name: row.name, slug: row.slug };
       }
     }
-
-    const [byName] = await db
-      .select({
-        id: leagues.id,
-        name: leagues.name,
-        slug: leagues.slug,
-      })
-      .from(leagues)
-      .where(
-        or(
-          ilike(leagues.name, "%iquitos%"),
-          ilike(leagues.name, "%LDDBI%"),
-          ilike(leagues.name, "%distrital de basket de iquitos%"),
-        ),
-      )
-      .orderBy(asc(leagues.createdAt))
-      .limit(1);
-
-    if (byName) return byName;
 
     const [oldest] = await db
       .select({

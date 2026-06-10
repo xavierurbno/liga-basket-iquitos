@@ -1,10 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
-import {
-  clubBelongsToOperationalLeague,
-  staffRequiresOperationalLeague,
-} from "@/lib/auth/operational-league-scope";
+import { staffRequiresOperationalLeague } from "@/lib/auth/operational-league-scope";
+import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
 import type { AuthContext } from "@/lib/auth/withAuth";
 
 const UUID_RE =
@@ -55,16 +53,18 @@ export async function assertInstitutionalAssetsForLeague(
     return { ok: true };
   }
 
-  if (
-    staffRequiresOperationalLeague(context.role) &&
-    context.leagueId?.trim() &&
-    !clubBelongsToOperationalLeague(targetLeagueId, context.leagueId, context.role)
-  ) {
-    return {
-      ok: false,
-      error:
-        "Selecciona la liga correcta en el panel antes de cargar logos o firmas de otra organización.",
-    };
+  if (staffRequiresOperationalLeague(context.role)) {
+    if (!context.leagueId?.trim()) {
+      return {
+        ok: false,
+        error: "Selecciona una liga activa en el panel antes de cargar recursos institucionales.",
+      };
+    }
+    const scopeErr = assertOperationalLeagueMatch(context, targetLeagueId);
+    if (scopeErr) {
+      return { ok: false, error: scopeErr };
+    }
+    return { ok: true };
   }
 
   return { ok: true };

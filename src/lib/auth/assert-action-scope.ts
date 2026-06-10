@@ -1,10 +1,22 @@
 import { logSecurityEvent } from "../observability/security-log";
 import { clubRepository } from "@/repositories/clubRepository";
 import { AUTH_ERRORS } from "@/lib/auth/auth-errors";
+import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
 import { checkDelegateClubScope } from "@/lib/auth/delegate-club-scope";
 import { extractClubIdFromActionArgs } from "@/lib/auth/extract-club-id-from-args";
+import { extractLeagueIdFromActionArgs } from "@/lib/auth/extract-league-id-from-args";
 import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
 import type { AuthContext } from "@/lib/auth/withAuth";
+
+/** Bloquea leagueId explícito en args que no coincide con la liga operativa del JWT. */
+export function checkLeagueIdFromArgsScope(
+  context: AuthContext,
+  actionArgs: unknown[],
+): string | null {
+  const leagueIdFromArgs = extractLeagueIdFromActionArgs(actionArgs);
+  if (!leagueIdFromArgs) return null;
+  return assertOperationalLeagueMatch(context, leagueIdFromArgs);
+}
 
 /** Aislamiento de admin de liga por club en args (consulta BD). */
 export async function checkLeagueAdminClubScope(
@@ -42,5 +54,9 @@ export async function evaluateActionTenantScope(
 ): Promise<string | null> {
   const delegateError = checkDelegateClubScope(context, actionArgs);
   if (delegateError) return delegateError;
+
+  const leagueIdError = checkLeagueIdFromArgsScope(context, actionArgs);
+  if (leagueIdError) return leagueIdError;
+
   return checkLeagueAdminClubScope(context, actionArgs);
 }

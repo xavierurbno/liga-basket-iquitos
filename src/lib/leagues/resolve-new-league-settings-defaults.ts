@@ -1,5 +1,5 @@
 import { resolveLeagueCarnetPrefix } from "@/lib/leagues/league-carnet-prefix";
-import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
+import { isPlatformDefaultLeagueSlug } from "@/lib/platform/platform-config";
 
 export type NewLeagueKind = "federated" | "tournament";
 
@@ -10,28 +10,30 @@ export type NewLeagueSettingsDefaults = {
   documentSerialPrefix: string;
 };
 
-/** Defaults al crear liga: LDDBI/Iquitos o federada vs torneo local. */
+/** Defaults al crear liga: liga por defecto del programa vs torneo local. */
 export function resolveNewLeagueSettingsDefaults(
   slug: string,
   name: string,
   leagueKind: NewLeagueKind,
 ): NewLeagueSettingsDefaults {
-  const isPrimary = isPrimaryPortalLeagueSlug(slug);
-  const federated = isPrimary || leagueKind === "federated";
+  const isDefaultLeague = isPlatformDefaultLeagueSlug(slug);
+  const federated = isDefaultLeague || leagueKind === "federated";
 
   if (federated) {
     return {
-      carnetThemePreset: "lddbi_template",
+      carnetThemePreset: isDefaultLeague ? "lddbi_template" : "esquinas_color",
       carnetShowFederation: true,
       carnetSignatureMode: "both",
-      documentSerialPrefix: "LDDBI",
+      documentSerialPrefix: isDefaultLeague
+        ? "LDDBI"
+        : resolveLeagueCarnetPrefix({ slug, name }).slice(0, 12),
     };
   }
 
   const prefix = resolveLeagueCarnetPrefix({ slug, name }).slice(0, 12);
 
   return {
-    carnetThemePreset: "lddbi_template",
+    carnetThemePreset: "esquinas_color",
     carnetShowFederation: false,
     carnetSignatureMode: "president",
     documentSerialPrefix: prefix,

@@ -7,6 +7,7 @@ import { OperationalAppHeader } from "@/components/layout/OperationalAppHeader";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { intranetPortalNavLabel } from "@/lib/auth/intranet-roles";
 import { resolveOperationalHeaderHomeHref } from "@/lib/portal/operational-header-home";
+import { getPlatformName } from "@/lib/platform/platform-config";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function AdminLayout({
   const role = user.app_metadata?.role as Role;
 
   const ctx = await getLigaOperationalContext();
-  const headerHomeHref = await resolveOperationalHeaderHomeHref(ctx.activeLeagueSlug);
+  const headerHomeHref = resolveOperationalHeaderHomeHref(ctx.activeLeagueSlug);
 
   if (role !== "SUPER_ADMIN") {
     logSecurityEvent({
@@ -77,7 +78,7 @@ export default async function AdminLayout({
       <footer className="relative z-10 border-t border-[#BFDBFE] bg-white/90 py-6">
         <div className="mx-auto max-w-7xl px-4 text-center">
           <p className="text-xs font-medium text-slate-400">
-            &copy; {new Date().getFullYear()} Liga Deportiva Distrital de Basket de Iquitos - Panel de Administración
+            &copy; {new Date().getFullYear()} {getPlatformName()} — Panel de administración
           </p>
         </div>
       </footer>

@@ -107,7 +107,7 @@ export async function crearClubComoPropietarioAction(formData: FormData) {
 
   try {
     while (sufijo < 200) {
-      const exists = await clubRepository.existsBySlug(slug);
+      const exists = await clubRepository.existsBySlugAndLeague(slug, null);
       if (!exists) break;
       sufijo += 1;
       slug = `${baseSlug}-${sufijo}`.slice(0, 50);

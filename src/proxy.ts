@@ -48,6 +48,7 @@ function isLigaOperationalPath(pathCanon: string, path: string): boolean {
 
 const PROXY_RESERVED_SEGMENTS = new Set([
   "onboarding",
+  "signup",
   "dashboard",
   "liga",
   "l",
@@ -74,12 +75,12 @@ function isPublicFastPath(pathnameCanon: string): boolean {
   return PROXY_RESERVED_SEGMENTS.has(first);
 }
 
-function maybeRateLimitResponse(
+async function maybeRateLimitResponse(
   request: NextRequest,
   scope: "login" | "validar" | "busqueda365",
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const clientIp = getClientIpFromHeaders(request.headers);
-  const result = checkRateLimit(scope, clientIp);
+  const result = await checkRateLimit(scope, clientIp);
   if (result.allowed) return null;
 
   logRateLimitBlocked(scope, clientIp, result.retryAfterSec, request.nextUrl.pathname);
@@ -103,12 +104,12 @@ export async function proxy(request: NextRequest) {
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
 
   if (pathnameCanon === "/login" || pathname.startsWith("/login/")) {
-    const limited = maybeRateLimitResponse(request, "login");
+    const limited = await maybeRateLimitResponse(request, "login");
     if (limited) return limited;
   }
 
   if (pathname.startsWith("/validar")) {
-    const limited = maybeRateLimitResponse(request, "validar");
+    const limited = await maybeRateLimitResponse(request, "validar");
     if (limited) return limited;
   }
 
@@ -117,7 +118,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/busqueda-365/") ||
     /^\/l\/[^/]+\/busqueda-365\/?$/.test(pathname)
   ) {
-    const limited = maybeRateLimitResponse(request, "busqueda365");
+    const limited = await maybeRateLimitResponse(request, "busqueda365");
     if (limited) return limited;
   }
 
@@ -246,6 +247,8 @@ export async function proxy(request: NextRequest) {
   const publicRoutes = [
     "/login",
     "/register",
+    "/signup",
+    "/onboarding",
     "/forgot-password",
     "/auth",
     "/normativas",
@@ -271,6 +274,7 @@ export async function proxy(request: NextRequest) {
     const pathParts = pathname.split("/").filter(Boolean);
     const reservedPaths = [
       "onboarding",
+      "signup",
       "dashboard",
       "liga",
       "api",
@@ -297,9 +301,21 @@ export async function proxy(request: NextRequest) {
         try {
           const { data: clubData } = await supabase
             .from("clubs")
-            .select("id, slug")
+            .select("id, slug, league_id")
             .eq("id", userClubId)
             .single();
+
+          const jwtLeagueId = userAppMetadata.league_id?.trim();
+          if (
+            clubData &&
+            jwtLeagueId &&
+            clubData.league_id &&
+            clubData.league_id !== jwtLeagueId
+          ) {
+            const url = request.nextUrl.clone();
+            url.pathname = "/onboarding";
+            return NextResponse.redirect(url);
+          }
 
           if (clubData && clubData.slug !== requestedClubSlug) {
             const url = request.nextUrl.clone();

@@ -2,13 +2,38 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { assertTransferPeriodOpen } from "@/lib/transfer-period";
-import { ActionResult, LeagueSettings } from "@/lib/types/league";
+import { ActionResult } from "@/lib/types/league";
 import { getCachedLeagueSettings } from "@/lib/data/cached-queries";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import { resolveLeagueSettingsScopeId } from "@/lib/leagues/resolve-league-settings-scope.server";
+import { isValidUuid } from "@/lib/db/public-read-guards";
+import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { User } from "@supabase/supabase-js";
 import { formatActionError } from "@/lib/actions/system-dashboard-helpers";
+
+/** Campos expuestos sin autenticación (portal / reloj de mercado de pases). */
+export type PublicLeagueSettings = {
+  transferPeriodStart?: Date | null;
+  transferPeriodEnd?: Date | null;
+  isManualOverride?: boolean;
+  bannerText?: string | null;
+};
+
+async function gatePublicLeagueSettingsRead(
+  leagueId?: string | null,
+): Promise<{ ok: true; scopedId: string | null } | { ok: false; error: string }> {
+  const rateError = await enforceRateLimit("settingsPublic");
+  if (rateError) return { ok: false, error: rateError };
+
+  const explicit = leagueId?.trim();
+  if (explicit && !isValidUuid(explicit)) {
+    return { ok: false, error: "Identificador de liga no válido." };
+  }
+
+  const scopedId = await resolveLeagueSettingsScopeId(leagueId);
+  return { ok: true, scopedId };
+}
 
 export async function getTransferStatusAction(
   leagueId?: string | null,
@@ -19,9 +44,13 @@ export async function getTransferStatusAction(
   end?: Date | null;
   isManualOverride?: boolean;
 }> {
-  const scopedId = await resolveLeagueSettingsScopeId(leagueId);
-  const status = await assertTransferPeriodOpen(null, scopedId);
-  const settings = await getCachedLeagueSettings(scopedId);
+  const gate = await gatePublicLeagueSettingsRead(leagueId);
+  if (!gate.ok) {
+    return { isOpen: false, message: gate.error };
+  }
+
+  const status = await assertTransferPeriodOpen(null, gate.scopedId);
+  const settings = await getCachedLeagueSettings(gate.scopedId);
 
   return {
     isOpen: status.success,
@@ -59,20 +88,20 @@ export const toggleTransferOverrideAction = withAuth(
 
 export async function getLeagueSettingsAction(
   leagueId?: string | null,
-): Promise<LeagueSettings> {
+): Promise<PublicLeagueSettings> {
   try {
-    const scopedId = await resolveLeagueSettingsScopeId(leagueId);
-    const settings = scopedId
-      ? await settingsRepository.getLeagueSettings(scopedId)
-      : null;
+    const gate = await gatePublicLeagueSettingsRead(leagueId);
+    if (!gate.ok || !gate.scopedId) return {};
+
+    const settings = await settingsRepository.getLeagueSettings(gate.scopedId);
     if (!settings) return {};
+
     return {
-      id: settings.id,
       transferPeriodStart: settings.transferPeriodStart,
       transferPeriodEnd: settings.transferPeriodEnd,
-      bannerText: settings.bannerText,
       isManualOverride: settings.isManualOverride ?? false,
-    } as LeagueSettings;
+      bannerText: settings.bannerText,
+    };
   } catch {
     return {};
   }

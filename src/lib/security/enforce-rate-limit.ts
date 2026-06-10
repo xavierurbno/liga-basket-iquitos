@@ -11,7 +11,7 @@ import {
 export async function enforceRateLimit(scope: RateLimitScope): Promise<string | null> {
   const headerStore = await headers();
   const clientIp = getClientIpFromHeaders(headerStore);
-  const result = checkRateLimit(scope, clientIp);
+  const result = await checkRateLimit(scope, clientIp);
   if (!result.allowed) {
     logRateLimitBlocked(scope, clientIp, result.retryAfterSec);
     return rateLimitExceededMessage(result.retryAfterSec);

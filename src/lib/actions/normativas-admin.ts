@@ -11,6 +11,7 @@ import { resolveNormativaUploadLeagueId } from "@/lib/normativas/resolve-upload-
 import { leaguePortalNormativas } from "@/lib/portal/league-portal-paths";
 import { leagueRepository } from "@/repositories/league.repository";
 import { revalidateLeaguePortalByLeagueId } from "@/lib/portal/revalidate-league-portal";
+import { leagueStoragePath } from "@/lib/storage/league-storage-path";
 
 const ALLOWED_CATEGORY = new Set<string>(["REGLAMENTO", "BASES", "COMUNICADO"]);
 
@@ -64,7 +65,7 @@ export const createNormativaDocumentAction = withAuth(
 
     const extRaw = file.name.includes(".") ? file.name.split(".").pop() ?? "pdf" : "pdf";
     const ext = extRaw.toLowerCase().replace(/[^a-z0-9]/g, "") || "pdf";
-    const key = `normativas/${leagueRow.slug}/${crypto.randomUUID()}.${ext}`;
+    const key = leagueStoragePath(leagueId, "normativas", leagueRow.slug, `${crypto.randomUUID()}.${ext}`);
 
     const { error: uploadError } = await supabase.storage.from(bucket).upload(key, file, {
       upsert: false,

@@ -2,8 +2,6 @@
 
 import { after } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db/client";
-import { leagues, leagueSettings } from "@/lib/db/schema";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getActiveLeagueIdFromCookies } from "@/lib/auth/active-league";
@@ -14,12 +12,10 @@ import {
   revalidateActiveLeaguePaths,
 } from "@/lib/auth/set-active-league-cookie";
 import { leagueRepository } from "@/repositories/league.repository";
+import { createLeagueCore } from "@/lib/leagues/create-league-core";
 import { provisionLeagueAdmin } from "@/lib/leagues/provision-league-admin";
 import { revalidateLeaguePortalBySlug } from "@/lib/portal/revalidate-league-portal";
-import {
-  resolveNewLeagueSettingsDefaults,
-  type NewLeagueKind,
-} from "@/lib/leagues/resolve-new-league-settings-defaults";
+import type { NewLeagueKind } from "@/lib/leagues/resolve-new-league-settings-defaults";
 
 const createLeagueSchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres").max(100),
@@ -90,29 +86,22 @@ export const createLeagueWizardAction = withAuth(
         validated.data.seasonName?.trim() ||
         `Temporada ${new Date().getFullYear()}`;
 
-      const [newLeague] = await db
-        .insert(leagues)
-        .values({
-          name: validated.data.name,
-          slug: validated.data.slug,
-        })
-        .returning();
-
-      const leagueKind: NewLeagueKind = validated.data.leagueKind ?? "tournament";
-      const settingsDefaults = resolveNewLeagueSettingsDefaults(
-        validated.data.slug,
-        validated.data.name,
-        leagueKind,
-      );
-
-      await db.insert(leagueSettings).values({
-        leagueId: newLeague.id,
+      const created = await createLeagueCore({
+        name: validated.data.name,
+        slug: validated.data.slug,
         seasonName,
-        carnetThemePreset: settingsDefaults.carnetThemePreset,
-        carnetShowFederation: settingsDefaults.carnetShowFederation,
-        carnetSignatureMode: settingsDefaults.carnetSignatureMode,
-        documentSerialPrefix: settingsDefaults.documentSerialPrefix,
+        leagueKind: validated.data.leagueKind ?? "tournament",
+        planTier: "free",
       });
+
+      if (!created.success) {
+        if (created.code === "duplicate_slug") {
+          return { success: false, message: "El slug ya está en uso por otra liga." };
+        }
+        return { success: false, message: created.error };
+      }
+
+      const newLeague = { id: created.leagueId, slug: created.slug };
 
       let adminMessage = "";
       if (assignAdmin && validated.data.adminFullName && validated.data.adminEmail) {

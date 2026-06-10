@@ -68,9 +68,11 @@ export async function createClubService(
     let slugBase = asText(formData.get("slug")) || slugFromClubName(name);
     slugBase = slugBase.slice(0, 50);
 
+    const leagueId = opts?.leagueId ?? null;
+
     let slug = slugBase;
     let sufijo = 0;
-    while (sufijo < 200 && (await clubRepository.existsBySlug(slug))) {
+    while (sufijo < 200 && (await clubRepository.existsBySlugAndLeague(slug, leagueId))) {
       sufijo += 1;
       slug = `${slugBase}-${sufijo}`.slice(0, 50);
     }

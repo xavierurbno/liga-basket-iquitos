@@ -24,11 +24,11 @@ function FooterSkeleton() {
 
 interface LeaguePortalHomeProps {
   league: LeaguePortalBranding;
-  /** `true` en `/`: cabecera LDDBI/Iquitos y enlace «Ligas» al directorio. */
+  /** @deprecated Ya no se usa en `/`; reservado por compatibilidad. */
   programHome?: boolean;
 }
 
-/** Home pública de una liga (`/l/[slug]/` o `/` para Iquitos). */
+/** Home pública de una liga (`/l/[slug]/`). */
 export function LeaguePortalHome({ league, programHome = false }: LeaguePortalHomeProps) {
   const leagueId = league.leagueId?.trim();
   if (!leagueId) {

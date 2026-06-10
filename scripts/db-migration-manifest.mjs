@@ -46,4 +46,9 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0036_carnet_signature_mode.sql",
   "supabase/migrations/0037_document_serial_prefix.sql",
   "supabase/migrations/0038_document_history_league_backfill.sql",
+  "supabase/migrations/0039_clubs_league_slug_unique.sql",
+  "supabase/migrations/0040_clubs_drop_geo_defaults.sql",
+  "supabase/migrations/0041_league_plans.sql",
+  "supabase/migrations/0042_liga_app_role.sql",
+  "supabase/migrations/0043_rls_core_drizzle_tables.sql",
 ];

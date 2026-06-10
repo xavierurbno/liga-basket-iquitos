@@ -13,6 +13,7 @@ import { PortalLeagueTheme } from "@/components/portal/PortalLeagueTheme";
 import { brandingToCssVars } from "@/lib/leagues/league-branding";
 import { resolveLoginHeroLogoUrl } from "@/lib/logos/public-league-logo";
 import { getOAuthAllowedHosts } from "@/lib/security/oauth-redirect";
+import { getPlatformName } from "@/lib/platform/platform-config";
 import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +73,7 @@ export default async function LoginPage({ searchParams }: Props) {
     redirect(postLoginRedirect ?? "/liga/");
   }
 
-  const displayName = league?.name ?? "Liga de Basket de Iquitos";
+  const displayName = league?.name ?? getPlatformName();
   const heroLogoUrl = resolveLoginHeroLogoUrl(league);
   const loginNext =
     postLoginRedirect ?? (league?.slug ? leaguePortalHome(league.slug) : "/liga/");

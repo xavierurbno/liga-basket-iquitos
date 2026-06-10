@@ -29,6 +29,8 @@ import {
 } from "@/lib/actions/system-dashboard-helpers";
 import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
+import { leagueStoragePath } from "@/lib/storage/league-storage-path";
+import { assertCanRegisterPlayer } from "@/lib/leagues/assert-league-plan-limit";
 
 export const registrarJugadorAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
@@ -40,6 +42,16 @@ export const registrarJugadorAction = withAuth(
         return { success: false, error: tenant.error };
       }
       const { leagueId, clubId } = tenant;
+
+      const planError = await assertCanRegisterPlayer(leagueId, context);
+      if (planError) {
+        return {
+          success: false,
+          error: planError.message,
+          upgradePath: planError.upgradePath ?? undefined,
+        };
+      }
+
       const categoryId = asText(formData.get("categoryId"));
       if (!categoryId) {
         return { success: false, error: "Categoría no indicada." };
@@ -63,7 +75,13 @@ export const registrarJugadorAction = withAuth(
 
       if (fotoArchivo instanceof File && fotoArchivo.size > 0) {
         const ext = fotoArchivo.name.split(".").pop() || "jpg";
-        uploadedPhotoKey = `clubs/${clubId}/players/${data.documentNumber}-${Date.now()}.${ext}`;
+        uploadedPhotoKey = leagueStoragePath(
+          leagueId,
+          "clubs",
+          clubId,
+          "players",
+          `${data.documentNumber}-${Date.now()}.${ext}`,
+        );
 
         const { error: uploadError } = await supabase.storage
           .from(process.env.NEXT_PUBLIC_BUCKET_PLAYERS!)

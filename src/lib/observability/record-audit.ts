@@ -16,6 +16,11 @@ export const AUDIT_ACTIONS = {
   ownershipTransfer: "ownership.transfer",
   documentEmit: "document.emit",
   carnetEmit: "carnet.emit",
+  tournamentCreate: "tournament.create",
+  tournamentPublish: "tournament.publish",
+  tournamentDelete: "tournament.delete",
+  tournamentMatchResult: "tournament.match_result",
+  tournamentFinish: "tournament.finish",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS] | string;

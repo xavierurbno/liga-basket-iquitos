@@ -1,12 +1,14 @@
 /**
  * Orden de conexión Supabase / Postgres:
- * - `DATABASE_URL` gana si existe (una sola URI desde el panel).
- * - Por defecto **pooler antes que directo**: el host `db.[ref].supabase.co` a veces devuelve
- *   `getaddrinfo ENOTFOUND` en redes/DNS locales; `*.pooler.supabase.com` suele resolverse.
- * - `DATABASE_USE_DIRECT_FIRST=true` invierte el orden (directo primero).
+ * - Owner (migraciones, seeds, bootstrap): `resolvePostgresOwnerConnectionString()`
+ * - Runtime limitado (RLS): `DATABASE_URL_APP` → `resolvePostgresAppConnectionString()`
+ * - `resolvePostgresConnectionString()` = owner (compatibilidad scripts existentes)
+ *
+ * Por defecto **pooler antes que directo**: el host `db.[ref].supabase.co` a veces devuelve
+ * `getaddrinfo ENOTFOUND` en redes/DNS locales; `*.pooler.supabase.com` suele resolverse.
  */
 
-export type DbConnectionLabel = "DATABASE_URL" | "DIRECT" | "POOLED" | "NONE";
+export type DbConnectionLabel = "DATABASE_URL" | "DIRECT" | "POOLED" | "APP" | "NONE";
 
 /** Supabase recomienda `pgbouncer=true` en URIs del pooler transaccional (6543). */
 export function withPgbouncerParam(connectionString: string): string {
@@ -29,10 +31,7 @@ function shouldPreferPoolerOverExplicit(explicit: string, pooled: string | undef
   return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 }
 
-export function resolvePostgresConnectionString(): {
-  url: string;
-  label: DbConnectionLabel;
-} {
+function resolveOwnerFromEnv(): { url: string; label: DbConnectionLabel } {
   const explicit = process.env.DATABASE_URL?.trim();
   const pooled = process.env.DATABASE_URL_POOLED?.trim();
   const direct = process.env.DATABASE_URL_DIRECT?.trim();
@@ -57,4 +56,32 @@ export function resolvePostgresConnectionString(): {
   }
 
   return { url: "", label: "NONE" };
+}
+
+/** Owner / postgres — migraciones, drizzle-kit, seeds, scripts CI. */
+export function resolvePostgresOwnerConnectionString(): {
+  url: string;
+  label: DbConnectionLabel;
+} {
+  return resolveOwnerFromEnv();
+}
+
+/** Rol liga_app (sin BYPASSRLS). Producción runtime cuando USE_APP_DB_ROLE=true. */
+export function resolvePostgresAppConnectionString(): {
+  url: string;
+  label: DbConnectionLabel;
+} {
+  const app = process.env.DATABASE_URL_APP?.trim();
+  if (!app) {
+    return { url: "", label: "NONE" };
+  }
+  return { url: withPgbouncerParam(app), label: "APP" };
+}
+
+/** Alias histórico → owner. */
+export function resolvePostgresConnectionString(): {
+  url: string;
+  label: DbConnectionLabel;
+} {
+  return resolvePostgresOwnerConnectionString();
 }

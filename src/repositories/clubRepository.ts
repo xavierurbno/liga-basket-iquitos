@@ -1,7 +1,7 @@
 import { db } from "@/lib/db/client";
 import { clubs, clubMembers, Club, NewClub } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { ExtractTablesWithRelations } from "drizzle-orm";
 import { PgTransaction } from "drizzle-orm/pg-core";
 import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
@@ -10,20 +10,82 @@ type DB = typeof db;
 type Transaction = PgTransaction<PostgresJsQueryResultHKT, Record<string, never>, ExtractTablesWithRelations<Record<string, never>>>;
 
 export class ClubRepository {
-  /**
-   * Busca un club por su slug exacto.
-   */
-  async findBySlug(slug: string, tx: DB | Transaction = db) {
-    const [row] = await tx
-      .select()
-      .from(clubs)
-      .where(eq(clubs.slug, slug))
-      .limit(1);
-    return row || null;
+  private slugScopeWhere(slug: string, leagueId: string | null) {
+    if (leagueId) {
+      return and(eq(clubs.slug, slug), eq(clubs.leagueId, leagueId));
+    }
+    return and(eq(clubs.slug, slug), isNull(clubs.leagueId));
   }
 
   /**
-   * Verifica si un slug existe.
+   * Busca un club por slug dentro de una liga (0039: unicidad compuesta).
+   */
+  async findBySlugAndLeague(slug: string, leagueId: string, tx: DB | Transaction = db) {
+    const [row] = await tx
+      .select()
+      .from(clubs)
+      .where(this.slugScopeWhere(slug, leagueId))
+      .limit(1);
+    return row ?? null;
+  }
+
+  /**
+   * Verifica si un slug existe en el ámbito de la liga.
+   * Con `leagueId` null, solo clubes huérfanos (sin liga asignada).
+   */
+  async existsBySlugAndLeague(
+    slug: string,
+    leagueId: string | null,
+    tx: DB | Transaction = db,
+  ): Promise<boolean> {
+    const [row] = await tx
+      .select({ id: clubs.id })
+      .from(clubs)
+      .where(this.slugScopeWhere(slug, leagueId))
+      .limit(1);
+    return Boolean(row);
+  }
+
+  /**
+   * Resuelve slug cuando no hay contexto de liga; null si hay colisión multi-liga.
+   */
+  async findBySlugUnambiguous(slug: string, tx: DB | Transaction = db) {
+    const rows = await tx
+      .select()
+      .from(clubs)
+      .where(eq(clubs.slug, slug))
+      .limit(2);
+    if (rows.length > 1) {
+      console.warn(
+        `[clubRepository.findBySlugUnambiguous] slug "${slug}" ambiguo entre ${rows.length} ligas; usar findBySlugAndLeague.`,
+      );
+      return null;
+    }
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Busca un club por su slug exacto.
+   * @deprecated Preferir findBySlugAndLeague en contexto multi-liga.
+   */
+  async findBySlug(slug: string, tx: DB | Transaction = db) {
+    const rows = await tx
+      .select()
+      .from(clubs)
+      .where(eq(clubs.slug, slug))
+      .limit(2);
+    if (rows.length > 1) {
+      console.warn(
+        `[clubRepository.findBySlug] slug "${slug}" ambiguo entre ${rows.length} ligas; usar findBySlugAndLeague.`,
+      );
+      return null;
+    }
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Verifica si un slug existe (cualquier liga).
+   * @deprecated Preferir existsBySlugAndLeague(slug, leagueId).
    */
   async existsBySlug(slug: string, tx: DB | Transaction = db): Promise<boolean> {
     const [row] = await tx

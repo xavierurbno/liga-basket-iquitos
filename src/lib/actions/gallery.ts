@@ -9,12 +9,15 @@ import { applyWatermark } from "@/lib/watermark";
 import { GALLERY_SERVER_PROCESS_CHUNK, mapInChunks } from "@/lib/gallery/server-upload";
 import { resolveLeagueIdForGalleryUpload } from "@/lib/gallery/resolve-gallery-league-id";
 import {
-  buildGalleryStoragePath,
   validateGalleryUploadFile,
 } from "@/lib/storage/storage-upload-guards";
-import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
+import {
+  leagueStoragePath,
+  storageObjectPathFromPublicUrl,
+} from "@/lib/storage/league-storage-path";
 import crypto from "crypto";
 
+import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
 
@@ -43,6 +46,11 @@ export const uploadPhotosAction = withAuth(
         operationalLeagueId: context.leagueId,
       });
 
+      const leagueScopeErr = assertOperationalLeagueMatch(context, leagueId);
+      if (leagueScopeErr) {
+        return { success: false, error: leagueScopeErr };
+      }
+
       const adminSupabase = getSupabaseAdmin();
       const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
@@ -55,7 +63,7 @@ export const uploadPhotosAction = withAuth(
         const processedBuffer = await applyWatermark(inputBuffer, { leagueId });
 
         const fileId = crypto.randomUUID();
-        const filePath = buildGalleryStoragePath(`${fileId}.jpg`);
+        const filePath = leagueStoragePath(leagueId, "gallery", `${fileId}.jpg`);
 
         const { error: uploadError } = await adminSupabase.storage
           .from(bucket)
@@ -127,7 +135,7 @@ export const deletePhotoAction = withAuth(
         if (
           context.leagueId?.trim() &&
           photo.leagueId &&
-          !clubBelongsToOperationalLeague(photo.leagueId, context.leagueId, context.role)
+          photo.leagueId !== context.leagueId.trim()
         ) {
           return {
             success: false,
@@ -138,12 +146,14 @@ export const deletePhotoAction = withAuth(
         return { success: false, error: "No tienes permisos para eliminar esta foto." };
       }
 
-      // 3. Extraer path del storage
-      const fileName = photo.url.split("/").pop();
-      const storagePath = `gallery/${fileName}`;
+      // 3. Extraer path del storage (nuevo leagues/... o legacy gallery/)
+      const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
+      const storagePath = storageObjectPathFromPublicUrl(photo.url, bucket);
+      if (!storagePath) {
+        return { success: false, error: "No se pudo resolver la ruta del archivo." };
+      }
 
       const adminSupabase = getSupabaseAdmin();
-      const bucket = process.env.NEXT_PUBLIC_BUCKET_GALLERY!;
 
       // 4. ELIMINACIÓN ATÓMICA: Primero Storage
       const { error: storageError } = await adminSupabase.storage

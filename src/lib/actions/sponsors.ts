@@ -5,9 +5,14 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { z } from "zod";
 import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import {
+  assertOperationalLeagueMatch,
+  resolveClientLeagueId,
+} from "@/lib/auth/assert-league-scope";
 import { User } from "@supabase/supabase-js";
 import { isValidUuid } from "@/lib/db/public-read-guards";
 import { ActionResult } from "@/lib/types/league";
+import { leagueStoragePath } from "@/lib/storage/league-storage-path";
 
 const sponsorSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -40,11 +45,16 @@ export const upsertSponsorAction = withAuth(
     const storageClient = getSupabaseAdmin();
 
     try {
-      // SuperAdmin puede elegir la liga desde el formulario
-      const leagueId = (formData.get("leagueId") as string | null)?.trim() || context.leagueId;
+      const leagueId = resolveClientLeagueId(
+        context,
+        formData.get("leagueId") as string | null,
+      );
       if (!leagueId) {
-        return { success: false, error: "Debes seleccionar una liga." };
+        return { success: false, error: "Liga no definida en el contexto." };
       }
+
+      const scopeErr = assertOperationalLeagueMatch(context, leagueId);
+      if (scopeErr) return { success: false, error: scopeErr };
 
       const id = formData.get("id") as string | null;
       const name = formData.get("name") as string;
@@ -70,7 +80,7 @@ export const upsertSponsorAction = withAuth(
       if (logoFile && logoFile.size > 0) {
         const ext = logoFile.name.split(".").pop() || "jpg";
         const fileId = crypto.randomUUID();
-        uploadedKey = `sponsors/${fileId}.${ext}`;
+        uploadedKey = leagueStoragePath(leagueId, "sponsors", `${fileId}.${ext}`);
 
         const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
         const { error: uploadError } = await storageClient.storage
@@ -96,6 +106,11 @@ export const upsertSponsorAction = withAuth(
       }
 
       if (id) {
+        const existing = await sponsorRepository.findById(id);
+        if (!existing || existing.leagueId !== leagueId) {
+          return { success: false, error: "Patrocinador no encontrado en esta liga." };
+        }
+
         await sponsorRepository.update(id, {
           name: validated.data.name,
           category: validated.data.category,
@@ -155,6 +170,14 @@ export const bulkUpsertSponsorsAction = withAuth(
         return { success: false, error: "La cantidad de archivos y metadatos no coincide." };
       }
 
+      const leagueId = resolveClientLeagueId(context, formData.get("leagueId") as string | null);
+      if (!leagueId) {
+        return { success: false, error: "Liga no definida en el contexto." };
+      }
+
+      const scopeErr = assertOperationalLeagueMatch(context, leagueId);
+      if (scopeErr) return { success: false, error: scopeErr };
+
       const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
       const newSponsors = [];
 
@@ -164,7 +187,7 @@ export const bulkUpsertSponsorsAction = withAuth(
 
         const ext = file.name.split(".").pop() || "jpg";
         const fileId = crypto.randomUUID();
-        const key = `sponsors/${fileId}.${ext}`;
+        const key = leagueStoragePath(leagueId, "sponsors", `${fileId}.${ext}`);
         uploadedKeys.push(key);
 
         const { error: uploadError } = await storageClient.storage
@@ -181,7 +204,7 @@ export const bulkUpsertSponsorsAction = withAuth(
           .getPublicUrl(key);
 
         newSponsors.push({
-          leagueId: meta.leagueId,
+          leagueId,
           name: meta.name,
           category: meta.category,
           websiteUrl: meta.websiteUrl || null,
@@ -220,12 +243,8 @@ export const deleteSponsorAction = withAuth(
       const sponsor = await sponsorRepository.findById(id);
       if (!sponsor) return { success: false, error: "Patrocinador no encontrado." };
 
-      // Opcional: Eliminar del storage si se desea
-      // const fileName = sponsor.logoUrl.split("/").pop();
-      // if (fileName) {
-      //   const bucketName = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
-      //   await supabase.storage.from(bucketName).remove([`sponsors/${fileName}`]);
-      // }
+      const scopeErr = assertOperationalLeagueMatch(context, sponsor.leagueId);
+      if (scopeErr) return { success: false, error: scopeErr };
 
       await sponsorRepository.delete(id);
       revalidatePath("/");

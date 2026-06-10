@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { getPlatformName } from "@/lib/platform/platform-config";
+
+const platformName = getPlatformName();
 
 export const metadata: Metadata = {
   title: {
-    default: "Liga de Basket de Iquitos",
-    template: "%s | Liga de Basket Iquitos",
+    default: platformName,
+    template: `%s | ${platformName}`,
   },
-  description: "Portal oficial de la Liga Deportiva Distrital de Basket de Iquitos",
+  description: "Portales públicos de ligas deportivas",
 };
 
 export default function PublicPortalLayout({

@@ -5,6 +5,7 @@ import { clubs, ownershipHistory } from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { isSystemOwnerEmail } from "@/lib/auth/system-owner";
 import { eq } from "drizzle-orm";
+import { clubRepository } from "@/repositories/clubRepository";
 import { findAuthUserIdByEmail } from "@/lib/auth/auth-user-lookup";
 import { readUserRole } from "@/lib/auth/read-user-role";
 import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observability/record-audit";
@@ -45,11 +46,17 @@ export async function createClubAsDelegateAction(formData: FormData) {
       return { error: "Todos los campos son obligatorios" };
     }
 
+    const normalizedSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const slugTaken = await clubRepository.existsBySlugAndLeague(normalizedSlug, leagueIdFromMeta);
+    if (slugTaken) {
+      return { error: "Ese slug ya está en uso en tu liga. Elige otro." };
+    }
+
     const result = await db
       .insert(clubs)
       .values({
         name,
-        slug: slug.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        slug: normalizedSlug,
         presidentDocumentType: presidentDocumentType as "DNI" | "CE" | "PASAPORTE",
         presidentDocumentNumber,
         presidentName,

@@ -25,3 +25,5 @@ export {
   getLeagueSettingsAction,
   seedLeagueSettingsAction,
 } from "@/lib/actions/settings.actions";
+
+export type { PublicLeagueSettings } from "@/lib/actions/settings.actions";

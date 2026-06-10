@@ -138,9 +138,9 @@ export const clubs = pgTable(
     logoUrl: text("logo_url"),
     courtAddress: text("court_address"),
     foundationDate: timestamp("foundation_date"),
-    district: varchar("district", { length: 50 }).default("Iquitos"),
-    province: varchar("province", { length: 50 }).default("Maynas"),
-    region: varchar("region", { length: 50 }).default("Loreto"),
+    district: varchar("district", { length: 50 }),
+    province: varchar("province", { length: 50 }),
+    region: varchar("region", { length: 50 }),
     adminEmail: varchar("admin_email", { length: 100 }).notNull(),
     adminPhone: varchar("admin_phone", { length: 15 }),
     presidentName: varchar("president_name", { length: 80 }),
@@ -173,7 +173,7 @@ export const clubs = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    slugIdx: uniqueIndex("clubs_slug_idx").on(table.slug),
+    leagueSlugIdx: uniqueIndex("clubs_league_slug_idx").on(table.leagueId, table.slug),
     emailIdx: index("clubs_email_idx").on(table.adminEmail),
   })
 );
@@ -667,6 +667,21 @@ export const tournamentMatchPhaseEnum = pgEnum("tournament_match_phase", [
   "playoff",
 ]);
 
+export const leaguePlanTierEnum = pgEnum("league_plan_tier", ["free", "starter", "pro"]);
+
+export const leaguePlans = pgTable("league_plans", {
+  leagueId: uuid("league_id")
+    .primaryKey()
+    .references(() => leagues.id, { onDelete: "cascade" }),
+  plan: leaguePlanTierEnum("plan").notNull().default("free"),
+  maxPlayers: integer("max_players").notNull().default(200),
+  maxActiveTournaments: integer("max_active_tournaments").notNull().default(2),
+  trialExpiresAt: timestamp("trial_expires_at"),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export interface TournamentSettings {
   pointsWin?: number;
   pointsLoss?: number;
@@ -912,7 +927,15 @@ export const leaguesRelations = relations(leagues, ({ many, one }) => ({
   clubs: many(clubs),
   sponsors: many(sponsors),
   settings: one(leagueSettings),
+  plan: one(leaguePlans),
   tournaments: many(tournaments),
+}));
+
+export const leaguePlansRelations = relations(leaguePlans, ({ one }) => ({
+  league: one(leagues, {
+    fields: [leaguePlans.leagueId],
+    references: [leagues.id],
+  }),
 }));
 
 export const sponsorsRelations = relations(sponsors, ({ one }) => ({
@@ -942,6 +965,9 @@ export type DocumentHistory = typeof documentHistory.$inferSelect;
 export type NewDocumentHistory = typeof documentHistory.$inferInsert;
 export type LeagueSettings = typeof leagueSettings.$inferSelect;
 export type NewLeagueSettings = typeof leagueSettings.$inferInsert;
+export type LeaguePlan = typeof leaguePlans.$inferSelect;
+export type NewLeaguePlan = typeof leaguePlans.$inferInsert;
+export type LeaguePlanTier = LeaguePlan["plan"];
 export type OwnershipHistory = typeof ownershipHistory.$inferSelect;
 export type NewOwnershipHistory = typeof ownershipHistory.$inferInsert;
 export type AuditEvent = typeof auditEvents.$inferSelect;

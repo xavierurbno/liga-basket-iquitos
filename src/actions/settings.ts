@@ -5,6 +5,7 @@ import { settingsRepository } from "@/repositories/settingsRepository";
 import { getSupabaseAdmin } from "@/lib/supabase/admin-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
 import { User } from "@supabase/supabase-js";
 import {
   CARNET_SIGNATURE_MODES,
@@ -89,6 +90,9 @@ const leagueSettingsSchema = z.object({
   const endRaw = data.transferPeriodEnd?.trim();
 
   if (manual) return;
+
+  /** Sin fechas: reloj inactivo (válido al abrir/configurar una liga fuera de mercado de pases). */
+  if (!startRaw && !endRaw) return;
 
   if (!startRaw) {
     ctx.addIssue({
@@ -261,10 +265,10 @@ export const updateLeagueSettingsAction = withAuth(
 
     try {
       const { leagueId: vLeagueId, ...data } = validated.data;
-      
-      // 3. Seguridad
-      if (context.role === "LEAGUE_ADMIN" && context.leagueId !== vLeagueId) {
-        return { success: false, message: "Acceso denegado." };
+
+      const scopeErr = assertOperationalLeagueMatch(context, vLeagueId);
+      if (scopeErr) {
+        return { success: false, message: scopeErr };
       }
 
       // 4. Assets de marca / carnet (Storage con service role; auth ya validada en withAuth)

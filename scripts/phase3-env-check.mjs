@@ -77,6 +77,12 @@ const OPTIONAL = [
   "DATABASE_USE_DIRECT_FIRST",
   "DASHBOARD_ADMIN_EMAILS",
   "NEXT_PUBLIC_BUCKET_NORMATIVAS",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "SECURITY_RATE_LIMIT_DISABLED",
+  "PLATFORM_NAME",
+  "PLATFORM_DEFAULT_LEAGUE_SLUG",
+  "NEXT_PUBLIC_DEFAULT_LEAGUE_ID",
 ];
 
 function isSet(key) {
@@ -111,6 +117,16 @@ for (const key of RECOMMENDED) {
 
 for (const key of OPTIONAL) {
   if (isSet(key)) console.log(`○ ${key} (opcional, definida)`);
+}
+
+const upstashUrl = isSet("UPSTASH_REDIS_REST_URL") || isSet("KV_REST_API_URL");
+const upstashToken = isSet("UPSTASH_REDIS_REST_TOKEN") || isSet("KV_REST_API_TOKEN");
+if (upstashUrl && upstashToken) {
+  console.log("○ Upstash Redis (rate limit distribuido) configurado");
+} else if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+  warnings.push(
+    "Sin Upstash (KV_REST_API_* o UPSTASH_REDIS_REST_*): rate limit solo por instancia.",
+  );
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();

@@ -37,6 +37,11 @@ import {
   validateQuarterScores,
 } from "@/lib/tournaments/score-quarters";
 import {
+  AUDIT_ACTIONS,
+  recordAuditFromContext,
+} from "@/lib/observability/record-audit";
+import { assertCanCreateTournament } from "@/lib/leagues/assert-league-plan-limit";
+import {
   createTournamentSchema,
   recordMatchResultSchema,
   type CreateTournamentInput,
@@ -148,7 +153,7 @@ async function recalcStandingsForGroup(
 
 export type CreateTournamentResult =
   | { success: true; tournamentId: string }
-  | { success: false; error: string };
+  | { success: false; error: string; upgradePath?: string | null };
 
 export const createTournamentWithFixture = withAuth(
   async (
@@ -159,6 +164,15 @@ export const createTournamentWithFixture = withAuth(
     const leagueId = resolveLeagueId(context);
     if (!leagueId) {
       return { success: false, error: "No se encontró la liga activa en tu sesión." };
+    }
+
+    const planError = await assertCanCreateTournament(leagueId, context);
+    if (planError) {
+      return {
+        success: false,
+        error: planError.message,
+        upgradePath: planError.upgradePath ?? undefined,
+      };
     }
 
     const parsed = createTournamentSchema.safeParse(input);
@@ -337,6 +351,13 @@ export const createTournamentWithFixture = withAuth(
       });
 
       revalidatePath("/liga/torneos");
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.tournamentCreate,
+        entityType: "tournament",
+        entityId: result,
+        leagueId,
+        payload: { name: data.name, slug, format: data.format },
+      });
       return { success: true, tournamentId: result };
     } catch (err) {
       console.error("[createTournamentWithFixture]", err);
@@ -373,6 +394,13 @@ export const publishTournament = withAuth(
 
     revalidatePath(`/liga/torneos/${tournamentId}`);
     revalidatePath("/liga/torneos");
+    await recordAuditFromContext(context, {
+      action: AUDIT_ACTIONS.tournamentPublish,
+      entityType: "tournament",
+      entityId: tournamentId,
+      leagueId,
+      payload: { name: t.name, slug: t.slug },
+    });
     return { success: true };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]
@@ -436,6 +464,14 @@ export const finishTournament = withAuth(
     const leagueId = resolveLeagueId(context);
     if (!leagueId) return { success: false, error: "Liga no definida." };
 
+    const [t] = await db
+      .select({ name: tournaments.name, slug: tournaments.slug })
+      .from(tournaments)
+      .where(and(eq(tournaments.id, tournamentId), eq(tournaments.leagueId, leagueId)))
+      .limit(1);
+
+    if (!t) return { success: false, error: "Torneo no encontrado." };
+
     await db
       .update(tournaments)
       .set({ status: "finished", updatedAt: new Date() })
@@ -443,6 +479,13 @@ export const finishTournament = withAuth(
 
     revalidatePath(`/liga/torneos/${tournamentId}`);
     revalidatePath("/liga/torneos");
+    await recordAuditFromContext(context, {
+      action: AUDIT_ACTIONS.tournamentFinish,
+      entityType: "tournament",
+      entityId: tournamentId,
+      leagueId,
+      payload: { name: t.name, slug: t.slug },
+    });
     return { success: true };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]
@@ -613,6 +656,19 @@ export const recordMatchResult = withAuth(
     }
 
     revalidatePath(`/liga/torneos/${match.tournamentId}`);
+    await recordAuditFromContext(context, {
+      action: AUDIT_ACTIONS.tournamentMatchResult,
+      entityType: "tournament_match",
+      entityId: matchId,
+      leagueId,
+      payload: {
+        tournamentId: match.tournamentId,
+        mode,
+        status: patch.status,
+        homeScore: patch.homeScore,
+        awayScore: patch.awayScore,
+      },
+    });
     return { success: true };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]
@@ -689,6 +745,13 @@ export const deleteTournament = withAuth(
       revalidatePath(`/torneos/${row.leagueSlug}/${row.slug}`);
       revalidatePath(`/l/${row.leagueSlug}/torneos/${row.slug}/`);
     }
+    await recordAuditFromContext(context, {
+      action: AUDIT_ACTIONS.tournamentDelete,
+      entityType: "tournament",
+      entityId: tournamentId,
+      leagueId,
+      payload: { slug: row.slug },
+    });
     return { success: true };
   },
   ["LEAGUE_ADMIN", "SUPER_ADMIN"]

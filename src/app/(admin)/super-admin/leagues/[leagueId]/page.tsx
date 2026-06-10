@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { ArrowLeft } from "lucide-react";
 import { leagueRepository } from "@/repositories/league.repository";
+import { leaguePlanRepository } from "@/repositories/leaguePlanRepository";
 import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
 import { clubRepository } from "@/repositories/clubRepository";
 import { LeagueSettingsForm } from "@/components/admin/LeagueSettingsForm";
@@ -12,6 +13,8 @@ import { ManageLeagueButton } from "@/components/liga/ManageLeagueButton";
 import { DeleteLeagueButton } from "@/components/admin/DeleteLeagueButton";
 import { LeagueCreatedSummary } from "@/components/admin/LeagueCreatedSummary";
 import { ProvisionLeagueAdminForm } from "@/components/admin/ProvisionLeagueAdminForm";
+import { LeaguePlanForm } from "@/components/admin/LeaguePlanForm";
+import { LeaguePlanUsagePanel } from "@/components/admin/LeaguePlanUsagePanel";
 import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
 import { createServerClient } from "@supabase/ssr";
@@ -41,9 +44,10 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
   } = await supabase.auth.getUser();
   const activeLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
 
-  const [admins, clubs] = await Promise.all([
+  const [admins, clubs, planUsage] = await Promise.all([
     userAssignmentRepository.findLeagueAdmins(leagueId),
     clubRepository.findByLeagueId(leagueId),
+    leaguePlanRepository.getUsage(leagueId),
   ]);
 
   const settings = league.settings;
@@ -112,6 +116,9 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
         transferPeriodEnd={settings?.transferPeriodEnd}
         isManualOverride={settings?.isManualOverride}
       />
+
+      <LeaguePlanUsagePanel usage={planUsage} />
+      <LeaguePlanForm leagueId={league.id} initialPlan={planUsage.plan} />
 
       <section
         id="league-admin-form"

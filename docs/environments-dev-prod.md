@@ -54,6 +54,25 @@ CONFIRM_PROD_MIGRATE=yes npm run db:bootstrap:prod -- --force-prod
 
 **Recomendado para prod:** Supabase Dashboard → SQL Editor (manual), no desde PC.
 
+## Upstash Redis (rate limit distribuido)
+
+Integración instalada: **Upstash for Redis** (`upstash-kv-chestnut-desert`).
+
+Vercel inyecta en **Production, Preview y Development**:
+
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+El código también acepta `UPSTASH_REDIS_REST_*` (alias opcionales).
+
+Verificación:
+
+```bash
+npm run ops:verify:upstash
+```
+
+**Importante:** al conectar la integración, `vercel integration add` puede **sobrescribir** `.env.local` con solo variables de Vercel Development. Si pierdes `DATABASE_URL` / Supabase DEV, restaura desde `.env.example` + credenciales de `liga-iquitos-dev` y conserva las líneas `KV_*`.
+
 ## Vercel
 
 ### Production

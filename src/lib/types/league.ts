@@ -8,4 +8,4 @@ export interface LeagueSettings {
 
 export type ActionResult =
   | { success: true; clubSlug?: string; clubId?: string }
-  | { success: false; error: string };
+  | { success: false; error: string; upgradePath?: string | null };

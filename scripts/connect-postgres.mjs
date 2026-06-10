@@ -32,7 +32,7 @@ export async function connectPostgres() {
       prepare: false,
       max: 1,
       connect_timeout: 25,
-      ssl: connectionString.includes("supabase.co") ? "require" : undefined,
+      ssl: /supabase\.(co|com)/.test(connectionString) ? "require" : undefined,
     });
     try {
       await sql`SELECT 1 AS ok`;

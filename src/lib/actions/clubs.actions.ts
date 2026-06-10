@@ -14,6 +14,7 @@ import { movimientoCajaSchema } from "@/lib/validations/schemas";
 import {
   asDateOrNull,
   asText,
+  assertClubInOperationalScope,
   crearCategoriaSchema,
   formatActionError,
   revalidateBusqueda365CategoriesForClub,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/actions/system-dashboard-helpers";
 import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
+import { leagueStoragePath } from "@/lib/storage/league-storage-path";
 
 export const createClubAsSystemAction = withAuth(
   async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
@@ -73,6 +75,11 @@ export const crearCategoriaAction = withAuth(
       return { success: false, error: "El ID del club y el nombre de la categoría son requeridos." };
     }
 
+    const clubScope = await assertClubInOperationalScope(context, clubId);
+    if (!clubScope.ok) {
+      return { success: false, error: clubScope.error };
+    }
+
     const parsed = crearCategoriaSchema.safeParse({
       clubId,
       name,
@@ -99,18 +106,25 @@ export const crearCategoriaAction = withAuth(
 
     if (!parsed.success) return { success: false, error: "Datos de categoría inválidos." };
 
+    const clubRow = await clubRepository.findById(clubId);
+    const leagueId = clubRow?.leagueId;
+    if (!leagueId) {
+      return { success: false, error: "El club no tiene liga asignada." };
+    }
+
     const supabase = await createSupabaseServerFromCookies();
+    const categorySlug = slugifyNombre(name);
 
     const entrenadorFotoSubida = await uploadImageIfPresent(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      `clubs/${clubId}/categories/${slugifyNombre(name)}/entrenador`,
+      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
       formData.get("entrenadorFotoFile"),
     );
     const delegadoFotoSubida = await uploadImageIfPresent(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      `clubs/${clubId}/categories/${slugifyNombre(name)}/delegado`,
+      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
       formData.get("delegadoFotoFile"),
     );
 
@@ -150,6 +164,16 @@ export const eliminarCategoriaAction = withAuth(
 
     if (!clubId || !categoryId) return { success: false, error: "Datos incompletos." };
 
+    const clubScope = await assertClubInOperationalScope(context, clubId);
+    if (!clubScope.ok) {
+      return { success: false, error: clubScope.error };
+    }
+
+    const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
+    if (!cat) {
+      return { success: false, error: "Categoría no encontrada para este club." };
+    }
+
     await categoryRepository.delete(categoryId);
     await revalidateBusqueda365CategoriesForClub(clubId, context);
     revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
@@ -171,18 +195,35 @@ export const actualizarCategoriaAction = withAuth(
 
     if (!clubId || !categoryId || !name) return { success: false, error: "Datos incompletos." };
 
+    const clubScope = await assertClubInOperationalScope(context, clubId);
+    if (!clubScope.ok) {
+      return { success: false, error: clubScope.error };
+    }
+
+    const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
+    if (!cat) {
+      return { success: false, error: "Categoría no encontrada para este club." };
+    }
+
+    const clubRow = await clubRepository.findById(clubId);
+    const leagueId = clubRow?.leagueId;
+    if (!leagueId) {
+      return { success: false, error: "El club no tiene liga asignada." };
+    }
+
     const supabase = await createSupabaseServerFromCookies();
+    const categorySlug = slugifyNombre(name);
 
     const coachPhotoUrl = await uploadImageIfPresent(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      `clubs/${clubId}/categories/${slugifyNombre(name)}/entrenador`,
+      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
       formData.get("entrenadorFotoFile"),
     );
     const delegatePhotoUrl = await uploadImageIfPresent(
       supabase,
       process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      `clubs/${clubId}/categories/${slugifyNombre(name)}/delegado`,
+      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
       formData.get("delegadoFotoFile"),
     );
 
@@ -284,7 +325,17 @@ export const registrarMovimientoAction = withAuth(
 
       if (comprobante instanceof File && comprobante.size > 0) {
         const ext = comprobante.name.split(".").pop() || "jpg";
-        const storageKey = `clubs/${clubId}/receipts/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const receiptLeagueId = context.leagueId?.trim();
+        if (!receiptLeagueId) {
+          return { success: false, error: "Sesión sin liga asignada." };
+        }
+        const storageKey = leagueStoragePath(
+          receiptLeagueId,
+          "clubs",
+          clubId,
+          "receipts",
+          `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`,
+        );
 
         const { error: uploadError } = await supabase.storage
           .from(process.env.NEXT_PUBLIC_BUCKET_RECEIPTS!)

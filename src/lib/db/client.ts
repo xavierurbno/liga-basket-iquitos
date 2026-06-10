@@ -3,30 +3,42 @@
  * CLIENTE DE BASE DE DATOS - SINGLETON PATTERN
  * ============================================================
  * Política de capa: `docs/DATA_LAYER.md` — no importar desde `src/app/**`;
- * dominio vía `src/repositories/*`. Conexión owner (bypass RLS): ver
- * `docs/database-connection-roles.md`.
+ * dominio vía `src/repositories/*`.
  *
- * Si cambias DATABASE_URL_* en .env.local, debemos **recrear** el cliente
- * postgres (ver `cachedConnectionString`).
+ * Fase 5b — dual connection:
+ * - `dbOwner`: owner/postgres (bypass RLS) — migraciones, seeds, bootstrap
+ * - `dbApp`: rol liga_app (RLS efectivo) — runtime cuando USE_APP_DB_ROLE
+ * - `db`: alias a dbOwner por compatibilidad (rollback = no activar flags)
+ * - `getOperationalDb(intent)`: elige owner vs app según flags
  *
- * Resolución de URL: `src/lib/db/resolve-postgres-url.ts` (pooler antes que
- * directo por defecto, para evitar ENOTFOUND en `db.*.supabase.co`).
+ * Ver `docs/security-phase5b-rls-app-role.md`.
  * ============================================================
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { resolvePostgresConnectionString } from "./resolve-postgres-url";
+import {
+  resolvePostgresAppConnectionString,
+  resolvePostgresOwnerConnectionString,
+} from "./resolve-postgres-url";
+import {
+  shouldUseAppDb,
+  type DbOperationIntent,
+} from "./db-runtime-config";
 import * as schema from "./schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
 
+type DbSlot = "owner" | "app";
+
 const globalForDb = globalThis as unknown as {
-  sql?: postgres.Sql;
-  drizzleDb?: Db;
-  /** URL efectiva usada para abrir `sql`; si cambia el env, se reinicia la conexión */
-  cachedConnectionString?: string;
+  sqlOwner?: postgres.Sql;
+  drizzleOwner?: Db;
+  cachedOwnerUrl?: string;
+  sqlApp?: postgres.Sql;
+  drizzleApp?: Db;
+  cachedAppUrl?: string;
 };
 
 function safeConnectionLog(connectionString: string, source: string) {
@@ -34,9 +46,9 @@ function safeConnectionLog(connectionString: string, source: string) {
     const u = new URL(connectionString.replace(/^postgresql:/, "http:"));
     const host = u.hostname;
     const port = u.port;
-    console.info(`[db] ${source} → ${host}${port ? `:${port}` : ""}`);
+    console.info(`[db:${source}] → ${host}${port ? `:${port}` : ""}`);
   } catch {
-    console.info(`[db] ${source} (URL no analizable)`);
+    console.info(`[db:${source}] (URL no analizable)`);
   }
 }
 
@@ -49,7 +61,6 @@ function poolMaxFor(connectionString: string): number {
   if (process.env.NODE_ENV === "production" && connectionString.includes("supabase.co")) {
     return fromEnv ?? 2;
   }
-  /** Dev: varias secciones RSC en paralelo; no aplicar `DATABASE_POOL_MAX=2` de producción. */
   if (process.env.NODE_ENV !== "production" && connectionString.includes("supabase.co")) {
     return Math.max(fromEnv ?? 10, 10);
   }
@@ -63,55 +74,87 @@ function postgresOptions(connectionString: string): Parameters<typeof postgres>[
     prepare: false,
     max: poolMaxFor(connectionString),
     connect_timeout: 25,
-    /** Libera conexiones ociosas para no bloquear el pool en dev (varias pestañas / RSC). */
     idle_timeout: 20,
     max_lifetime: 60 * 10,
     onnotice: () => {},
     connection: {
-      /** Dev: más margen si el pooler Supabase tarda en asignar conexión (evita 57014 en RSC). */
       statement_timeout: process.env.NODE_ENV === "production" ? 10_000 : 25_000,
     },
     ...(esSupabaseHost ? { ssl: "require" as const } : {}),
   };
 }
 
-function ensureDb(): Db {
-  const { url: connectionString, label: source } = resolvePostgresConnectionString();
+function ensureDbSlot(slot: DbSlot): Db {
+  const resolved =
+    slot === "owner"
+      ? resolvePostgresOwnerConnectionString()
+      : resolvePostgresAppConnectionString();
+
+  const connectionString = resolved.url;
   if (!connectionString) {
+    if (slot === "owner") {
+      throw new Error(
+        "Falta cadena owner: define DATABASE_URL, DATABASE_URL_POOLED y/o DATABASE_URL_DIRECT en .env.local",
+      );
+    }
     throw new Error(
-      "Falta cadena de conexión: define DATABASE_URL, DATABASE_URL_POOLED y/o DATABASE_URL_DIRECT en .env.local",
+      "Falta DATABASE_URL_APP (rol liga_app). Ejecuta scripts/provision-liga-app-role.mjs y añade la URI a .env.local.",
     );
   }
 
-  // Si ya existe una instancia con la misma URL, devolverla
-  if (globalForDb.drizzleDb && globalForDb.cachedConnectionString === connectionString) {
-    return globalForDb.drizzleDb;
+  const cacheKey = slot === "owner" ? "cachedOwnerUrl" : "cachedAppUrl";
+  const drizzleKey = slot === "owner" ? "drizzleOwner" : "drizzleApp";
+  const sqlKey = slot === "owner" ? "sqlOwner" : "sqlApp";
+
+  if (globalForDb[drizzleKey] && globalForDb[cacheKey] === connectionString) {
+    return globalForDb[drizzleKey]!;
   }
 
-  // Cerrar conexión anterior si existe
-  if (globalForDb.sql) {
-    console.info("[db] Closing old connection...");
-    void globalForDb.sql.end({ timeout: 2 });
+  const prevSql = globalForDb[sqlKey];
+  if (prevSql) {
+    console.info(`[db] Closing old ${slot} connection...`);
+    void prevSql.end({ timeout: 2 });
   }
-
-  const options = postgresOptions(connectionString);
 
   if (process.env.NODE_ENV !== "production") {
-    safeConnectionLog(connectionString, source);
+    safeConnectionLog(connectionString, resolved.label);
   }
 
-  const sql = postgres(connectionString, options);
+  const sql = postgres(connectionString, postgresOptions(connectionString));
+  globalForDb[sqlKey] = sql;
+  globalForDb[cacheKey] = connectionString;
+  globalForDb[drizzleKey] = drizzle(sql, { schema });
 
-  globalForDb.sql = sql;
-  globalForDb.cachedConnectionString = connectionString;
-  globalForDb.drizzleDb = drizzle(sql, { schema });
-
-  return globalForDb.drizzleDb;
+  return globalForDb[drizzleKey]!;
 }
 
-/** Instancia Drizzle (Singleton) */
-export const db = ensureDb();
+/** Owner/postgres — bypass RLS. Migraciones y scripts CI. */
+export const dbOwner = ensureDbSlot("owner");
 
-// Re-exportamos el schema para conveniencia
+/**
+ * Rol liga_app — RLS efectivo. Lazy: solo conecta si se importa/usa explícitamente
+ * o vía getOperationalDb cuando USE_APP_DB_ROLE está activo.
+ */
+export const dbApp = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    const instance = ensureDbSlot("app");
+    return Reflect.get(instance, prop, receiver);
+  },
+});
+
+/**
+ * Compatibilidad: sigue siendo owner hasta activar USE_APP_DB_ROLE en callers
+ * que migren a getOperationalDb().
+ */
+export const db = dbOwner;
+
+/** Selección runtime owner vs app (Fase 5b.4 activación gradual). */
+export function getOperationalDb(intent: DbOperationIntent = "write"): Db {
+  if (shouldUseAppDb(intent)) {
+    return dbApp;
+  }
+  return dbOwner;
+}
+
 export * from "./schema";
 export { schema };

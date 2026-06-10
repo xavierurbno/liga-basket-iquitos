@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { getPlatformName } from "@/lib/platform/platform-config";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Liga de Basket de Iquitos",
-  description: "Sistema de Gestión",
+  title: getPlatformName(),
+  description: "Gestión y portal público de ligas deportivas",
 };
 
 export const viewport: Viewport = {
