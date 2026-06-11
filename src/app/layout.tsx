@@ -28,8 +28,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col overflow-x-clip font-sans">
-        {children}
+      <body className="flex min-h-screen flex-col overflow-x-clip font-sans">
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

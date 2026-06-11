@@ -23,7 +23,7 @@ export async function ProgramLeaguesDirectory() {
   const platformName = getPlatformName();
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
+    <div className="flex flex-1 flex-col bg-[#F5F5F5]">
       <SiteTopNav hidePanelGestión={false} />
 
       <main className={`flex-1 py-10 ${PORTAL_SHELL_CLASS}`}>

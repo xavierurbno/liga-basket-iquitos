@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { SiteTopNav } from "@/components/layout/SiteTopNav";
 import { DynamicClubGalleries } from "@/components/gallery/DynamicClubGalleries";
 import { GallerySkeleton } from "@/components/gallery/GallerySkeleton";
-import { SponsorFooter } from "@/components/layout/SponsorFooter";
 import { PORTAL_SHELL_CLASS } from "@/lib/portal-layout";
 import { PublicPortalCarouselSection } from "@/components/portal/PublicPortalCarouselSection";
 import { PublicPortalTournamentsAsync } from "@/components/portal/PublicPortalTournamentsAsync";
 import { PublicTournamentsSkeleton } from "@/components/portal/PublicTournamentsSkeleton";
 import type { LeaguePortalBranding } from "@/lib/leagues/league-branding";
 import { PortalLeagueTheme } from "@/components/portal/PortalLeagueTheme";
+import { LeaguePortalFooters } from "@/components/portal/LeaguePortalFooters";
+import { isPlatformDefaultLeagueSlug } from "@/lib/platform/platform-config";
 
 function CarouselSkeleton() {
   return (
@@ -16,10 +17,6 @@ function CarouselSkeleton() {
       <div className="aspect-16/7 w-full rounded-2xl bg-slate-200" />
     </section>
   );
-}
-
-function FooterSkeleton() {
-  return <footer className="mt-auto h-24 w-full shrink-0 border-t border-slate-200 bg-slate-100" />;
 }
 
 interface LeaguePortalHomeProps {
@@ -66,19 +63,19 @@ export function LeaguePortalHome({ league, programHome = false }: LeaguePortalHo
         </div>
       </main>
 
-      <Suspense fallback={<FooterSkeleton />}>
-        <SponsorFooter leagueId={leagueId} />
-      </Suspense>
+      {isPlatformDefaultLeagueSlug(league.slug) ? (
+        <LeaguePortalFooters leagueId={leagueId} />
+      ) : null}
     </>
   );
 
   if (programHome) {
-    return <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">{shell}</div>;
+    return <div className="flex flex-1 flex-col bg-[#F5F5F5]">{shell}</div>;
   }
 
   return (
     <PortalLeagueTheme branding={league} showBanner>
-      <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">{shell}</div>
+      <div className="flex flex-1 flex-col bg-[#F5F5F5]">{shell}</div>
     </PortalLeagueTheme>
   );
 }

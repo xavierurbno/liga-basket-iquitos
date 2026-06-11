@@ -187,6 +187,10 @@ function parseManualOverrideFormValue(value: FormDataEntryValue | null): boolean
   return false;
 }
 
+function normalizeOptionalAssetUrl(value: string | undefined): string {
+  return (value ?? "").trim();
+}
+
 /**
  * Server Action para actualizar las configuraciones globales de una liga.
  */
@@ -334,6 +338,13 @@ export const updateLeagueSettingsAction = withAuth(
           "secretary-signature",
         );
       }
+
+      data.loginLogoUrl = normalizeOptionalAssetUrl(data.loginLogoUrl);
+      data.carnetFederationLogoUrl = normalizeOptionalAssetUrl(data.carnetFederationLogoUrl);
+      data.carnetLeagueMonoLogoUrl = normalizeOptionalAssetUrl(data.carnetLeagueMonoLogoUrl);
+      data.carnetSportGraphicUrl = normalizeOptionalAssetUrl(data.carnetSportGraphicUrl);
+      data.presidentSignatureUrl = normalizeOptionalAssetUrl(data.presidentSignatureUrl);
+      data.secretarySignatureUrl = normalizeOptionalAssetUrl(data.secretarySignatureUrl);
 
       data.presidentDisplayName = (data.presidentDisplayName ?? "").trim();
       data.secretaryDisplayName = (data.secretaryDisplayName ?? "").trim();

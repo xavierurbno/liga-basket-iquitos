@@ -41,6 +41,13 @@ function pathnameWithoutTrailingSlash(path: string): string {
   return path.replace(/\/+$/, "") || "/";
 }
 
+/** Propaga la ruta actual a Server Components (`headers().get("x-pathname")`). */
+function nextWithPathname(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+}
+
 function isLigaOperationalPath(pathCanon: string, path: string): boolean {
   if (pathCanon === "/liga") return true;
   return path.startsWith("/liga/");
@@ -134,7 +141,7 @@ export async function proxy(request: NextRequest) {
 
   const leaguePortalSlug = pathname.match(/^\/l\/([^/]+)/)?.[1]?.trim();
   if (leaguePortalSlug) {
-    const response = NextResponse.next({ request: { headers: request.headers } });
+    const response = nextWithPathname(request);
     response.cookies.set(ACTIVE_LEAGUE_SLUG_COOKIE, leaguePortalSlug, activeLeagueSlugCookieOptions);
     return response;
   }
@@ -149,11 +156,11 @@ export async function proxy(request: NextRequest) {
     !isIntranetPath &&
     !pathname.startsWith("/auth/callback")
   ) {
-    return NextResponse.next({ request: { headers: request.headers } });
+    return nextWithPathname(request);
   }
 
   if (pathname.startsWith("/auth/callback")) {
-    return NextResponse.next({ request: { headers: request.headers } });
+    return nextWithPathname(request);
   }
 
   const legacyRedirect = resolveLegacyRouteRedirect(request);
@@ -163,9 +170,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url, legacyRedirect.permanent ? 308 : 307);
   }
 
-  const cookieHandlers = createSupabaseCookieHandlers(request, () =>
-    NextResponse.next({ request: { headers: request.headers } }),
-  );
+  const cookieHandlers = createSupabaseCookieHandlers(request, () => nextWithPathname(request));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

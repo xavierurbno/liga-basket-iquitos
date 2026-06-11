@@ -1,7 +1,8 @@
 import { SponsorLogoImage } from "@/components/sponsors/SponsorLogoImage";
 import { SPONSOR_FEB_CATEGORY_LABEL_CLASS } from "@/components/sponsors/sponsorFebDisplay";
-import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
+import { isValidUuid } from "@/lib/db/public-read-guards";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
+import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { Sponsor } from "@/lib/db/schema";
 import { reactListKey } from "@/lib/react/listKey";
 import {
@@ -23,13 +24,19 @@ export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: str
       );
     }
 
-    if (!leagueId) return null;
+    if (!leagueId) {
+      return (
+        <footer className="mt-auto min-h-32 w-full shrink-0 border-t border-white/10 bg-black" aria-hidden />
+      );
+    }
 
-    const sponsors = await withQueryTimeout(
-      getSponsorsByLeagueAction(leagueId),
-      FOOTER_MS,
-      "footerSponsors"
-    );
+    const sponsors = isValidUuid(leagueId)
+      ? await withQueryTimeout(
+          sponsorRepository.findByLeague(leagueId),
+          FOOTER_MS,
+          "footerSponsors",
+        )
+      : [];
 
     if (!sponsors || sponsors.length === 0) {
       return (
@@ -89,7 +96,7 @@ export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: str
                       href={sponsor.websiteUrl || "#"}
                       target={sponsor.websiteUrl ? "_blank" : undefined}
                       rel={sponsor.websiteUrl ? "noopener noreferrer" : undefined}
-                      className="group flex min-w-[5rem] items-center justify-center px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      className="group flex min-w-20 items-center justify-center px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                       title={sponsor.name}
                     >
                       <SponsorLogoImage
@@ -104,18 +111,17 @@ export async function SponsorFooter({ leagueId: propLeagueId }: { leagueId?: str
               </div>
             );
           })}
-
-          {/* Footer Legal */}
-          <div className="pt-16 border-t border-white/5 text-center">
-            <p className="text-[10px] font-bold text-white uppercase tracking-widest">
-              © {new Date().getFullYear()} Liga Deportiva Distrital Mixta de Basket de Iquitos
-            </p>
-          </div>
         </div>
       </footer>
     );
   } catch (error) {
     console.error("[SponsorFooter] Error:", error);
-    return null;
+    return (
+      <footer className="mt-auto w-full shrink-0 border-t border-white/10 bg-black px-4 py-10 pb-8 sm:px-8">
+        <p className="text-center text-[10px] font-bold uppercase tracking-widest text-white/40">
+          Patrocinadores no disponibles temporalmente
+        </p>
+      </footer>
+    );
   }
 }

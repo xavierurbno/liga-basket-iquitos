@@ -35,7 +35,7 @@ export default async function OnboardingLeaguePage() {
   const plan = getPlanDefinition(tier);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-[#F5F5F5] px-4 py-12">
+    <div className="flex flex-1 flex-col items-center justify-center bg-[#F5F5F5] px-4 py-12">
       <div className="w-full max-w-lg space-y-6">
         <header className="text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#005CEE]">

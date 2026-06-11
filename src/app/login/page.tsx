@@ -152,7 +152,7 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div
-      className="portal-league-theme flex min-h-screen flex-1 flex-col"
+      className="portal-league-theme flex flex-1 flex-col"
       style={{
         "--portal-primary": "#1e3a5f",
         "--portal-accent": "#005CEE",

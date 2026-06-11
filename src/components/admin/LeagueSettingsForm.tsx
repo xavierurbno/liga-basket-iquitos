@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { updateLeagueSettingsAction, SettingsActionState } from "@/actions/settings";
 import { DEFAULT_CARNET_AUTHORIZATION_TEMPLATE } from "@/lib/carnet/carnetInstitucionalText";
 import {
@@ -19,6 +19,84 @@ import { LEAGUE_SOCIAL_FORM_FIELDS } from "@/lib/leagues/league-social-links";
 import { toDatetimeLocalInputValue } from "@/lib/leagues/datetime-local-input";
 import { LeagueSettings } from "@/lib/db/schema";
 
+const ASSET_FILE_INPUT_CLASS =
+  "w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold";
+
+type InstitutionalImageUploadProps = {
+  label: string;
+  fileInputName: string;
+  hiddenUrlName: string;
+  initialUrl?: string | null;
+  accept: string;
+  helperText?: ReactNode;
+  previewImgClassName?: string;
+};
+
+/** Campo de imagen institucional con vista previa y opción de eliminar (volver a vacío). */
+function InstitutionalImageUpload({
+  label,
+  fileInputName,
+  hiddenUrlName,
+  initialUrl,
+  accept,
+  helperText,
+  previewImgClassName = "h-14 object-contain rounded-lg border border-slate-100 bg-white p-1",
+}: InstitutionalImageUploadProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [storedUrl, setStoredUrl] = useState(initialUrl?.trim() || "");
+  const [preview, setPreview] = useState<string | null>(initialUrl?.trim() || null);
+
+  useEffect(() => {
+    const url = initialUrl?.trim() || "";
+    setStoredUrl(url);
+    setPreview(url || null);
+  }, [initialUrl]);
+
+  function clearAsset() {
+    setStoredUrl("");
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  const hasAsset = Boolean(preview || storedUrl);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-bold text-slate-700 ml-1">{label}</label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          name={fileInputName}
+          accept={accept}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => setPreview(reader.result as string);
+            reader.readAsDataURL(file);
+          }}
+          className={ASSET_FILE_INPUT_CLASS}
+        />
+        {hasAsset ? (
+          <button
+            type="button"
+            onClick={clearAsset}
+            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60"
+          >
+            Eliminar
+          </button>
+        ) : null}
+      </div>
+      <input type="hidden" name={hiddenUrlName} value={storedUrl} readOnly />
+      {preview ? (
+        <img src={preview} alt={label} className={previewImgClassName} />
+      ) : null}
+      {helperText}
+    </div>
+  );
+}
+
 interface Props {
   leagueId: string;
   leagueName: string;
@@ -35,21 +113,10 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
     success: false,
   });
 
+  const loginLogoFileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialSettings?.loginLogoUrl || null);
-  const [fedPreviewUrl, setFedPreviewUrl] = useState<string | null>(
-    initialSettings?.carnetFederationLogoUrl || null,
-  );
-  const [leagueMonoPreviewUrl, setLeagueMonoPreviewUrl] = useState<string | null>(
-    initialSettings?.carnetLeagueMonoLogoUrl || null,
-  );
-  const [presidentSigPreview, setPresidentSigPreview] = useState<string | null>(
-    initialSettings?.presidentSignatureUrl || null,
-  );
-  const [secretarySigPreview, setSecretarySigPreview] = useState<string | null>(
-    initialSettings?.secretarySignatureUrl || null,
-  );
-  const [sportGraphicPreview, setSportGraphicPreview] = useState<string | null>(
-    initialSettings?.carnetSportGraphicUrl || null,
+  const [loginLogoStoredUrl, setLoginLogoStoredUrl] = useState(
+    initialSettings?.loginLogoUrl?.trim() || "",
   );
   const [signatureMode, setSignatureMode] = useState(() =>
     parseCarnetSignatureMode(initialSettings?.carnetSignatureMode),
@@ -67,6 +134,12 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
   }, [initialSettings?.isManualOverride]);
 
   useEffect(() => {
+    const url = initialSettings?.loginLogoUrl?.trim() || "";
+    setLoginLogoStoredUrl(url);
+    setPreviewUrl(url || null);
+  }, [initialSettings?.loginLogoUrl]);
+
+  useEffect(() => {
     if (!state.success) return;
     const savedManual =
       "isManualOverride" in state && typeof state.isManualOverride === "boolean"
@@ -77,14 +150,10 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
     }
   }, [state]);
 
-  function previewFromFile(
-    file: File | undefined,
-    setter: (url: string | null) => void,
-  ) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setter(reader.result as string);
-    reader.readAsDataURL(file);
+  function clearLoginLogo() {
+    setPreviewUrl(null);
+    setLoginLogoStoredUrl("");
+    if (loginLogoFileRef.current) loginLogoFileRef.current.value = "";
   }
 
   return (
@@ -276,6 +345,7 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
               <label className="text-sm font-bold text-slate-700 ml-1">Logo de Login Personalizado</label>
               <div className="relative group">
                 <input
+                  ref={loginLogoFileRef}
                   type="file"
                   name="loginLogo"
                   accept="image/*"
@@ -304,7 +374,16 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                   </div>
                 </div>
               </div>
-              <input type="hidden" name="currentLoginLogoUrl" value={initialSettings?.loginLogoUrl || ""} />
+              <input type="hidden" name="currentLoginLogoUrl" value={loginLogoStoredUrl} readOnly />
+              {(previewUrl || loginLogoStoredUrl) ? (
+                <button
+                  type="button"
+                  onClick={clearLoginLogo}
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60"
+                >
+                  Eliminar logo
+                </button>
+              ) : null}
             </div>
 
             <div className="space-y-3">
@@ -423,26 +502,14 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 placeholder="Ej: BÁSQUET"
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
               />
-              <label className="text-sm font-bold text-slate-700 ml-1">Gráfico deportivo / marca de agua</label>
-              <input
-                type="file"
-                name="carnetSportGraphic"
+              <InstitutionalImageUpload
+                label="Gráfico deportivo / marca de agua"
+                fileInputName="carnetSportGraphic"
+                hiddenUrlName="currentCarnetSportGraphicUrl"
+                initialUrl={initialSettings?.carnetSportGraphicUrl}
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => previewFromFile(e.target.files?.[0], setSportGraphicPreview)}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+                previewImgClassName="h-16 object-contain rounded-lg border border-slate-100 bg-white p-1"
               />
-              <input
-                type="hidden"
-                name="currentCarnetSportGraphicUrl"
-                value={initialSettings?.carnetSportGraphicUrl || ""}
-              />
-              {sportGraphicPreview && (
-                <img
-                  src={sportGraphicPreview}
-                  alt="Gráfico deporte"
-                  className="h-16 object-contain rounded-lg border border-slate-100 bg-white p-1"
-                />
-              )}
             </div>
           </div>
 
@@ -460,62 +527,34 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 Si queda vacío, se usa el nombre de temporada.
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700 ml-1">Logo federación (opcional)</label>
-              <input
-                type="file"
-                name="carnetFederationLogo"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => previewFromFile(e.target.files?.[0], setFedPreviewUrl)}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
-              />
-              <input
-                type="hidden"
-                name="currentCarnetFederationLogoUrl"
-                value={initialSettings?.carnetFederationLogoUrl || ""}
-              />
-              {fedPreviewUrl && (
-                <img
-                  src={fedPreviewUrl}
-                  alt="Federación"
-                  className="h-14 object-contain rounded-lg border border-slate-100 bg-white p-1"
-                />
-              )}
-              <p className="text-[10px] text-slate-400 ml-1">
-                En carnet full color usa la versión a color. En reverso clásico blanco (ZC300) conviene subir
-                la versión B/N; si no, se usa{" "}
-                <code>public/logos/federacion-color.png</code> (o <code>federacion.png</code>).
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700 ml-1">
-                Logo de liga B/N (reverso clásico)
-              </label>
-              <input
-                type="file"
-                name="carnetLeagueMonoLogo"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={(e) => previewFromFile(e.target.files?.[0], setLeagueMonoPreviewUrl)}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
-              />
-              <input
-                type="hidden"
-                name="currentCarnetLeagueMonoLogoUrl"
-                value={initialSettings?.carnetLeagueMonoLogoUrl || ""}
-              />
-              {leagueMonoPreviewUrl && (
-                <img
-                  src={leagueMonoPreviewUrl}
-                  alt="Liga B/N"
-                  className="h-14 object-contain rounded-lg border border-slate-100 bg-white p-1"
-                />
-              )}
-              <p className="text-[10px] text-slate-400 ml-1">
-                Solo para <strong>LDDBI/Iquitos</strong> en el reverso de plantillas «dorso clásica blanco». Las
-                demás ligas no llevan logo en reverso; el anverso usa el logo de login (a color). Alternativa
-                global: <code>public/logos/liga-mono.png</code>.
-              </p>
-            </div>
+            <InstitutionalImageUpload
+              label="Logo federación (opcional)"
+              fileInputName="carnetFederationLogo"
+              hiddenUrlName="currentCarnetFederationLogoUrl"
+              initialUrl={initialSettings?.carnetFederationLogoUrl}
+              accept="image/png,image/jpeg,image/webp"
+              helperText={
+                <p className="text-[10px] text-slate-400 ml-1">
+                  En carnet full color usa la versión a color. En reverso clásico blanco (ZC300) conviene subir
+                  la versión B/N; si eliminas el logo, se usa{" "}
+                  <code>public/logos/federacion-color.png</code> (o <code>federacion.png</code>) cuando aplique.
+                </p>
+              }
+            />
+            <InstitutionalImageUpload
+              label="Logo de liga B/N (reverso clásico)"
+              fileInputName="carnetLeagueMonoLogo"
+              hiddenUrlName="currentCarnetLeagueMonoLogoUrl"
+              initialUrl={initialSettings?.carnetLeagueMonoLogoUrl}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              helperText={
+                <p className="text-[10px] text-slate-400 ml-1">
+                  Solo para <strong>LDDBI/Iquitos</strong> en el reverso de plantillas «dorso clásica blanco». Las
+                  demás ligas no llevan logo en reverso; el anverso usa el logo de login (a color). Alternativa
+                  global: <code>public/logos/liga-mono.png</code>.
+                </p>
+              }
+            />
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -564,26 +603,14 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 placeholder='Ej: KEMA VALERA VÁSQUEZ'
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
               />
-              <label className="text-sm font-bold text-slate-700 ml-1">Firma presidente (PNG)</label>
-              <input
-                type="file"
-                name="presidentSignature"
+              <InstitutionalImageUpload
+                label="Firma presidente (PNG)"
+                fileInputName="presidentSignature"
+                hiddenUrlName="currentPresidentSignatureUrl"
+                initialUrl={initialSettings?.presidentSignatureUrl}
                 accept="image/png,image/webp"
-                onChange={(e) => previewFromFile(e.target.files?.[0], setPresidentSigPreview)}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+                previewImgClassName="h-16 object-contain"
               />
-              <input
-                type="hidden"
-                name="currentPresidentSignatureUrl"
-                value={presidentSigPreview || initialSettings?.presidentSignatureUrl || ""}
-              />
-              {presidentSigPreview ? (
-                <img
-                  src={presidentSigPreview}
-                  alt="Firma presidente"
-                  className="h-16 object-contain"
-                />
-              ) : null}
             </div>
             <div
               className={`space-y-2 ${showSecretarySignature ? "" : "hidden"}`}
@@ -597,26 +624,14 @@ export function LeagueSettingsForm({ leagueId, leagueName, initialSettings }: Pr
                 placeholder="Ej: ERWIN REÁTEGUI MASLUCAN"
                 className="w-full px-4 py-3 rounded-2xl border border-slate-200 uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium"
               />
-              <label className="text-sm font-bold text-slate-700 ml-1">Firma secretario (PNG)</label>
-              <input
-                type="file"
-                name="secretarySignature"
+              <InstitutionalImageUpload
+                label="Firma secretario (PNG)"
+                fileInputName="secretarySignature"
+                hiddenUrlName="currentSecretarySignatureUrl"
+                initialUrl={initialSettings?.secretarySignatureUrl}
                 accept="image/png,image/webp"
-                onChange={(e) => previewFromFile(e.target.files?.[0], setSecretarySigPreview)}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-100 file:font-bold"
+                previewImgClassName="h-16 object-contain"
               />
-              <input
-                type="hidden"
-                name="currentSecretarySignatureUrl"
-                value={secretarySigPreview || initialSettings?.secretarySignatureUrl || ""}
-              />
-              {secretarySigPreview ? (
-                <img
-                  src={secretarySigPreview}
-                  alt="Firma secretario"
-                  className="h-16 object-contain"
-                />
-              ) : null}
             </div>
           </div>
 

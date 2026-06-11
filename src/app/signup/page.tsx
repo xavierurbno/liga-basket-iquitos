@@ -32,7 +32,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
   const plans = listPublicPlans();
 
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-[#F5F5F5] px-4 py-12">
+    <div className="flex flex-1 flex-col items-center justify-center bg-[#F5F5F5] px-4 py-12">
       <div className="w-full max-w-3xl space-y-8">
         <header className="text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#005CEE]">

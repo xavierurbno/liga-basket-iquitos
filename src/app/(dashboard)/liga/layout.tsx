@@ -36,7 +36,7 @@ export default async function SystemLayout({
   const headerHomeHref = await resolveOperationalHeaderHomeHref(ctx.activeLeagueSlug);
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-[#F5F5F5]">
+    <div className="flex flex-1 flex-col bg-[#F5F5F5]">
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div
           aria-hidden
