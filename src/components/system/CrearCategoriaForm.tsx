@@ -132,6 +132,84 @@ export function CrearCategoriaForm({
     }
   }
 
+  function saveCategoria() {
+    if (step !== 3) return;
+    if (!canGoNextStep1) {
+      setError("Nombre de la categoría es obligatorio para continuar.");
+      setStep(1);
+      return;
+    }
+
+    const fd = new FormData();
+    fd.set("nombre_categoria", formState.name);
+    fd.set("descripcion", formState.description);
+    fd.set("apellido_entrenador", formState.coachLastname);
+    fd.set("nombre_entrenador", formState.coachName);
+    fd.set("document_type_entrenador", formState.coachDocumentType);
+    fd.set("dni_entrenador", formState.coachDocumentNumber);
+    fd.set("fecha_nacimiento_entrenador", formState.coachBirthdate);
+    fd.set("contacto_entrenador", formState.coachContact);
+    fd.set("correo_entrenador", formState.coachEmail);
+    fd.set("apellido_delegado", formState.delegateLastname);
+    fd.set("nombre_delegado", formState.delegateName);
+    fd.set("document_type_delegado", formState.delegateDocumentType);
+    fd.set("dni_delegado", formState.delegateDocumentNumber);
+    fd.set("fecha_nacimiento_delegado", formState.delegateBirthdate);
+    fd.set("contacto_delegado", formState.delegateContact);
+    fd.set("correo_delegado", formState.delegateEmail);
+    fd.set("clubId", clubId);
+    if (mode === "edit" && initialData?.categoryId) {
+      fd.set("categoryId", initialData.categoryId);
+      fd.set("entrenadorFotoActual", initialData.coachPhotoUrl ?? "");
+      fd.set("delegadoFotoActual", initialData.delegatePhotoUrl ?? "");
+    }
+    if (files.entrenadorFotoFile) fd.set("entrenadorFotoFile", files.entrenadorFotoFile);
+    if (files.delegadoFotoFile) fd.set("delegadoFotoFile", files.delegadoFotoFile);
+    setError(null);
+    setOk(null);
+    startTransition(async () => {
+      try {
+        const res = await runCategoriaActionWithRetry(fd);
+        if (!res.success) {
+          setError(res.error);
+          return;
+        }
+        if (mode === "edit") {
+          setOk("Categoría actualizada.");
+          onSuccess?.();
+          return;
+        }
+        setFormState({
+          name: "",
+          description: "",
+          coachLastname: "",
+          coachName: "",
+          coachDocumentType: "DNI",
+          coachDocumentNumber: "",
+          coachBirthdate: "",
+          coachContact: "",
+          coachEmail: "",
+          delegateLastname: "",
+          delegateName: "",
+          delegateDocumentType: "DNI",
+          delegateDocumentNumber: "",
+          delegateBirthdate: "",
+          delegateContact: "",
+          delegateEmail: "",
+        });
+        setFiles({
+          entrenadorFotoFile: null,
+          delegadoFotoFile: null,
+        });
+        setStep(1);
+        setOk("Categoría creada.");
+        onSuccess?.();
+      } catch (err) {
+        setError(mapClientActionError(err));
+      }
+    });
+  }
+
   return (
     <form
       noValidate
@@ -140,7 +218,7 @@ export function CrearCategoriaForm({
         if (event.key !== "Enter") return;
         const target = event.target as HTMLElement;
         if (target.tagName === "TEXTAREA" || target.tagName === "BUTTON") return;
-        
+
         // Evitar que el Enter dispare el submit del formulario o cierre el modal
         event.preventDefault();
         event.stopPropagation();
@@ -151,84 +229,12 @@ export function CrearCategoriaForm({
         }
         if (step < 3) {
           setStep((s) => s + 1);
+          return;
         }
+        saveCategoria();
       }}
       onSubmit={(event) => {
         event.preventDefault();
-        if (!canGoNextStep1) {
-          setError("Nombre de la categoría es obligatorio para continuar.");
-          setStep(1);
-          return;
-        }
-        const fd = new FormData();
-        fd.set("nombre_categoria", formState.name);
-        fd.set("descripcion", formState.description);
-        fd.set("apellido_entrenador", formState.coachLastname);
-        fd.set("nombre_entrenador", formState.coachName);
-        fd.set("document_type_entrenador", formState.coachDocumentType);
-        fd.set("dni_entrenador", formState.coachDocumentNumber);
-        fd.set("fecha_nacimiento_entrenador", formState.coachBirthdate);
-        fd.set("contacto_entrenador", formState.coachContact);
-        fd.set("correo_entrenador", formState.coachEmail);
-        fd.set("apellido_delegado", formState.delegateLastname);
-        fd.set("nombre_delegado", formState.delegateName);
-        fd.set("document_type_delegado", formState.delegateDocumentType);
-        fd.set("dni_delegado", formState.delegateDocumentNumber);
-        fd.set("fecha_nacimiento_delegado", formState.delegateBirthdate);
-        fd.set("contacto_delegado", formState.delegateContact);
-        fd.set("correo_delegado", formState.delegateEmail);
-
-        fd.set("clubId", clubId);
-        if (mode === "edit" && initialData?.categoryId) {
-          fd.set("categoryId", initialData.categoryId);
-          fd.set("entrenadorFotoActual", initialData.coachPhotoUrl ?? "");
-          fd.set("delegadoFotoActual", initialData.delegatePhotoUrl ?? "");
-        }
-        if (files.entrenadorFotoFile) fd.set("entrenadorFotoFile", files.entrenadorFotoFile);
-        if (files.delegadoFotoFile) fd.set("delegadoFotoFile", files.delegadoFotoFile);
-        setError(null);
-        setOk(null);
-        startTransition(async () => {
-          try {
-            const res = await runCategoriaActionWithRetry(fd);
-            if (!res.success) {
-              setError(res.error);
-              return;
-            }
-            if (mode === "edit") {
-              setOk("Categoría actualizada.");
-              onSuccess?.();
-              return;
-            }
-            setFormState({
-              name: "",
-              description: "",
-              coachLastname: "",
-              coachName: "",
-              coachDocumentType: "DNI",
-              coachDocumentNumber: "",
-              coachBirthdate: "",
-              coachContact: "",
-              coachEmail: "",
-              delegateLastname: "",
-              delegateName: "",
-              delegateDocumentType: "DNI",
-              delegateDocumentNumber: "",
-              delegateBirthdate: "",
-              delegateContact: "",
-              delegateEmail: "",
-            });
-            setFiles({
-              entrenadorFotoFile: null,
-              delegadoFotoFile: null,
-            });
-            setStep(1);
-             setOk("Categoría creada.");
-            onSuccess?.();
-          } catch (err) {
-            setError(mapClientActionError(err));
-          }
-        });
       }}
       encType="multipart/form-data"
     >
@@ -413,7 +419,8 @@ export function CrearCategoriaForm({
           </button>
         ) : (
           <button
-            type="submit"
+            type="button"
+            onClick={saveCategoria}
             disabled={pending}
             className="rounded-xl bg-[#005CEE] px-8 py-3 text-sm font-bold tracking-wider text-white shadow-[0_10px_20px_-5px_rgba(0,92,238,0.4)] transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
           >
