@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { AUTH_ERRORS } from "@/lib/auth/auth-errors";
 import { resolveAuthSession } from "@/lib/auth/auth-session";
+import { translateActionError } from "@/lib/errors/translate-action-error";
 
 /**
  * Roles permitidos en el sistema LDDBI.
@@ -34,7 +35,7 @@ export function withAuth<T, P extends unknown[]>(
       console.error("Auth Wrapper Error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : AUTH_ERRORS.authFailure,
+        error: translateActionError(error, AUTH_ERRORS.authFailure),
       };
     }
   };

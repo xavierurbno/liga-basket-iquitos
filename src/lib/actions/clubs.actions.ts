@@ -67,92 +67,98 @@ export const createClubAsSystemAction = withAuth(
 
 export const crearCategoriaAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
-    const clubId = context.clubId || asText(formData.get("clubId"));
-    const name = asText(formData.get("nombre_categoria"));
-    const notes = asText(formData.get("descripcion"));
+    try {
+      const clubId = context.clubId || asText(formData.get("clubId"));
+      const name = asText(formData.get("nombre_categoria"));
+      const notes = asText(formData.get("descripcion"));
 
-    if (!clubId || !name) {
-      return { success: false, error: "El ID del club y el nombre de la categoría son requeridos." };
+      if (!clubId || !name) {
+        return { success: false, error: "El ID del club y el nombre de la categoría son requeridos." };
+      }
+
+      const clubScope = await assertClubInOperationalScope(context, clubId);
+      if (!clubScope.ok) {
+        return { success: false, error: clubScope.error };
+      }
+
+      const parsed = crearCategoriaSchema.safeParse({
+        clubId,
+        name,
+        description: notes || null,
+        entrenador: {
+          name: asText(formData.get("nombre_entrenador")) || null,
+          lastname: asText(formData.get("apellido_entrenador")) || null,
+          documentType: (formData.get("document_type_entrenador") as "DNI" | "CE" | "PASAPORTE") || "DNI",
+          documentNumber: asText(formData.get("dni_entrenador")) || null,
+          birthdate: asText(formData.get("fecha_nacimiento_entrenador")) || null,
+          contacto: asText(formData.get("contacto_entrenador")) || null,
+          correo: asText(formData.get("correo_entrenador")) || null,
+        },
+        delegado: {
+          name: asText(formData.get("nombre_delegado")) || null,
+          lastname: asText(formData.get("apellido_delegado")) || null,
+          documentType: (formData.get("document_type_delegado") as "DNI" | "CE" | "PASAPORTE") || "DNI",
+          documentNumber: asText(formData.get("dni_delegado")) || null,
+          birthdate: asText(formData.get("fecha_nacimiento_delegado")) || null,
+          contacto: asText(formData.get("contacto_delegado")) || null,
+          correo: asText(formData.get("correo_delegado")) || null,
+        },
+      });
+
+      if (!parsed.success) return { success: false, error: "Datos de categoría inválidos." };
+
+      const clubRow = await clubRepository.findById(clubId);
+      const leagueId = clubRow?.leagueId;
+      if (!leagueId) {
+        return { success: false, error: "El club no tiene liga asignada." };
+      }
+
+      const bucket = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+      const supabase = await createSupabaseServerFromCookies();
+      const categorySlug = slugifyNombre(name);
+
+      const entrenadorFotoSubida = await uploadImageIfPresent(
+        supabase,
+        bucket,
+        leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
+        formData.get("entrenadorFotoFile"),
+      );
+      const delegadoFotoSubida = await uploadImageIfPresent(
+        supabase,
+        bucket,
+        leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
+        formData.get("delegadoFotoFile"),
+      );
+
+      await categoryRepository.create({
+        clubId,
+        name,
+        description: notes || null,
+        coachName: parsed.data.entrenador?.name,
+        coachLastname: parsed.data.entrenador?.lastname,
+        coachDocumentType: parsed.data.entrenador?.documentType as "DNI" | "CE" | "PASAPORTE",
+        coachDocumentNumber: parsed.data.entrenador?.documentNumber,
+        coachBirthdate: asDateOrNull(parsed.data.entrenador?.birthdate),
+        coachContact: parsed.data.entrenador?.contacto,
+        coachEmail: parsed.data.entrenador?.correo,
+        coachPhotoUrl: entrenadorFotoSubida,
+        delegateName: parsed.data.delegado?.name,
+        delegateLastname: parsed.data.delegado?.lastname,
+        delegateDocumentType: parsed.data.delegado?.documentType as "DNI" | "CE" | "PASAPORTE",
+        delegateDocumentNumber: parsed.data.delegado?.documentNumber,
+        delegateBirthdate: asDateOrNull(parsed.data.delegado?.birthdate),
+        delegateContact: parsed.data.delegado?.contacto,
+        delegateEmail: parsed.data.delegado?.correo,
+        delegatePhotoUrl: delegadoFotoSubida,
+      });
+
+      await revalidateBusqueda365CategoriesForClub(clubId, context);
+      revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
+      return { success: true };
+    } catch (error: unknown) {
+      console.error("Error en crearCategoriaAction:", error);
+      return { success: false, error: formatActionError(error) };
     }
-
-    const clubScope = await assertClubInOperationalScope(context, clubId);
-    if (!clubScope.ok) {
-      return { success: false, error: clubScope.error };
-    }
-
-    const parsed = crearCategoriaSchema.safeParse({
-      clubId,
-      name,
-      description: notes || null,
-      entrenador: {
-        name: asText(formData.get("nombre_entrenador")) || null,
-        lastname: asText(formData.get("apellido_entrenador")) || null,
-        documentType: (formData.get("document_type_entrenador") as "DNI" | "CE" | "PASAPORTE") || "DNI",
-        documentNumber: asText(formData.get("dni_entrenador")) || null,
-        birthdate: asText(formData.get("fecha_nacimiento_entrenador")) || null,
-        contacto: asText(formData.get("contacto_entrenador")) || null,
-        correo: asText(formData.get("correo_entrenador")) || null,
-      },
-      delegado: {
-        name: asText(formData.get("nombre_delegado")) || null,
-        lastname: asText(formData.get("apellido_delegado")) || null,
-        documentType: (formData.get("document_type_delegado") as "DNI" | "CE" | "PASAPORTE") || "DNI",
-        documentNumber: asText(formData.get("dni_delegado")) || null,
-        birthdate: asText(formData.get("fecha_nacimiento_delegado")) || null,
-        contacto: asText(formData.get("contacto_delegado")) || null,
-        correo: asText(formData.get("correo_delegado")) || null,
-      },
-    });
-
-    if (!parsed.success) return { success: false, error: "Datos de categoría inválidos." };
-
-    const clubRow = await clubRepository.findById(clubId);
-    const leagueId = clubRow?.leagueId;
-    if (!leagueId) {
-      return { success: false, error: "El club no tiene liga asignada." };
-    }
-
-    const supabase = await createSupabaseServerFromCookies();
-    const categorySlug = slugifyNombre(name);
-
-    const entrenadorFotoSubida = await uploadImageIfPresent(
-      supabase,
-      process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
-      formData.get("entrenadorFotoFile"),
-    );
-    const delegadoFotoSubida = await uploadImageIfPresent(
-      supabase,
-      process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
-      formData.get("delegadoFotoFile"),
-    );
-
-    await categoryRepository.create({
-      clubId,
-      name,
-      description: notes || null,
-      coachName: parsed.data.entrenador?.name,
-      coachLastname: parsed.data.entrenador?.lastname,
-      coachDocumentType: parsed.data.entrenador?.documentType as "DNI" | "CE" | "PASAPORTE",
-      coachDocumentNumber: parsed.data.entrenador?.documentNumber,
-      coachBirthdate: asDateOrNull(parsed.data.entrenador?.birthdate),
-      coachContact: parsed.data.entrenador?.contacto,
-      coachEmail: parsed.data.entrenador?.correo,
-      coachPhotoUrl: entrenadorFotoSubida,
-      delegateName: parsed.data.delegado?.name,
-      delegateLastname: parsed.data.delegado?.lastname,
-      delegateDocumentType: parsed.data.delegado?.documentType as "DNI" | "CE" | "PASAPORTE",
-      delegateDocumentNumber: parsed.data.delegado?.documentNumber,
-      delegateBirthdate: asDateOrNull(parsed.data.delegado?.birthdate),
-      delegateContact: parsed.data.delegado?.contacto,
-      delegateEmail: parsed.data.delegado?.correo,
-      delegatePhotoUrl: delegadoFotoSubida,
-    });
-
-    await revalidateBusqueda365CategoriesForClub(clubId, context);
-    revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
-    return { success: true };
   },
   ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"],
 );
@@ -188,69 +194,75 @@ export async function eliminarCategoriaFormAction(formData: FormData): Promise<v
 
 export const actualizarCategoriaAction = withAuth(
   async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
-    const clubId = context.clubId || asText(formData.get("clubId"));
-    const categoryId = asText(formData.get("categoryId"));
-    const name = asText(formData.get("nombre_categoria"));
-    const description = asText(formData.get("descripcion"));
+    try {
+      const clubId = context.clubId || asText(formData.get("clubId"));
+      const categoryId = asText(formData.get("categoryId"));
+      const name = asText(formData.get("nombre_categoria"));
+      const description = asText(formData.get("descripcion"));
 
-    if (!clubId || !categoryId || !name) return { success: false, error: "Datos incompletos." };
+      if (!clubId || !categoryId || !name) return { success: false, error: "Datos incompletos." };
 
-    const clubScope = await assertClubInOperationalScope(context, clubId);
-    if (!clubScope.ok) {
-      return { success: false, error: clubScope.error };
+      const clubScope = await assertClubInOperationalScope(context, clubId);
+      if (!clubScope.ok) {
+        return { success: false, error: clubScope.error };
+      }
+
+      const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
+      if (!cat) {
+        return { success: false, error: "Categoría no encontrada para este club." };
+      }
+
+      const clubRow = await clubRepository.findById(clubId);
+      const leagueId = clubRow?.leagueId;
+      if (!leagueId) {
+        return { success: false, error: "El club no tiene liga asignada." };
+      }
+
+      const bucket = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+      const supabase = await createSupabaseServerFromCookies();
+      const categorySlug = slugifyNombre(name);
+
+      const coachPhotoUrl = await uploadImageIfPresent(
+        supabase,
+        bucket,
+        leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
+        formData.get("entrenadorFotoFile"),
+      );
+      const delegatePhotoUrl = await uploadImageIfPresent(
+        supabase,
+        bucket,
+        leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
+        formData.get("delegadoFotoFile"),
+      );
+
+      await categoryRepository.update(categoryId, {
+        name,
+        description: description || null,
+        coachName: asText(formData.get("nombre_entrenador")) || null,
+        coachLastname: asText(formData.get("apellido_entrenador")) || null,
+        coachDocumentType: (formData.get("document_type_entrenador") as "DNI" | "CE" | "PASAPORTE") || "DNI",
+        coachDocumentNumber: asText(formData.get("dni_entrenador")) || null,
+        coachBirthdate: asDateOrNull(formData.get("fecha_nacimiento_entrenador")),
+        coachContact: asText(formData.get("contacto_entrenador")) || null,
+        coachEmail: asText(formData.get("correo_entrenador")) || null,
+        coachPhotoUrl: coachPhotoUrl || asText(formData.get("entrenadorFotoActual")) || null,
+        delegateName: asText(formData.get("nombre_delegado")) || null,
+        delegateLastname: asText(formData.get("apellido_delegado")) || null,
+        delegateDocumentType: (formData.get("document_type_delegado") as "DNI" | "CE" | "PASAPORTE") || "DNI",
+        delegateDocumentNumber: asText(formData.get("dni_delegado")) || null,
+        delegateBirthdate: asDateOrNull(formData.get("fecha_nacimiento_delegado")),
+        delegateContact: asText(formData.get("contacto_delegado")) || null,
+        delegateEmail: asText(formData.get("correo_delegado")) || null,
+        delegatePhotoUrl: delegatePhotoUrl || asText(formData.get("delegadoFotoActual")) || null,
+      });
+
+      await revalidateBusqueda365CategoriesForClub(clubId, context);
+      revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
+      return { success: true };
+    } catch (error: unknown) {
+      console.error("Error en actualizarCategoriaAction:", error);
+      return { success: false, error: formatActionError(error) };
     }
-
-    const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
-    if (!cat) {
-      return { success: false, error: "Categoría no encontrada para este club." };
-    }
-
-    const clubRow = await clubRepository.findById(clubId);
-    const leagueId = clubRow?.leagueId;
-    if (!leagueId) {
-      return { success: false, error: "El club no tiene liga asignada." };
-    }
-
-    const supabase = await createSupabaseServerFromCookies();
-    const categorySlug = slugifyNombre(name);
-
-    const coachPhotoUrl = await uploadImageIfPresent(
-      supabase,
-      process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "entrenador"),
-      formData.get("entrenadorFotoFile"),
-    );
-    const delegatePhotoUrl = await uploadImageIfPresent(
-      supabase,
-      process.env.NEXT_PUBLIC_BUCKET_ASSETS!,
-      leagueStoragePath(leagueId, "clubs", clubId, "categories", categorySlug, "delegado"),
-      formData.get("delegadoFotoFile"),
-    );
-
-    await categoryRepository.update(categoryId, {
-      name,
-      description: description || null,
-      coachName: asText(formData.get("nombre_entrenador")) || null,
-      coachLastname: asText(formData.get("apellido_entrenador")) || null,
-      coachDocumentType: (formData.get("document_type_entrenador") as "DNI" | "CE" | "PASAPORTE") || "DNI",
-      coachDocumentNumber: asText(formData.get("dni_entrenador")) || null,
-      coachBirthdate: asDateOrNull(formData.get("fecha_nacimiento_entrenador")),
-      coachContact: asText(formData.get("contacto_entrenador")) || null,
-      coachEmail: asText(formData.get("correo_entrenador")) || null,
-      coachPhotoUrl: coachPhotoUrl || asText(formData.get("entrenadorFotoActual")) || null,
-      delegateName: asText(formData.get("nombre_delegado")) || null,
-      delegateLastname: asText(formData.get("apellido_delegado")) || null,
-      delegateDocumentType: (formData.get("document_type_delegado") as "DNI" | "CE" | "PASAPORTE") || "DNI",
-      delegateDocumentNumber: asText(formData.get("dni_delegado")) || null,
-      delegateBirthdate: asDateOrNull(formData.get("fecha_nacimiento_delegado")),
-      delegateContact: asText(formData.get("contacto_delegado")) || null,
-      delegateEmail: asText(formData.get("correo_delegado")) || null,
-      delegatePhotoUrl: delegatePhotoUrl || asText(formData.get("delegadoFotoActual")) || null,
-    });
-
-    await revalidateBusqueda365CategoriesForClub(clubId, context);
-    revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
-    return { success: true };
   },
   ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"],
 );

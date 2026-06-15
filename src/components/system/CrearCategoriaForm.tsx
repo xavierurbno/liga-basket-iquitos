@@ -6,6 +6,11 @@ import {
   actualizarCategoriaAction,
   crearCategoriaAction,
 } from "@/lib/actions/system-dashboard";
+import {
+  formatClientActionError,
+  isRetryableNetworkError,
+  translateActionError,
+} from "@/lib/errors/translate-action-error";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
@@ -99,19 +104,8 @@ export function CrearCategoriaForm({
     setStep(targetStep);
   }
 
-  function mapClientActionError(err: unknown): string {
-    const msg = err instanceof Error ? err.message : String(err);
-    const lowered = msg.toLowerCase();
-    if (lowered.includes("failed to fetch") || lowered.includes("err_connection_reset")) {
-      return "Se perdió la conexión con el servidor (dev server reiniciando o red inestable). Vuelve a intentar en unos segundos.";
-    }
-    return msg || "Ocurrió un error inesperado al guardar la categoría.";
-  }
-
-  function isRetryableNetworkError(err: unknown): boolean {
-    const msg = err instanceof Error ? err.message : String(err);
-    const lowered = msg.toLowerCase();
-    return lowered.includes("failed to fetch") || lowered.includes("err_connection_reset");
+  function showActionError(message: string) {
+    setError(translateActionError(message, "Ocurrió un error inesperado al guardar la categoría."));
   }
 
   async function runCategoriaActionWithRetry(fd: FormData) {
@@ -171,7 +165,7 @@ export function CrearCategoriaForm({
       try {
         const res = await runCategoriaActionWithRetry(fd);
         if (!res.success) {
-          setError(res.error);
+          showActionError(res.error);
           return;
         }
         if (mode === "edit") {
@@ -205,7 +199,9 @@ export function CrearCategoriaForm({
         setOk("Categoría creada.");
         onSuccess?.();
       } catch (err) {
-        setError(mapClientActionError(err));
+        setError(
+          formatClientActionError(err, "Ocurrió un error inesperado al guardar la categoría."),
+        );
       }
     });
   }

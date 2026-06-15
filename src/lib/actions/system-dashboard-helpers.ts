@@ -1,5 +1,6 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
+import { translateActionError } from "@/lib/errors/translate-action-error";
 import { z } from "zod";
 import { clubRepository } from "@/repositories/clubRepository";
 import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
@@ -163,13 +164,16 @@ export function buildRegistroJugadorRawData(formData: FormData) {
 export function formatActionError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
   if (msg.toLowerCase().includes("bucket not found")) {
-    return (
-      "No se pudo subir la imagen porque falta un bucket en Supabase Storage. " +
-      `Crea los buckets \`${process.env.NEXT_PUBLIC_BUCKET_ASSETS}\` y \`${process.env.NEXT_PUBLIC_BUCKET_PLAYERS}\` (públicos o con política de lectura) ` +
-      "y vuelve a intentar."
+    const assets = process.env.NEXT_PUBLIC_BUCKET_ASSETS || "club-assets";
+    const players = process.env.NEXT_PUBLIC_BUCKET_PLAYERS || "player-photos";
+    return translateActionError(
+      new Error(
+        `No se pudo subir la imagen: bucket not found. Buckets esperados: ${assets}, ${players}.`,
+      ),
+      "No se pudo subir la imagen. Contacta al administrador de la liga.",
     );
   }
-  return msg || "Ocurrió un error inesperado al procesar la solicitud.";
+  return translateActionError(error, "Ocurrió un error inesperado al procesar la solicitud.");
 }
 
 export const crearCategoriaSchema = z.object({

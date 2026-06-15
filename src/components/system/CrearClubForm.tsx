@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClubAsSystemAction, updateClubAction } from "@/lib/actions/club.actions";
 import type { Club } from "@/lib/db/schema";
+import { formatClientActionError, translateActionError } from "@/lib/errors/translate-action-error";
 
 type FormFields = {
   name: string;
@@ -241,7 +242,12 @@ export function CrearClubForm({ onSuccess, initialData }: CrearClubFormProps) {
               return;
             }
             if (!res.success) {
-              setError("error" in res ? res.error : "Error al guardar.");
+              setError(
+                translateActionError(
+                  "error" in res ? res.error : "Error al guardar.",
+                  "Error al guardar.",
+                ),
+              );
               return;
             }
             setOk(isEdit ? "Cambios guardados correctamente." : "Club creado correctamente.");
@@ -251,7 +257,7 @@ export function CrearClubForm({ onSuccess, initialData }: CrearClubFormProps) {
               router.push(`/liga/clubs/${res.clubId}/`);
             }
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Error inesperado al guardar.");
+            setError(formatClientActionError(err, "Error inesperado al guardar."));
           }
         });
       }}

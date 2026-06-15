@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { registrarJugadorAction } from "@/lib/actions/system-dashboard";
+import { formatClientActionError, translateActionError } from "@/lib/errors/translate-action-error";
 
 export function CrearJugadorCategoriaForm({
   clubId,
@@ -53,7 +54,7 @@ export function CrearJugadorCategoriaForm({
           try {
             const res = await registrarJugadorAction(fd);
             if (!res.success) {
-              setError(res.error);
+              setError(translateActionError(res.error, "No se pudo registrar al jugador."));
               return;
             }
             form.reset();
@@ -61,7 +62,7 @@ export function CrearJugadorCategoriaForm({
             setDocumentType("DNI");
             setOk("Jugador registrado con éxito.");
           } catch (err) {
-            setError("Error al registrar jugador.");
+            setError(formatClientActionError(err, "Error al registrar jugador."));
           }
         });
       }}
