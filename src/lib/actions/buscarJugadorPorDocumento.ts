@@ -3,10 +3,11 @@
 import { db } from "@/lib/db/client";
 import { players, clubs, categories } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { createClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { buildDocumentPlayerSearchConditions } from "@/lib/auth/document-search-scope";
 import { logDocumentSearchByPlayer } from "@/lib/observability/pii-access-log";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
 // ─────────────────────────────────────────────────────────────
@@ -38,34 +39,6 @@ export type JugadorDocumental = {
 export type BusquedaResult =
   | { ok: true; jugador: JugadorDocumental }
   | { ok: false; error: string };
-
-// ─────────────────────────────────────────────────────────────
-// HELPER: generar URL pública del bucket jugador-fotos
-// Usa el cliente anon (solo lectura pública).
-// ─────────────────────────────────────────────────────────────
-
-function getPublicFotoUrl(storagePath: string | null): string | null {
-  if (!storagePath) return null;
-
-  // Si ya es una URL absoluta, devolverla tal cual
-  if (storagePath.startsWith("http")) return storagePath;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-
-  try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data } = supabase.storage
-      .from("jugador-fotos")
-      .getPublicUrl(storagePath);
-    return data?.publicUrl ?? null;
-  } catch {
-    return null;
-  }
-}
-
 
 // ─────────────────────────────────────────────────────────────
 // SERVER ACTION PRINCIPAL
@@ -136,7 +109,7 @@ export const buscarJugadorPorDocumento = withAuth(
 
       const row = rows[0];
 
-      const photoUrl = getPublicFotoUrl(row.fotoUrlRaw);
+      const photoUrl = await resolvePlayerPhotoUrl(row.fotoUrlRaw, { intent: "intranet" });
 
       const jugadorDocumental: JugadorDocumental = {
         id: row.id,

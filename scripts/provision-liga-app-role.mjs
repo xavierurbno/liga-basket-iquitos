@@ -7,7 +7,7 @@
  *
  * Opcional: --apply-migrations (0042 + 0043 si aún no aplicadas)
  */
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadAppEnv } from "./load-env.mjs";

@@ -24,7 +24,10 @@ export function mapVistaPreviaToGenerateCarnetPdfProps(
 ): GenerateCarnetPDFProps {
   const fileName =
     extras.fileName ??
-    `carnet-${props.documentNumber}`.replace(/[^a-zA-Z0-9._-]/g, "-");
+    (isCarnetValidacionMode(props)
+      ? `carnet-validacion-${props.playerId ?? "jugador"}`
+      : `carnet-${props.documentNumber}`
+    ).replace(/[^a-zA-Z0-9._-]/g, "-");
 
   const validationTokenForPublicAssets = isCarnetValidacionMode(props)
     ? extractValidationTokenFromUrl(props.validationUrl)

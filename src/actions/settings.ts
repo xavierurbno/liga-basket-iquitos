@@ -21,6 +21,7 @@ import {
   normalizeLeagueSocialSettings,
 } from "@/lib/leagues/league-social-links";
 import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
+import { withOperationalWrite } from "@/lib/db/operational-db-access";
 import {
   institutionalAssetUrlError,
   isAllowedInstitutionalAssetUrl,
@@ -198,7 +199,7 @@ export const updateLeagueSettingsAction = withAuth(
   async (
     prevState: SettingsActionState, 
     formData: FormData, 
-    _user: User, 
+    user: User, 
     context: AuthContext
   ): Promise<SettingsActionState> => {
     
@@ -399,11 +400,17 @@ export const updateLeagueSettingsAction = withAuth(
       // 5. Persistencia
       const isManualOverride = validated.data.isManualOverride ?? false;
 
-      await settingsRepository.updateLeagueSettings(vLeagueId, {
-        ...data,
-        transferPeriodStart,
-        transferPeriodEnd,
-        isManualOverride,
+      await withOperationalWrite(user, context, async (tx) => {
+        await settingsRepository.updateLeagueSettings(
+          vLeagueId,
+          {
+            ...data,
+            transferPeriodStart,
+            transferPeriodEnd,
+            isManualOverride,
+          },
+          tx,
+        );
       });
 
       await recordAuditFromContext(context, {

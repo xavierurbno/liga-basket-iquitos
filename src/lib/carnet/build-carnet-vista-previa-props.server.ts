@@ -16,6 +16,8 @@ import {
   resolveLeagueCarnetPrefix,
 } from "@/lib/leagues/league-carnet-prefix";
 import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
+import { maskDocumentNumber } from "@/lib/observability/mask-document-number";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { buildPlayerValidationUrl } from "@/lib/validation/build-validation-url.server";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
@@ -107,7 +109,10 @@ export async function buildCarnetVistaPreviaPropsServer(
   const carnetDisplay = formatCarnetNumberForLeague(input.jugador.carnetNumber, cityPrefix);
   const categoriaDetalle = lineaCategoriaInstitucional(input.categoryName, [input.jugador.gender]);
   const categoriaCarnet = input.categoryName.trim();
-  const fotoPublica = resolvePublicImageUrl(input.jugador.photoUrl);
+  const isValidacion = input.presentationMode === "validacion";
+  const fotoPublica = await resolvePlayerPhotoUrl(input.jugador.photoUrl, {
+    intent: isValidacion ? "public" : "intranet",
+  });
 
   const leagueSettings = effectiveLeagueId
     ? await settingsRepository.getLeagueSettings(effectiveLeagueId)
@@ -145,13 +150,23 @@ export async function buildCarnetVistaPreviaPropsServer(
   const portalAccentColor = isLddbiCarnetPreset(carnetTheme.preset)
     ? LDDBI_PREMIUM_ACCENT_HEX
     : normalizePortalHexColor(leagueSettings?.portalAccentColor, "#0d9488");
-  const fechaNacimientoLabel = input.jugador.birthdate
-    ? new Date(input.jugador.birthdate).toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "—";
+  const fechaNacimientoLabel = (() => {
+    if (!input.jugador.birthdate) return "—";
+    const d = new Date(input.jugador.birthdate);
+    if (Number.isNaN(d.getTime())) return "—";
+    if (isValidacion) {
+      return String(d.getFullYear());
+    }
+    return d.toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  })();
+
+  const documentNumber = isValidacion
+    ? maskDocumentNumber(input.jugador.documentNumber)
+    : input.jugador.documentNumber;
 
   return {
     leagueId: effectiveLeagueId,
@@ -160,14 +175,14 @@ export async function buildCarnetVistaPreviaPropsServer(
     leagueDisplayName,
     clubLogoUrl: resolvePublicImageUrl(input.club.logoUrl),
     documentType: input.jugador.documentType,
-    fechaNacimientoIso: birthdateToIso(input.jugador.birthdate),
+    fechaNacimientoIso: isValidacion ? "" : birthdateToIso(input.jugador.birthdate),
     categoriaDetalle,
     leagueLogoUrl,
     federacionLogoUrl,
     photoUrl: fotoPublica,
     name: input.jugador.name,
     lastname: input.jugador.lastname,
-    documentNumber: input.jugador.documentNumber,
+    documentNumber,
     fechaNacimientoLabel,
     gender: input.jugador.gender,
     clubName: input.club.name,

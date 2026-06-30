@@ -1,5 +1,5 @@
 import type { PlayerStatus } from "@/lib/db/schema";
-import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { playerRepository } from "@/repositories/playerRepository";
@@ -45,12 +45,14 @@ export async function loadCategoryRosterValidation(
     leagueName: context.leagueName,
     clubName: context.clubName,
     categoriaDisplay,
-    players: roster.map((p) => ({
-      id: p.id,
-      playerName: `${p.lastname}, ${p.name}`.toUpperCase(),
-      jerseyNumber: p.jerseyNumber,
-      photoUrl: resolvePublicImageUrl(p.photoUrl),
-      status: p.status ?? "PENDIENTE_PAGO",
-    })),
+    players: await Promise.all(
+      roster.map(async (p) => ({
+        id: p.id,
+        playerName: `${p.lastname}, ${p.name}`.toUpperCase(),
+        jerseyNumber: p.jerseyNumber,
+        photoUrl: await resolvePlayerPhotoUrl(p.photoUrl, { intent: "public" }),
+        status: p.status ?? "PENDIENTE_PAGO",
+      })),
+    ),
   };
 }

@@ -1,13 +1,16 @@
-import { db } from "@/lib/db/client";
-import { clubs, clubMembers, Club, NewClub } from "@/lib/db/schema";
+import {
+  operationalReadDb,
+  operationalWriteDb,
+  type OperationalDb,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
+import { clubs, clubMembers } from "@/lib/db/schema";
+import type { Club, NewClub } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import { ExtractTablesWithRelations } from "drizzle-orm";
-import { PgTransaction } from "drizzle-orm/pg-core";
-import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 
-type DB = typeof db;
-type Transaction = PgTransaction<PostgresJsQueryResultHKT, Record<string, never>, ExtractTablesWithRelations<Record<string, never>>>;
+type DB = OperationalDb;
+type Transaction = OperationalTx;
 
 export class ClubRepository {
   private slugScopeWhere(slug: string, leagueId: string | null) {
@@ -20,7 +23,7 @@ export class ClubRepository {
   /**
    * Busca un club por slug dentro de una liga (0039: unicidad compuesta).
    */
-  async findBySlugAndLeague(slug: string, leagueId: string, tx: DB | Transaction = db) {
+  async findBySlugAndLeague(slug: string, leagueId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(clubs)
@@ -36,7 +39,7 @@ export class ClubRepository {
   async existsBySlugAndLeague(
     slug: string,
     leagueId: string | null,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalReadDb(),
   ): Promise<boolean> {
     const [row] = await tx
       .select({ id: clubs.id })
@@ -49,7 +52,7 @@ export class ClubRepository {
   /**
    * Resuelve slug cuando no hay contexto de liga; null si hay colisión multi-liga.
    */
-  async findBySlugUnambiguous(slug: string, tx: DB | Transaction = db) {
+  async findBySlugUnambiguous(slug: string, tx: DB | Transaction = operationalReadDb()) {
     const rows = await tx
       .select()
       .from(clubs)
@@ -68,7 +71,7 @@ export class ClubRepository {
    * Busca un club por su slug exacto.
    * @deprecated Preferir findBySlugAndLeague en contexto multi-liga.
    */
-  async findBySlug(slug: string, tx: DB | Transaction = db) {
+  async findBySlug(slug: string, tx: DB | Transaction = operationalReadDb()) {
     const rows = await tx
       .select()
       .from(clubs)
@@ -87,7 +90,7 @@ export class ClubRepository {
    * Verifica si un slug existe (cualquier liga).
    * @deprecated Preferir existsBySlugAndLeague(slug, leagueId).
    */
-  async existsBySlug(slug: string, tx: DB | Transaction = db): Promise<boolean> {
+  async existsBySlug(slug: string, tx: DB | Transaction = operationalReadDb()): Promise<boolean> {
     const [row] = await tx
       .select({ id: clubs.id })
       .from(clubs)
@@ -99,7 +102,7 @@ export class ClubRepository {
   /**
    * Inserta un nuevo club. Soporta transacciones opcionales.
    */
-  async create(data: NewClub, tx: DB | Transaction = db) {
+  async create(data: NewClub, tx: DB | Transaction = operationalWriteDb()) {
     const [row] = await tx
       .insert(clubs)
       .values(data)
@@ -110,14 +113,14 @@ export class ClubRepository {
   /**
    * Agrega un miembro a un club.
    */
-  async addMember(data: { userId: string; clubId: string; role: string; active?: boolean }, tx: DB | Transaction = db) {
+  async addMember(data: { userId: string; clubId: string; role: string; active?: boolean }, tx: DB | Transaction = operationalWriteDb()) {
     return await tx.insert(clubMembers).values(data);
   }
 
   /**
    * Actualiza los datos de un club.
    */
-  async update(id: string, data: Partial<Club>, tx: DB | Transaction = db) {
+  async update(id: string, data: Partial<Club>, tx: DB | Transaction = operationalWriteDb()) {
     return await tx
       .update(clubs)
       .set({ ...data, updatedAt: new Date() })
@@ -127,14 +130,14 @@ export class ClubRepository {
   /**
    * Elimina un club por ID.
    */
-  async delete(id: string, tx: DB | Transaction = db) {
+  async delete(id: string, tx: DB | Transaction = operationalWriteDb()) {
     return await tx.delete(clubs).where(eq(clubs.id, id));
   }
 
   /**
    * Obtiene un club por su ID.
    */
-  async findById(id: string, tx: DB | Transaction = db) {
+  async findById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(clubs)
@@ -143,7 +146,7 @@ export class ClubRepository {
     return row || null;
   }
 
-  async findTenantById(id: string, tx: DB | Transaction = db) {
+  async findTenantById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
       .from(clubs)
@@ -152,7 +155,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findGalleryHeaderById(id: string, tx: DB | Transaction = db) {
+  async findGalleryHeaderById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         id: clubs.id,
@@ -166,7 +169,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findPublicGalleryMetaById(id: string, tx: DB | Transaction = db) {
+  async findPublicGalleryMetaById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({ id: clubs.id, name: clubs.name, leagueId: clubs.leagueId })
       .from(clubs)
@@ -175,7 +178,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findCategoryDetailClub(id: string, tx: DB | Transaction = db) {
+  async findCategoryDetailClub(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         id: clubs.id,
@@ -191,7 +194,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findFichaClub(id: string, tx: DB | Transaction = db) {
+  async findFichaClub(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         id: clubs.id,
@@ -207,7 +210,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findCarnetClub(id: string, tx: DB | Transaction = db) {
+  async findCarnetClub(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         id: clubs.id,
@@ -223,7 +226,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findNameById(id: string, tx: DB | Transaction = db) {
+  async findNameById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({ id: clubs.id, name: clubs.name })
       .from(clubs)
@@ -232,7 +235,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findByOwnerId(ownerId: string, tx: DB | Transaction = db) {
+  async findByOwnerId(ownerId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(clubs)
@@ -241,7 +244,7 @@ export class ClubRepository {
     return row ?? null;
   }
 
-  async findLeagueIdsForClubIds(ids: string[], tx: DB | Transaction = db) {
+  async findLeagueIdsForClubIds(ids: string[], tx: DB | Transaction = operationalReadDb()) {
     if (ids.length === 0) return [];
     return tx
       .select({ id: clubs.id, leagueId: clubs.leagueId })
@@ -249,7 +252,7 @@ export class ClubRepository {
       .where(inArray(clubs.id, ids));
   }
 
-  async findAllOrderedForPicker(tx: DB | Transaction = db) {
+  async findAllOrderedForPicker(tx: DB | Transaction = operationalReadDb()) {
     return tx
       .select({
         id: clubs.id,
@@ -264,7 +267,7 @@ export class ClubRepository {
   /**
    * Clubes pertenecientes a una liga (intranet LEAGUE_ADMIN).
    */
-  async findByLeagueId(leagueId: string, tx: DB | Transaction = db) {
+  async findByLeagueId(leagueId: string, tx: DB | Transaction = operationalReadDb()) {
     return await tx
       .select()
       .from(clubs)
@@ -274,7 +277,7 @@ export class ClubRepository {
   /**
    * Obtiene todos los clubes registrados.
    */
-  async getAll(tx: DB | Transaction = db) {
+  async getAll(tx: DB | Transaction = operationalReadDb()) {
     return await tx.select().from(clubs);
   }
 
@@ -284,7 +287,7 @@ export class ClubRepository {
    */
   async findAllScoped(
     options: ClubScopeOptions & { leagueId?: string | null },
-    tx: DB | Transaction = db
+    tx: DB | Transaction = operationalReadDb()
   ) {
     if (effectiveBypassClubFilter(options)) {
       return await tx.select().from(clubs);

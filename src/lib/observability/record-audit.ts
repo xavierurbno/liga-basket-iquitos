@@ -5,40 +5,15 @@ import { auditEvents } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 import type { AuthContext } from "@/lib/auth/withAuth";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
+import {
+  AUDIT_ACTIONS,
+  sanitizeAuditPayload,
+  type AuditAction,
+} from "./audit-payload-sanitizer";
+
+export { AUDIT_ACTIONS, sanitizeAuditPayload, type AuditAction };
 
 type Db = PostgresJsDatabase<typeof schema>;
-
-/** Acciones auditadas en Fase 2 (extensible en Fase 3+). */
-export const AUDIT_ACTIONS = {
-  treasuryCreate: "treasury.create",
-  playerCreate: "player.create",
-  settingsUpdate: "settings.update",
-  ownershipTransfer: "ownership.transfer",
-  documentEmit: "document.emit",
-  carnetEmit: "carnet.emit",
-  tournamentCreate: "tournament.create",
-  tournamentPublish: "tournament.publish",
-  tournamentDelete: "tournament.delete",
-  tournamentMatchResult: "tournament.match_result",
-  tournamentFinish: "tournament.finish",
-} as const;
-
-export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS] | string;
-
-const PII_PAYLOAD_KEYS = new Set([
-  "documentnumber",
-  "document_number",
-  "dni",
-  "dnidelegado",
-  "dnientrenador",
-  "email",
-  "phone",
-  "telefono",
-  "snapshot",
-  "password",
-]);
-
-const MAX_PAYLOAD_JSON_BYTES = 8_192;
 
 export type RecordAuditInput = {
   actorId: string;
@@ -51,38 +26,6 @@ export type RecordAuditInput = {
   clientIp?: string | null;
   payload?: Record<string, unknown> | null;
 };
-
-/** Elimina claves sensibles y limita tamaño del JSON de auditoría. */
-export function sanitizeAuditPayload(
-  payload: Record<string, unknown> | null | undefined,
-): Record<string, unknown> | null {
-  if (!payload || typeof payload !== "object") return null;
-
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    const normalized = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-    if (PII_PAYLOAD_KEYS.has(normalized)) continue;
-    if (value === undefined) continue;
-    clean[key] = value;
-  }
-
-  if (Object.keys(clean).length === 0) return null;
-
-  let serialized = JSON.stringify(clean);
-  if (serialized.length <= MAX_PAYLOAD_JSON_BYTES) return clean;
-
-  const trimmed: Record<string, unknown> = { _truncated: true };
-  for (const [key, value] of Object.entries(clean)) {
-    trimmed[key] = value;
-    serialized = JSON.stringify(trimmed);
-    if (serialized.length > MAX_PAYLOAD_JSON_BYTES) {
-      delete trimmed[key];
-    } else {
-      break;
-    }
-  }
-  return Object.keys(trimmed).length > 1 ? trimmed : { _truncated: true };
-}
 
 function normalizeClientIp(ip: string | null | undefined): string | null {
   if (!ip || ip === "unknown") return null;

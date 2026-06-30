@@ -1,20 +1,22 @@
-import { db } from "@/lib/db/client";
-import { players, Player, NewPlayer, PlayerCategory, PlayerStatus } from "@/lib/db/schema";
+import {
+  operationalReadDb,
+  operationalWriteDb,
+  type OperationalDb,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
+import { players, type Player, type NewPlayer, type PlayerCategory, type PlayerStatus } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
 import { eq, and, count, asc } from "drizzle-orm";
 import { categories, clubs, leagues } from "@/lib/db/schema";
-import { ExtractTablesWithRelations } from "drizzle-orm";
-import { PgTransaction } from "drizzle-orm/pg-core";
-import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 
-type DB = typeof db;
-type Transaction = PgTransaction<PostgresJsQueryResultHKT, Record<string, never>, ExtractTablesWithRelations<Record<string, never>>>;
+type DB = OperationalDb;
+type Transaction = OperationalTx;
 
 export class PlayerRepository {
   async countByCategory(
     clubId: string,
     category: PlayerCategory,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalReadDb(),
     options?: ClubScopeOptions
   ) {
     const whereClause = effectiveBypassClubFilter(options)
@@ -27,7 +29,7 @@ export class PlayerRepository {
     return Number(total);
   }
 
-  async create(data: NewPlayer, tx: DB | Transaction = db) {
+  async create(data: NewPlayer, tx: DB | Transaction = operationalWriteDb()) {
     const [row] = await tx
       .insert(players)
       .values(data)
@@ -39,7 +41,7 @@ export class PlayerRepository {
     id: string,
     clubId: string,
     data: Partial<Player>,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalWriteDb(),
     options?: ClubScopeOptions
   ) {
     const whereClause = effectiveBypassClubFilter(options)
@@ -54,7 +56,7 @@ export class PlayerRepository {
   async updateStatus(
     id: string,
     status: PlayerStatus,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalWriteDb(),
     options?: ClubScopeOptions & { clubId?: string }
   ) {
     if (effectiveBypassClubFilter(options)) {
@@ -76,7 +78,7 @@ export class PlayerRepository {
   async delete(
     id: string,
     clubId: string,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalWriteDb(),
     options?: ClubScopeOptions
   ) {
     const whereClause = effectiveBypassClubFilter(options)
@@ -85,7 +87,7 @@ export class PlayerRepository {
     return await tx.delete(players).where(whereClause);
   }
 
-  async findById(id: string, tx: DB | Transaction = db) {
+  async findById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(players)
@@ -94,7 +96,7 @@ export class PlayerRepository {
     return row || null;
   }
 
-  async findRosterByCategory(clubId: string, categoryId: string, tx: DB | Transaction = db) {
+  async findRosterByCategory(clubId: string, categoryId: string, tx: DB | Transaction = operationalReadDb()) {
     return tx
       .select({
         id: players.id,
@@ -114,7 +116,7 @@ export class PlayerRepository {
       .orderBy(asc(players.lastname), asc(players.name));
   }
 
-  async findForFichaByCategory(clubId: string, categoryId: string, tx: DB | Transaction = db) {
+  async findForFichaByCategory(clubId: string, categoryId: string, tx: DB | Transaction = operationalReadDb()) {
     return tx
       .select({
         id: players.id,
@@ -135,7 +137,7 @@ export class PlayerRepository {
     playerId: string,
     clubId: string,
     categoryId: string,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalReadDb(),
   ) {
     const [row] = await tx
       .select({
@@ -167,7 +169,7 @@ export class PlayerRepository {
     playerId: string,
     clubId: string,
     categoryId: string,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalWriteDb(),
   ) {
     const player = await this.findForCarnet(playerId, clubId, categoryId, tx);
     if (!player) return null;
@@ -197,7 +199,7 @@ export class PlayerRepository {
     return row ?? null;
   }
 
-  async findValidationRosterByCategoryId(categoryId: string, tx: DB | Transaction = db) {
+  async findValidationRosterByCategoryId(categoryId: string, tx: DB | Transaction = operationalReadDb()) {
     return tx
       .select({
         id: players.id,
@@ -213,7 +215,7 @@ export class PlayerRepository {
       .orderBy(asc(players.lastname), asc(players.name));
   }
 
-  async findValidationById(playerId: string, tx: DB | Transaction = db) {
+  async findValidationById(playerId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         name: players.name,
@@ -237,7 +239,7 @@ export class PlayerRepository {
     return row ?? null;
   }
 
-  async findCarnetValidationById(playerId: string, tx: DB | Transaction = db) {
+  async findCarnetValidationById(playerId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         id: players.id,

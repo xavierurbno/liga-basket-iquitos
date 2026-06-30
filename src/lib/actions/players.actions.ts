@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { categoryRepository } from "@/repositories/categoryRepository";
+import { clubRepository } from "@/repositories/clubRepository";
 import { playerRepository } from "@/repositories/playerRepository";
 import { ActionResult } from "@/lib/types/league";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { isSuperAdminDataScope } from "@/lib/auth/intranet-roles";
 import { User } from "@supabase/supabase-js";
-import { db } from "@/lib/db/client";
+import { withOperationalWrite } from "@/lib/db/operational-db-access";
 import { sql } from "drizzle-orm";
 import {
   formatRegistroJugadorZodError,
@@ -25,15 +26,18 @@ import {
   buildRegistroJugadorRawData,
   formatActionError,
   resolveLeagueAndClubForPlayerAction,
-  uploadImageIfPresent,
 } from "@/lib/actions/system-dashboard-helpers";
 import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 import { logSecurityEvent } from "@/lib/observability/security-log";
-import { leagueStoragePath } from "@/lib/storage/league-storage-path";
+import {
+  uploadPlayerPhoto,
+  uploadPlayerPhotoIfPresent,
+} from "@/lib/storage/player-photo-url.server";
+import { playersBucketName } from "@/lib/storage/player-photo-storage";
 import { assertCanRegisterPlayer } from "@/lib/leagues/assert-league-plan-limit";
 
 export const registrarJugadorAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     let uploadedPhotoKey: string | null = null;
 
     try {
@@ -74,26 +78,8 @@ export const registrarJugadorAction = withAuth(
       const fotoArchivo = formData.get("foto") ?? formData.get("foto_archivo");
 
       if (fotoArchivo instanceof File && fotoArchivo.size > 0) {
-        const ext = fotoArchivo.name.split(".").pop() || "jpg";
-        uploadedPhotoKey = leagueStoragePath(
-          leagueId,
-          "clubs",
-          clubId,
-          "players",
-          `${data.documentNumber}-${Date.now()}.${ext}`,
-        );
-
-        const { error: uploadError } = await supabase.storage
-          .from(process.env.NEXT_PUBLIC_BUCKET_PLAYERS!)
-          .upload(uploadedPhotoKey, fotoArchivo, { upsert: true });
-
-        if (uploadError) throw new Error(`Error al subir foto: ${uploadError.message}`);
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(process.env.NEXT_PUBLIC_BUCKET_PLAYERS!).getPublicUrl(uploadedPhotoKey);
-
-        photoUrl = publicUrl;
+        uploadedPhotoKey = await uploadPlayerPhoto(supabase, leagueId, clubId, fotoArchivo);
+        photoUrl = uploadedPhotoKey;
       }
 
       const leagueRow = await leagueRepository.findById(leagueId);
@@ -104,7 +90,7 @@ export const registrarJugadorAction = withAuth(
 
       let createdPlayerId: string | undefined;
 
-      await db.transaction(async (tx) => {
+      await withOperationalWrite(user, context, async (tx) => {
         const catRow = await categoryRepository.findById(categoryId, tx);
         if (!catRow || catRow.clubId !== clubId) {
           throw new Error("Categoría no encontrada para este club.");
@@ -180,9 +166,7 @@ export const registrarJugadorAction = withAuth(
 
       if (uploadedPhotoKey) {
         const supabase = await createSupabaseServerFromCookies();
-        await supabase.storage
-          .from(process.env.NEXT_PUBLIC_BUCKET_PLAYERS!)
-          .remove([uploadedPhotoKey]);
+        await supabase.storage.from(playersBucketName()).remove([uploadedPhotoKey]);
       }
 
       return { success: false, error: formatActionError(error) };
@@ -192,7 +176,7 @@ export const registrarJugadorAction = withAuth(
 );
 
 export const editarDeportistaAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     const clubId = context.clubId || asText(formData.get("clubId"));
     const categoryId = asText(formData.get("categoryId"));
     const playerId = asText(formData.get("playerId"));
@@ -211,40 +195,62 @@ export const editarDeportistaAction = withAuth(
       return { success: false, error: "Campos obligatorios incompletos." };
     }
 
+    const clubPreview = await clubRepository.findById(clubId);
+    const leagueIdForPhoto = clubPreview?.leagueId ?? context.leagueId ?? null;
     const supabase = await createSupabaseServerFromCookies();
+    let fotoPath: string | null = null;
+    if (leagueIdForPhoto) {
+      fotoPath = await uploadPlayerPhotoIfPresent(
+        supabase,
+        leagueIdForPhoto,
+        clubId,
+        formData.get("foto_archivo"),
+      );
+    }
 
-    const fotoSubida = await uploadImageIfPresent(
-      supabase,
-      process.env.NEXT_PUBLIC_BUCKET_PLAYERS!,
-      `clubs/${clubId}/categories/${categoryId}/players`,
-      formData.get("foto_archivo"),
-    );
+    await withOperationalWrite(user, context, async (tx) => {
+      const club = await clubRepository.findById(clubId, tx);
+      const leagueId = club?.leagueId ?? context.leagueId ?? null;
 
-    await playerRepository.update(
-      playerId,
-      clubId,
-      {
-        documentType,
-        documentNumber,
-        lastname: lastname.slice(0, 80),
-        name: name.slice(0, 80),
-        birthdate: new Date(birthdate),
-        phone: telefono || null,
-        address: direccion || null,
-        gender: genero,
-        status: status as "ACTIVO" | "INACTIVO" | "SUSPENDIDO" | undefined,
-        photoUrl: fotoSubida || fotoActual || null,
-        tutorName: asText(formData.get("tutorName")) || null,
-        tutorDocumentType: (formData.get("tutor_document_type") as "DNI" | "CE" | "PASAPORTE") || "DNI",
-        tutorDocumentNumber: asText(formData.get("tutor_document_number")) || null,
-        tutorPhone: asText(formData.get("tutorPhone")) || null,
-      },
-      db,
-      {
-        bypassClubFilter: isSuperAdminDataScope(context.role),
-        actingRole: context.role,
-      },
-    );
+      await playerRepository.update(
+        playerId,
+        clubId,
+        {
+          documentType,
+          documentNumber,
+          lastname: lastname.slice(0, 80),
+          name: name.slice(0, 80),
+          birthdate: new Date(birthdate),
+          phone: telefono || null,
+          address: direccion || null,
+          gender: genero,
+          status: status as "ACTIVO" | "INACTIVO" | "SUSPENDIDO" | undefined,
+          photoUrl: fotoPath || fotoActual || null,
+          tutorName: asText(formData.get("tutorName")) || null,
+          tutorDocumentType: (formData.get("tutor_document_type") as "DNI" | "CE" | "PASAPORTE") || "DNI",
+          tutorDocumentNumber: asText(formData.get("tutor_document_number")) || null,
+          tutorPhone: asText(formData.get("tutorPhone")) || null,
+        },
+        tx,
+        {
+          bypassClubFilter: isSuperAdminDataScope(context.role),
+          actingRole: context.role,
+        },
+      );
+
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.playerUpdate,
+        entityType: "player",
+        entityId: playerId,
+        leagueId,
+        clubId,
+        payload: {
+          playerId,
+          categoryId,
+          photoUpdated: Boolean(fotoPath),
+        },
+      });
+    });
 
     revalidatePath(`/liga/clubs/${clubId}/categories/${categoryId}/`, "page" as any);
     return { success: true };
@@ -253,7 +259,7 @@ export const editarDeportistaAction = withAuth(
 );
 
 export const eliminarDeportistaAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     const clubId = context.clubId || asText(formData.get("clubId"));
     const categoryId = asText(formData.get("categoryId"));
     const playerId = asText(formData.get("playerId"));
@@ -262,9 +268,26 @@ export const eliminarDeportistaAction = withAuth(
       return { success: false, error: "Datos incompletos." };
     }
 
-    await playerRepository.delete(playerId, clubId, db, {
-      bypassClubFilter: isSuperAdminDataScope(context.role),
-      actingRole: context.role,
+    await withOperationalWrite(user, context, async (tx) => {
+      const club = await clubRepository.findById(clubId, tx);
+      const leagueId = club?.leagueId ?? context.leagueId ?? null;
+
+      await recordAuditFromContext(context, {
+        action: AUDIT_ACTIONS.playerDelete,
+        entityType: "player",
+        entityId: playerId,
+        leagueId,
+        clubId,
+        payload: {
+          playerId,
+          categoryId,
+        },
+      });
+
+      await playerRepository.delete(playerId, clubId, tx, {
+        bypassClubFilter: isSuperAdminDataScope(context.role),
+        actingRole: context.role,
+      });
     });
 
     revalidatePath(`/liga/clubs/${clubId}/categories/${categoryId}/`, "page" as any);

@@ -7,19 +7,13 @@ import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-instituti
 import { normalizePortalHexColor } from "@/lib/leagues/portal-colors";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { maskDocumentNumber } from "@/lib/observability/mask-document-number";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { clubRepository } from "@/repositories/clubRepository";
 import { playerRepository } from "@/repositories/playerRepository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import type { PlayerStatus } from "@/lib/db/schema";
-
-function aIso(date: Date | null | undefined): string {
-  if (!date) return "";
-  const t = new Date(date);
-  if (Number.isNaN(t.getTime())) return "";
-  return t.toISOString();
-}
 
 async function resolveLeagueFichaBranding(leagueId: string | null | undefined) {
   return resolveFichaInstitutionalBranding(leagueId);
@@ -71,16 +65,20 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
     estadosPorJugador[p.id] = p.status ?? "PENDIENTE_PAGO";
   }
 
-  const players = jugadores.map((j) => ({
-    id: j.id,
-    name: j.name,
-    lastname: j.lastname,
-    documentType: j.documentType,
-    documentNumber: maskDocumentNumber(j.documentNumber),
-    fechaNacimientoIso: aIso(j.birthdate),
-    photoUrl: resolvePublicImageUrl(j.photoUrl),
-    jerseyNumber: j.jerseyNumber,
-  }));
+  const players = await Promise.all(
+    jugadores.map(async (j) => ({
+      id: j.id,
+      name: j.name,
+      lastname: j.lastname,
+      documentType: j.documentType,
+      documentNumber: maskDocumentNumber(j.documentNumber),
+      fechaNacimientoIso: j.birthdate
+        ? String(new Date(j.birthdate).getFullYear())
+        : "",
+      photoUrl: await resolvePlayerPhotoUrl(j.photoUrl, { intent: "public" }),
+      jerseyNumber: j.jerseyNumber,
+    })),
+  );
 
   return {
     leagueName: context.leagueName,

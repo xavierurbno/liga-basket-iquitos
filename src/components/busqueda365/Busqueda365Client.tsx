@@ -239,7 +239,7 @@ export function Busqueda365Client({
         <p className="text-center text-sm text-slate-600">No hay deportistas asignados a esta categoría.</p>
       )}
 
-      <div className="space-y-12">
+      <div className="space-y-12" data-testid="busqueda365-roster">
         {clubs.map((bloque, ci) => (
           <section
             key={bloque.clubId}

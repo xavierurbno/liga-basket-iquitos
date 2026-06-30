@@ -8,7 +8,7 @@ import { ActionResult } from "@/lib/types/league";
 import { createClubService } from "@/services/clubService";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
-import { db } from "@/lib/db/client";
+import { withOperationalWrite } from "@/lib/db/operational-db-access";
 import { treasury } from "@/lib/db/schema";
 import { movimientoCajaSchema } from "@/lib/validations/schemas";
 import {
@@ -362,23 +362,26 @@ export const registrarMovimientoAction = withAuth(
         proofUrl = urlData.publicUrl;
       }
 
-      const [treasuryRow] = await db
-        .insert(treasury)
-        .values({
-          leagueId: context.leagueId,
-          clubId,
-          type: data.type,
-          amount: String(data.amount),
-          concept: data.concept,
-          paymentChannel: data.paymentChannel,
-          operationCode: data.operationCode,
-          playerId: data.playerId,
-          transactionDate: data.transactionDate,
-          notes: data.notes,
-          registeredBy: user.id,
-          proofUrl,
-        })
-        .returning({ id: treasury.id });
+      const treasuryRow = await withOperationalWrite(user, context, async (tx) => {
+        const [row] = await tx
+          .insert(treasury)
+          .values({
+            leagueId: context.leagueId,
+            clubId,
+            type: data.type,
+            amount: String(data.amount),
+            concept: data.concept,
+            paymentChannel: data.paymentChannel,
+            operationCode: data.operationCode,
+            playerId: data.playerId,
+            transactionDate: data.transactionDate,
+            notes: data.notes,
+            registeredBy: user.id,
+            proofUrl,
+          })
+          .returning({ id: treasury.id });
+        return row;
+      });
 
       logSecurityEvent(
         {

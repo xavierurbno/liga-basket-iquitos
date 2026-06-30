@@ -4,9 +4,18 @@ import type { User } from "@supabase/supabase-js";
 import {
   actsAsSuperAdminInProxy,
   canAccessIntranet,
+  isMasterSuperAdminUser,
 } from "@/lib/auth/intranet-gate";
+import {
+  isIpAllowedForMasterAdmin,
+  isMasterAdminIpAllowlistConfigured,
+} from "@/lib/auth/master-admin-ip-allowlist";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
-import { logRateLimitBlocked, logSensitiveRouteAllowed } from "@/lib/observability/security-log";
+import {
+  logRateLimitBlocked,
+  logSecurityEvent,
+  logSensitiveRouteAllowed,
+} from "@/lib/observability/security-log";
 import {
   checkRateLimit,
   rateLimitExceededMessage,
@@ -51,6 +60,49 @@ function nextWithPathname(request: NextRequest): NextResponse {
 function isLigaOperationalPath(pathCanon: string, path: string): boolean {
   if (pathCanon === "/liga") return true;
   return path.startsWith("/liga/");
+}
+
+function masterEmailBypassActive(user: User, role: string | undefined): boolean {
+  return isMasterSuperAdminUser(user) && role !== "SUPER_ADMIN";
+}
+
+/** Bloquea cuenta maestra si IP no está en allowlist (solo cuando env está configurado). */
+function enforceMasterAdminIpOrRedirect(
+  request: NextRequest,
+  user: User,
+  userRole: string | undefined,
+  pathnameCanon: string,
+  pathname: string,
+): NextResponse | null {
+  if (!isMasterSuperAdminUser(user)) return null;
+  if (!isMasterAdminIpAllowlistConfigured()) return null;
+
+  const clientIp = getClientIpFromHeaders(request.headers);
+  if (isIpAllowedForMasterAdmin(clientIp)) return null;
+
+  const isProtected =
+    isSuperAdminPath(pathnameCanon, pathname) ||
+    isLigaOperationalPath(pathnameCanon, pathname) ||
+    pathnameCanon === "/dashboard" ||
+    pathname.startsWith("/dashboard/");
+
+  if (!isProtected) return null;
+
+  logSecurityEvent(
+    {
+      type: "auth.route.forbidden",
+      message: "IP no autorizada para cuenta maestra",
+      userId: user.id,
+      role: userRole,
+      route: pathnameCanon,
+      meta: { clientIp, reason: "master_admin_ip_allowlist" },
+    },
+    { level: "warn" },
+  );
+
+  const url = request.nextUrl.clone();
+  url.pathname = "/login/";
+  return NextResponse.redirect(url);
 }
 
 const PROXY_RESERVED_SEGMENTS = new Set([
@@ -209,6 +261,17 @@ export async function proxy(request: NextRequest) {
 
   const userRole = userAppMetadata.role;
   const userClubId = userAppMetadata.club_id;
+
+  if (user) {
+    const ipBlock = enforceMasterAdminIpOrRedirect(
+      request,
+      user,
+      userRole,
+      pathnameCanon,
+      pathname,
+    );
+    if (ipBlock) return ipBlock;
+  }
 
   if (isSuperAdminPath(pathnameCanon, pathname)) {
     if (!user) {
@@ -391,6 +454,7 @@ export async function proxy(request: NextRequest) {
       leagueId: userAppMetadata.league_id,
       clubId: userClubId,
       clientIp: getClientIpFromHeaders(request.headers),
+      bypassMasterEmail: masterEmailBypassActive(user, userRole),
     });
   }
 

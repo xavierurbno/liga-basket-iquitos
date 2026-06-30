@@ -76,6 +76,7 @@ export default async function LeaguePublicTournamentPage({
             }))}
             standings={standings.map((s) => ({
               groupId: s.groupId,
+              categoryId: s.categoryId,
               position: s.position,
               clubName: s.clubName,
               categoryName: s.categoryName,

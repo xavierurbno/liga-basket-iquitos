@@ -3,10 +3,11 @@ export function requireE2eEnv() {
   const password = process.env.E2E_DELEGATE_PASSWORD?.trim();
   const leagueSlug = process.env.E2E_LEAGUE_SLUG?.trim();
   const foreignClubId = process.env.E2E_FOREIGN_CLUB_ID?.trim();
+  const ownClubId = process.env.E2E_OWN_CLUB_ID?.trim();
 
   if (!email || !password || !leagueSlug) {
     return null;
   }
 
-  return { email, password, leagueSlug, foreignClubId };
+  return { email, password, leagueSlug, foreignClubId, ownClubId };
 }

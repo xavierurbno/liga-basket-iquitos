@@ -8,6 +8,7 @@ import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-institutional-branding.server";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
 
 function aIso(transactionDate: Date | null | undefined): string | null {
@@ -61,16 +62,18 @@ export default async function FichaCategoriaPage({
 
   const clubLogoPublic = resolvePublicImageUrl(club.logoUrl);
 
-  const jugadoresPreview = listaJugadores.map((j) => ({
-    id: j.id,
-    name: j.name,
-    lastname: j.lastname,
-    documentType: j.documentType,
-    documentNumber: j.documentNumber,
-    fechaNacimientoIso: aIso(j.birthdate) ?? "",
-    photoUrl: resolvePublicImageUrl(j.photoUrl),
-    jerseyNumber: j.jerseyNumber,
-  }));
+  const jugadoresPreview = await Promise.all(
+    listaJugadores.map(async (j) => ({
+      id: j.id,
+      name: j.name,
+      lastname: j.lastname,
+      documentType: j.documentType,
+      documentNumber: j.documentNumber,
+      fechaNacimientoIso: aIso(j.birthdate) ?? "",
+      photoUrl: await resolvePlayerPhotoUrl(j.photoUrl, { intent: "intranet" }),
+      jerseyNumber: j.jerseyNumber,
+    })),
+  );
 
   const categoriaHref = `/liga/clubs/${clubId}/categories/${categoryId}/`;
 

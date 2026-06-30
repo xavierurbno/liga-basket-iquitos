@@ -5,6 +5,9 @@ import { loadCategoryDetailPage } from "@/lib/loaders/category-page.loader";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
+import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+
 function calcularEdad(transactionDate: Date | string | null): string {
   if (!transactionDate) return "N/D";
   const nacimiento = new Date(transactionDate);
@@ -14,21 +17,6 @@ function calcularEdad(transactionDate: Date | string | null): string {
   const m = hoy.getMonth() - nacimiento.getMonth();
   if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
   return String(Math.max(edad, 0));
-}
-
-function resolvePublicImageUrl(rawUrl: string | null): string | null {
-  if (!rawUrl) return null;
-  if (rawUrl.includes("/storage/v1/object/sign/")) {
-    const [withoutQuery] = rawUrl.split("?");
-    return withoutQuery.replace("/storage/v1/object/sign/", "/storage/v1/object/public/");
-  }
-  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) return rawUrl;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return null;
-  const key = rawUrl.replace(/^\/+/, "");
-  const hasBucket = key.startsWith("jugador-fotos/") || key.startsWith("club-assets/");
-  if (hasBucket) return `${supabaseUrl}/storage/v1/object/public/${key}`;
-  return `${supabaseUrl}/storage/v1/object/public/jugador-fotos/${key}`;
 }
 
 export default async function CategoriaDetallePage({
@@ -60,6 +48,13 @@ export default async function CategoriaDetallePage({
       ignorePunctuation: true,
     });
   });
+
+  const jugadoresConFoto = await Promise.all(
+    listaJugadoresOrdenados.map(async (j) => ({
+      ...j,
+      photoDisplayUrl: await resolvePlayerPhotoUrl(j.photoUrl, { intent: "intranet" }),
+    })),
+  );
 
   return (
     <div className="space-y-6">
@@ -249,7 +244,7 @@ export default async function CategoriaDetallePage({
                 </tr>
               </thead>
               <tbody>
-                {listaJugadoresOrdenados.map((j, idx) => (
+                {jugadoresConFoto.map((j, idx) => (
                   <tr key={j.id} className="border-b last:border-0">
                     <td className="px-2 py-2 text-slate-500">{idx + 1}</td>
                     <td className="px-2 py-2 font-medium text-slate-900">
@@ -266,10 +261,10 @@ export default async function CategoriaDetallePage({
                     <td className="px-2 py-2 text-slate-700">{calcularEdad(j.birthdate)}</td>
                     <td className="px-2 py-2 text-slate-700">{j.phone || "N/D"}</td>
                     <td className="px-2 py-2 text-slate-700">
-                      {resolvePublicImageUrl(j.photoUrl) ? (
+                      {j.photoDisplayUrl ? (
                         <div className="relative h-10 w-10 overflow-hidden rounded-md ring-1 ring-slate-200">
                           <Image
-                            src={resolvePublicImageUrl(j.photoUrl)!}
+                            src={j.photoDisplayUrl}
                             alt={`Foto de ${j.name} ${j.lastname}`}
                             fill
                             className="object-cover"

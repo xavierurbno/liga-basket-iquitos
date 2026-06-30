@@ -1,4 +1,4 @@
-/** URL pública de Storage para fotos en rutas /validar (sin firmas temporales). */
+/** URL pública de Storage para logos y assets de club (no fotos de jugadores). */
 export function resolvePublicImageUrl(rawUrl: string | null): string | null {
   if (!rawUrl) return null;
   if (rawUrl.includes("/storage/v1/object/sign/")) {

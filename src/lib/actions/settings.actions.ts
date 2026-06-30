@@ -10,7 +10,7 @@ import { resolveLeagueSettingsScopeId } from "@/lib/leagues/resolve-league-setti
 import { isValidUuid } from "@/lib/db/public-read-guards";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { User } from "@supabase/supabase-js";
-import { formatActionError } from "@/lib/actions/system-dashboard-helpers";
+import { withOperationalWrite, unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 
 /** Campos expuestos sin autenticación (portal / reloj de mercado de pases). */
 export type PublicLeagueSettings = {
@@ -64,7 +64,7 @@ export async function getTransferStatusAction(
 export const toggleTransferOverrideAction = withAuth(
   async (
     newState: boolean,
-    _user: User,
+    user: User,
     context: AuthContext,
   ): Promise<ActionResult> => {
     const leagueId = context.leagueId?.trim();
@@ -75,8 +75,12 @@ export const toggleTransferOverrideAction = withAuth(
       };
     }
 
-    await settingsRepository.updateLeagueSettings(leagueId, {
-      isManualOverride: newState,
+    await withOperationalWrite(user, context, async (tx) => {
+      await settingsRepository.updateLeagueSettings(
+        leagueId,
+        { isManualOverride: newState },
+        tx,
+      );
     });
     revalidateTag("league-settings", "max");
     revalidatePath("/liga/", "page" as any);
@@ -93,7 +97,10 @@ export async function getLeagueSettingsAction(
     const gate = await gatePublicLeagueSettingsRead(leagueId);
     if (!gate.ok || !gate.scopedId) return {};
 
-    const settings = await settingsRepository.getLeagueSettings(gate.scopedId);
+    const settings = await settingsRepository.getLeagueSettings(
+      gate.scopedId,
+      unauthenticatedReadDb(),
+    );
     if (!settings) return {};
 
     return {
@@ -108,21 +115,27 @@ export async function getLeagueSettingsAction(
 }
 
 export const seedLeagueSettingsAction = withAuth(
-  async (_user: User, context: AuthContext): Promise<ActionResult> => {
+  async (user: User, context: AuthContext): Promise<ActionResult> => {
     try {
       const leagueId = context.leagueId?.trim();
       if (!leagueId) {
         return { success: false, error: "Selecciona una liga activa." };
       }
 
-      const existing = await settingsRepository.getLeagueSettings(leagueId);
-      if (existing) return { success: true };
+      await withOperationalWrite(user, context, async (tx) => {
+        const existing = await settingsRepository.getLeagueSettings(leagueId, tx);
+        if (existing) return;
 
-      await settingsRepository.updateLeagueSettings(leagueId, {
-        transferPeriodStart: null,
-        transferPeriodEnd: null,
-        bannerText: "El Mercado de Pases está cerrado temporalmente.",
-        isManualOverride: false,
+        await settingsRepository.updateLeagueSettings(
+          leagueId,
+          {
+            transferPeriodStart: null,
+            transferPeriodEnd: null,
+            bannerText: "El Mercado de Pases está cerrado temporalmente.",
+            isManualOverride: false,
+          },
+          tx,
+        );
       });
 
       revalidateTag("league-settings", "max");

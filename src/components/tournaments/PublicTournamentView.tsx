@@ -24,6 +24,7 @@ export type PublicMatchRow = {
 
 export type PublicStandingRow = {
   groupId: string;
+  categoryId: string;
   position: number;
   clubName: string;
   categoryName: string;
@@ -83,6 +84,14 @@ function scrollToSection(id: string) {
   window.scrollTo({ top, behavior: "smooth" });
 }
 
+function standingRowKey(r: PublicStandingRow, index: number): string {
+  return r.categoryId || `${r.groupId}-${index}-${r.clubName}`;
+}
+
+function standingRank(r: PublicStandingRow, index: number): number {
+  return r.position > 0 ? r.position : index + 1;
+}
+
 export function PublicTournamentView({ tournament, groups, matches, standings }: Props) {
   const regularGroups = groups.filter((g) => g.name !== "Play-offs");
   const playoffMatches = matches.filter((m) => m.phase === "playoff");
@@ -138,7 +147,12 @@ export function PublicTournamentView({ tournament, groups, matches, standings }:
           {regularGroups.map((g) => {
             const rows = standings
               .filter((s) => s.groupId === g.id)
-              .sort((a, b) => a.position - b.position);
+              .sort((a, b) => {
+                if (a.position > 0 && b.position > 0) return a.position - b.position;
+                if (a.position > 0) return -1;
+                if (b.position > 0) return 1;
+                return a.clubName.localeCompare(b.clubName, "es", { sensitivity: "base" });
+              });
             if (rows.length === 0) return null;
             return (
               <div key={g.id} className="mb-8 last:mb-0">
@@ -354,9 +368,9 @@ function StandingsTable({ rows }: { rows: PublicStandingRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.position} className="border-t border-slate-100">
-                <td className="px-3 py-2 font-semibold">{r.position}</td>
+            {rows.map((r, index) => (
+              <tr key={standingRowKey(r, index)} className="border-t border-slate-100">
+                <td className="px-3 py-2 font-semibold">{standingRank(r, index)}</td>
                 <td className="px-3 py-2">
                   <StandingsTeamCell
                     clubName={r.clubName}
@@ -376,13 +390,13 @@ function StandingsTable({ rows }: { rows: PublicStandingRow[] }) {
       </div>
 
       <ul className="space-y-2 md:hidden">
-        {rows.map((r) => (
+        {rows.map((r, index) => (
           <li
-            key={r.position}
+            key={standingRowKey(r, index)}
             className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-sm font-bold text-[#1B3A6B]">
-              {r.position}
+              {standingRank(r, index)}
             </span>
             <div className="min-w-0 flex-1">
               <StandingsTeamCell

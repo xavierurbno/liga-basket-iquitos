@@ -82,12 +82,32 @@ npm run db:smoke:rls-app  # liga_app sin JWT → 0 filas; con claims → acotado
 
 Repositorios deben seguir filtrando por `leagueId`/`clubId` (Fase 1) aunque RLS falle.
 
-## PR 5b.4 — Activación gradual
+## PR 5b.4 — Activación gradual (Fase 2 roadmap)
 
-1. **Staging:** `USE_APP_DB_ROLE=true`, `DATABASE_URL_APP` configurada; smoke + E2E.
-2. **Prod lecturas:** `USE_APP_DB_ROLE=true` en rutas no críticas que usen `getOperationalDb('read')`.
+| Fase | Flag staging/prod | Código migrado |
+|------|-------------------|----------------|
+| **3.1a** lecturas | `USE_APP_DB_ROLE=true` | `busqueda365` (público → owner), `playerRepository`, `clubRepository`, loaders intranet |
+| **3.1b** validación | smoke + E2E | `e2e/busqueda365-scoped.spec.ts`, `e2e/intranet-club-scope.spec.ts` |
+| **3.1c** escrituras | `USE_APP_DB_ROLE_WRITES=true` | `players.actions`, `settings*`, tesorería (`clubs.actions`) |
+| **3.1d** rollback | env en Vercel | `USE_APP_DB_ROLE=false` + `USE_APP_DB_ROLE_WRITES=false` sin redeploy |
+
+Helpers runtime: `src/lib/db/operational-db-access.ts` (`withOperationalRead` / `withOperationalWrite`).
+
+1. **Staging:** `USE_APP_DB_ROLE=true`, `DATABASE_URL_APP` configurada; `npm run db:smoke:rls-app`; E2E.
+2. **Prod lecturas:** `USE_APP_DB_ROLE=true` tras validar staging.
 3. **Prod escrituras:** tras ~1 semana sin incidentes, `USE_APP_DB_ROLE_WRITES=true`.
-4. Queries con RLS requieren `withRlsTransaction(user, context, fn)` cuando usen `dbApp`.
+4. Queries con RLS requieren `withRlsTransaction` vía `withOperationalRead/Write` cuando el flag está activo.
+
+### Rollback inmediato (BLQ-3.1d)
+
+En Vercel → Environment Variables:
+
+```env
+USE_APP_DB_ROLE=false
+USE_APP_DB_ROLE_WRITES=false
+```
+
+Sin redeploy de código: `getOperationalDb()` vuelve a `dbOwner` en el siguiente cold start.
 
 ## Orden de despliegue BD
 

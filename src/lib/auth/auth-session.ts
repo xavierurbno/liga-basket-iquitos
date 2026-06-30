@@ -12,6 +12,18 @@ export type AuthDenied = { denied: true; error: string };
 export type AuthOk = { denied: false; user: User; context: AuthContext };
 export type AuthSessionResult = AuthDenied | AuthOk;
 
+const INTRANET_ROLES: Role[] = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"];
+
+/**
+ * Sesión intranet para loaders/páginas (sin validar args de action).
+ * Devuelve null si no hay sesión válida de staff/delegado.
+ */
+export async function resolveIntranetAuthSession(): Promise<AuthOk | null> {
+  const result = await resolveAuthSession(INTRANET_ROLES);
+  if (result.denied) return null;
+  return result;
+}
+
 /**
  * Resuelve sesión, rol, contexto operativo y alcance tenant para server actions.
  */

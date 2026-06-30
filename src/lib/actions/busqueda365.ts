@@ -2,10 +2,11 @@
 
 import { unstable_cache } from "next/cache";
 import { asc, eq, and, sql } from "drizzle-orm";
-import { db } from "@/lib/db/client";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { categories, clubs, players } from "@/lib/db/schema";
 import { isValidUuid, sanitizeTsQueryInput } from "@/lib/db/public-read-guards";
 import { resolvePublicJugadorImageUrl } from "@/lib/utils/jugador-image-url";
+import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
 import { logBusqueda365Query } from "@/lib/observability/pii-access-log";
@@ -56,7 +57,7 @@ function getCachedCategoriasForLeague(leagueId: string) {
   const tag = busqueda365CategoriesCacheTag(leagueId);
   return unstable_cache(
     async () => {
-      return await db
+      return await unauthenticatedReadDb()
         .select({
           id: categories.id,
           nombreCategoria: categories.name,
@@ -150,7 +151,7 @@ export async function listarPlantillaPorCategoriaId(
       );
     }
 
-    const rows = await db
+    const rows = await unauthenticatedReadDb()
       .select({
         playerId: players.id,
         name: players.name,
@@ -187,7 +188,7 @@ export async function listarPlantillaPorCategoriaId(
       const fullName = `${r.name.trim()} ${r.lastname.trim()}`.replace(/\s+/g, " ").trim();
       bloque.players.push({
         id: r.playerId,
-        imageUrl: resolvePublicJugadorImageUrl(r.photoUrl),
+        imageUrl: await resolvePlayerPhotoUrl(r.photoUrl, { intent: "public" }),
         fullName,
         poloNumber: r.jerseyNumber,
         clubName: r.clubName,

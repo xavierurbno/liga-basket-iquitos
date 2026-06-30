@@ -165,6 +165,7 @@ export function logSensitiveRouteAllowed(input: {
   leagueId?: string | null;
   clubId?: string | null;
   clientIp?: string | null;
+  bypassMasterEmail?: boolean;
 }): void {
   logSecurityEvent(
     {
@@ -177,6 +178,7 @@ export function logSensitiveRouteAllowed(input: {
       route: input.route,
       meta: {
         clientIp: input.clientIp ?? null,
+        bypassMasterEmail: input.bypassMasterEmail ?? false,
       },
     },
     { level: "info" },

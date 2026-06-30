@@ -2,9 +2,7 @@ import { and, eq, ilike, type SQL } from "drizzle-orm";
 import { clubs, players } from "@/lib/db/schema";
 import type { AuthContext } from "@/lib/auth/withAuth";
 
-export type DocumentSearchScope =
-  | { kind: "league"; leagueId: string }
-  | { kind: "global" };
+export type DocumentSearchScope = { kind: "league"; leagueId: string };
 
 const LEAGUE_REQUIRED_MSG =
   "Selecciona una liga activa en el panel antes de buscar en gestión documental.";
@@ -21,8 +19,8 @@ export function resolveDocumentSearchScope(
 
   if (context.role === "SUPER_ADMIN") {
     const leagueId = context.leagueId?.trim();
-    if (leagueId) return { kind: "league", leagueId };
-    return { kind: "global" };
+    if (!leagueId) return { error: LEAGUE_REQUIRED_MSG };
+    return { kind: "league", leagueId };
   }
 
   if (context.role === "CLUB_DELEGATE") {
@@ -50,11 +48,8 @@ export function buildDocumentClubSearchConditions(
 
   const scope = resolveDocumentSearchScope(context);
   if ("error" in scope) return undefined;
-  if (scope.kind === "league") {
-    return and(eq(clubs.leagueId, scope.leagueId), nameMatch);
-  }
 
-  return nameMatch;
+  return and(eq(clubs.leagueId, scope.leagueId), nameMatch);
 }
 
 /** Condiciones SQL para búsqueda de jugador por documento (gestión documental). */
@@ -72,9 +67,5 @@ export function buildDocumentPlayerSearchConditions(
   const scope = resolveDocumentSearchScope(context);
   if ("error" in scope) return scope;
 
-  if (scope.kind === "league") {
-    return and(identityMatch, eq(clubs.leagueId, scope.leagueId))!;
-  }
-
-  return identityMatch!;
+  return and(identityMatch, eq(clubs.leagueId, scope.leagueId))!;
 }

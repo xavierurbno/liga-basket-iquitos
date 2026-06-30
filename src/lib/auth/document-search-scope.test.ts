@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import {
   buildDocumentPlayerSearchConditions,
   resolveDocumentSearchScope,
-} from "./document-search-scope";
-import type { AuthContext } from "./withAuth";
+} from "./document-search-scope.ts";
+import type { AuthContext } from "./withAuth.ts";
 
 const LEAGUE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const LEAGUE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -43,14 +43,14 @@ describe("document-search-scope", () => {
     assert.deepEqual(scope, { kind: "league", leagueId: LEAGUE_B });
   });
 
-  it("SUPER_ADMIN sin liga activa permite búsqueda global", () => {
+  it("SUPER_ADMIN sin liga activa devuelve error", () => {
     const context: AuthContext = {
       userId: "super-1",
       role: "SUPER_ADMIN",
     };
     const scope = resolveDocumentSearchScope(context);
-    assert.deepEqual(scope, { kind: "global" });
+    assert.ok("error" in scope);
     const where = buildDocumentPlayerSearchConditions("DNI", "12345678", context);
-    assert.ok(!("error" in where));
+    assert.ok("error" in where);
   });
 });
