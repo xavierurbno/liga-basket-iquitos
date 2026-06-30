@@ -11,7 +11,7 @@ import { isValidUuid } from "@/lib/db/public-read-guards";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { User } from "@supabase/supabase-js";
 import { withOperationalWrite, unauthenticatedReadDb } from "@/lib/db/operational-db-access";
-import { formatActionError } from "@/lib/actions/system-dashboard-helpers";
+import { translateActionError } from "@/lib/errors/translate-action-error";
 
 /** Campos expuestos sin autenticación (portal / reloj de mercado de pases). */
 export type PublicLeagueSettings = {
@@ -142,7 +142,7 @@ export const seedLeagueSettingsAction = withAuth(
       revalidateTag("league-settings", "max");
       return { success: true };
     } catch (error) {
-      return { success: false, error: formatActionError(error) };
+      return { success: false, error: translateActionError(error) };
     }
   },
   "SUPER_ADMIN",
