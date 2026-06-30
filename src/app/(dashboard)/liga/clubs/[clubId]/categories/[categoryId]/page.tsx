@@ -2,8 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { loadCategoryDetailPage } from "@/lib/loaders/category-page.loader";
+import { resolveIntranetAuthSession } from "@/lib/auth/auth-session";
 import { CategoryWizardModal } from "@/components/system/CategoryWizardModal";
 import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasivoDeportistasModal";
+import { PlayerArcoActions } from "@/components/privacy/PlayerArcoActions";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
@@ -32,6 +34,10 @@ export default async function CategoriaDetallePage({
   if (!loaded) redirect("/liga/clubs");
   const { club, category, listaJugadores } = loaded;
   if (!category) redirect(`/liga/clubs/${clubId}`);
+
+  const auth = await resolveIntranetAuthSession();
+  const canManageArco =
+    auth?.context.role === "SUPER_ADMIN" || auth?.context.role === "LEAGUE_ADMIN";
 
   if (category.clubId !== clubId) {
     redirect(`/liga/clubs/${category.clubId}/categories/${category.id}`);
@@ -312,6 +318,14 @@ export default async function CategoriaDetallePage({
                             Eliminar
                           </button>
                         </form>
+                        {canManageArco && (
+                          <PlayerArcoActions
+                            playerId={j.id}
+                            clubId={clubId}
+                            categoryId={categoryId}
+                            playerLabel={`${j.lastname}, ${j.name}`}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

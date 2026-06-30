@@ -51,4 +51,6 @@ export const MIGRATION_SQL_ORDER = [
   "supabase/migrations/0041_league_plans.sql",
   "supabase/migrations/0042_liga_app_role.sql",
   "supabase/migrations/0043_rls_core_drizzle_tables.sql",
+  "supabase/migrations/0044_player_photos_private_storage.sql",
+  "supabase/migrations/0045_audit_events_retention_pg_cron.sql",
 ];

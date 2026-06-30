@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { leagueStoragePath } from "./league-storage-path.ts";
+import { leagueStoragePath } from "./league-storage-path";
 
 /** Bucket de fotos de jugadores (privado en prod tras migración 0044). */
 export function playersBucketName(): string {

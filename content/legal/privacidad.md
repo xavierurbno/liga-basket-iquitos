@@ -171,6 +171,13 @@ Los datos pueden alojarse en servidores fuera del Perú (por ejemplo Estados Uni
 - Registro de auditoría en acciones críticas.
 - Obligación de confidencialidad del personal y encargados con acceso (art. 17 Ley N° 29733).
 
+### 12.1. Retención de registros técnicos
+
+| Registro | Plazo de conservación | Purga |
+| --- | --- | --- |
+| Tabla `audit_events` (acciones de negocio) | **1 año** | Job mensual automático (pg_cron / Vercel Cron) |
+| Logs de aplicación en Vercel (eventos `security`, `pii.*`) | **90 días** | Configurar drain / retención en el proveedor de logs |
+
 ## 13. DERECHOS DEL TITULAR — ARCO (TÍTULO III, LEY N° 29733)
 
 El titular de datos personales (o su **representante legal**, en caso de menores) puede ejercer gratuitamente:
@@ -192,10 +199,21 @@ La solicitud debe incluir: nombres y apellidos, petición concreta, medio de con
 
 ### 13.2. Plazos de respuesta (art. 55 del Reglamento)
 
-| Derecho | Plazo máximo |
+| Derecho | Plazo máximo legal |
 | --- | --- |
 | Acceso | **Veinte (20) días hábiles** desde el día siguiente de la solicitud |
 | Rectificación, cancelación u oposición | **Diez (10) días hábiles** desde el día siguiente de la solicitud |
+
+### 13.3. Plazo operativo interno (ejecución técnica)
+
+Una vez validada la identidad del titular (o representante legal), el **administrador de liga** o el **operador de la plataforma** ejecutará la solicitud en un plazo máximo de **quince (15) días calendario**, contados desde la recepción de la documentación completa.
+
+| Acción técnica | Quién la ejecuta | Dónde |
+| --- | --- | --- |
+| **Exportación** (derecho de acceso) | `LEAGUE_ADMIN` o `SUPER_ADMIN` | Intranet → categoría del club → **Exportar ARCO** |
+| **Anonimización** (cancelación) | `LEAGUE_ADMIN` o `SUPER_ADMIN` | Intranet → categoría del club → **Anonimizar ARCO** |
+
+La exportación genera un archivo JSON con los datos personales del jugador, historial documental y metadatos de archivos adjuntos. La anonimización sustituye nombres y documento por valores irreversibles, elimina fotos en almacenamiento y depura snapshots históricos con datos personales. Cada operación queda registrada en el log de auditoría (`audit_events`).
 
 Si no es debidamente atendido, puede recurrir ante la **Autoridad Nacional de Protección de Datos Personales** del Ministerio de Justicia y Derechos Humanos (**MINJUSDH**).
 

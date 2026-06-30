@@ -11,6 +11,7 @@ import { isValidUuid } from "@/lib/db/public-read-guards";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import { User } from "@supabase/supabase-js";
 import { withOperationalWrite, unauthenticatedReadDb } from "@/lib/db/operational-db-access";
+import { formatActionError } from "@/lib/actions/system-dashboard-helpers";
 
 /** Campos expuestos sin autenticación (portal / reloj de mercado de pases). */
 export type PublicLeagueSettings = {

@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { leaguePlanRepository } from "@/repositories/leaguePlanRepository";
 import type { LeaguePlanTier } from "@/lib/db/schema";
 import { parseDatetimeLocalInput } from "@/lib/leagues/datetime-local-input";
+import { AUDIT_ACTIONS, recordAuditFromContext } from "@/lib/observability/record-audit";
 
 const updateLeaguePlanSchema = z.object({
   leagueId: z.string().uuid(),
@@ -48,11 +49,29 @@ export const updateLeaguePlanAction = withAuth(
     const { leagueId, plan, maxPlayers, maxActiveTournaments, trialExpiresAt } = parsed.data;
 
     try {
+      const before = await leaguePlanRepository.findByLeagueId(leagueId);
+
       await leaguePlanRepository.upsert(leagueId, {
         plan: plan as LeaguePlanTier,
         maxPlayers,
         maxActiveTournaments,
         trialExpiresAt: parseTrialDate(trialExpiresAt),
+      });
+
+      await recordAuditFromContext(_context, {
+        action: AUDIT_ACTIONS.leaguePlanUpdate,
+        entityType: "league_plan",
+        entityId: leagueId,
+        leagueId,
+        payload: {
+          planBefore: before?.plan ?? null,
+          planAfter: plan,
+          maxPlayersBefore: before?.maxPlayers ?? null,
+          maxPlayersAfter: maxPlayers,
+          maxActiveTournamentsBefore: before?.maxActiveTournaments ?? null,
+          maxActiveTournamentsAfter: maxActiveTournaments,
+          trialChanged: Boolean(trialExpiresAt),
+        },
       });
 
       revalidatePath(`/super-admin/leagues/${leagueId}`);

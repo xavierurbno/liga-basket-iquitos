@@ -45,8 +45,10 @@ Complementa los eventos de denegación (`auth.route.forbidden`, `auth.denied`, e
 | Destino | Retención sugerida | Notas |
 |---------|-------------------|--------|
 | Logs stdout / Vercel (`security`, `pii.*`) | **90 días** | Configurar en drain (Datadog, Logtail, etc.) |
-| Tabla `audit_events` (Fase 2) | **1 año** | Purga manual o job futuro (`DELETE … WHERE created_at < now() - interval '1 year'`) |
+| Tabla `audit_events` (Fase 2) | **1 año** | Job mensual: `npm run ops:purge:audit-events`, Vercel Cron `/api/cron/purge-audit`, pg_cron (`0045`) |
 | Sentry (opcional) | Según plan Sentry | Solo `warn`/`error` de seguridad, no consultas PII `info` |
+
+Implementación: `src/lib/observability/purge-audit-events.ts`, `docs/security-phase3-ley29733-maintenance.md`.
 
 Ejemplo de purga anual (ejecutar con rol postgres, fuera de horario pico):
 

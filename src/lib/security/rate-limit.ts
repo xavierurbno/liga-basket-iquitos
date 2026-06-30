@@ -8,7 +8,8 @@ export type RateLimitScope =
   | "documentos"
   | "normativas"
   | "busqueda365"
-  | "settingsPublic";
+  | "settingsPublic"
+  | "arco";
 
 export type RateLimitConfig = {
   limit: number;
@@ -23,6 +24,7 @@ export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   normativas: { limit: 20, windowMs: 60 * 1000 },
   busqueda365: { limit: 40, windowMs: 60 * 1000 },
   settingsPublic: { limit: 60, windowMs: 60 * 1000 },
+  arco: { limit: 10, windowMs: 15 * 60 * 1000 },
 };
 
 type Bucket = { count: number; resetAt: number };

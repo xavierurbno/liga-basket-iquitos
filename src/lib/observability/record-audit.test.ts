@@ -44,5 +44,8 @@ describe("record-audit", () => {
     assert.equal(AUDIT_ACTIONS.carnetEmit, "carnet.emit");
     assert.equal(AUDIT_ACTIONS.playerUpdate, "player.update");
     assert.equal(AUDIT_ACTIONS.playerDelete, "player.delete");
+    assert.equal(AUDIT_ACTIONS.leaguePlanUpdate, "league_plan.update");
+    assert.equal(AUDIT_ACTIONS.playerArcoExport, "player.arco.export");
+    assert.equal(AUDIT_ACTIONS.playerArcoAnonymize, "player.arco.anonymize");
   });
 });

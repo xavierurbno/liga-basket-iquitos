@@ -13,6 +13,7 @@ import { AUDIT_ACTIONS, getAuditClientIp, recordAudit } from "@/lib/observabilit
 import { readUserRole } from "@/lib/auth/read-user-role";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 import type { DocumentoInput } from "@/lib/pdf/documentosInstitucionalesPdf";
+import { sanitizeDocumentHistorySnapshot } from "@/lib/privacy/document-history-snapshot";
 
 const DOCUMENT_HISTORY_ROLES = ["SUPER_ADMIN", "LEAGUE_ADMIN", "CLUB_DELEGATE"] as const;
 
@@ -34,7 +35,7 @@ export async function registrarEmisionDocumento(
 
   try {
     const { type, entityId, shortIdentifier } = data;
-    const snapshot = data;
+    const snapshot = sanitizeDocumentHistorySnapshot(data);
 
     const [row] = await db
       .insert(documentHistory)
