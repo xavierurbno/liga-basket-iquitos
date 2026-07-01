@@ -10,12 +10,15 @@ export function LoginForm({
   initialLeagueSlug,
   postLoginRedirect,
   oauthAllowedHosts = [],
+  authError: authErrorFromUrl,
 }: {
   initialLeagueSlug?: string;
   /** Ruta interna tras login (p. ej. desde `?next=/liga/tesoreria`). Solo rutas que empiezan por `/`. */
   postLoginRedirect?: string | null;
   /** Hosts permitidos inyectados desde el servidor (VERCEL_URL, SITE_URL, host actual). */
   oauthAllowedHosts?: string[];
+  /** Mensaje de error OAuth/callback (`?auth_error=`) resuelto en el servidor para evitar hydration mismatch. */
+  authError?: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,9 +31,7 @@ export function LoginForm({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const leagueSlug = searchParams?.get("l") || initialLeagueSlug;
-  const authErrorFromUrl = searchParams?.get("auth_error");
+  const leagueSlug = initialLeagueSlug;
 
   const resolvedPostLogin =
     postLoginRedirect &&

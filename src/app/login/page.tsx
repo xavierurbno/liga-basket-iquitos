@@ -19,11 +19,11 @@ import { headers } from "next/headers";
 export const dynamic = "force-dynamic";
 
 interface Props {
-  searchParams: Promise<{ l?: string; next?: string }>;
+  searchParams: Promise<{ l?: string; next?: string; auth_error?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { l: slug, next: nextParam } = await searchParams;
+  const { l: slug, next: nextParam, auth_error: authErrorParam } = await searchParams;
   const cookieStore = await cookies();
 
   const postLoginRedirect =
@@ -135,6 +135,11 @@ export default async function LoginPage({ searchParams }: Props) {
               initialLeagueSlug={league?.slug}
               postLoginRedirect={loginNext}
               oauthAllowedHosts={oauthAllowedHosts}
+              authError={
+                typeof authErrorParam === "string" && authErrorParam.trim()
+                  ? authErrorParam
+                  : undefined
+              }
             />
           </div>
         </div>

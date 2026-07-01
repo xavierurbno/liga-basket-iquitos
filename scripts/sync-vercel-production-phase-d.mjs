@@ -1,8 +1,8 @@
 /**
- * Sincroniza variables operacionales en Vercel Preview (Fase C).
- * Lee DATABASE_URL_APP de .env.local (DEV); activa lecturas vía liga_app + RLS.
+ * Fase D — Production: lecturas con liga_app + RLS (USE_APP_DB_ROLE=true).
+ * No activa escrituras (USE_APP_DB_ROLE_WRITES=false).
  *
- * Uso: npm run vercel:sync:env:preview
+ * Uso: npm run vercel:sync:env:production:phase-d
  */
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -11,23 +11,25 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const localEnv = dotenv.parse(readFileSync(join(root, ".env.local"), "utf8"));
+const prodEnv = dotenv.parse(readFileSync(join(root, ".env.production.local"), "utf8"));
 
-const databaseUrlApp = localEnv.DATABASE_URL_APP?.trim();
+const databaseUrlApp = prodEnv.DATABASE_URL_APP?.trim();
 if (!databaseUrlApp) {
-  console.error("Falta DATABASE_URL_APP en .env.local (DEV).");
+  console.error(
+    "Falta DATABASE_URL_APP en .env.production.local.\n" +
+      "Ejecuta provision-liga-app-role.mjs --production primero.",
+  );
   process.exit(1);
 }
 
-/** CLI 54+ evita el prompt git_branch_required en variables nuevas de Preview. */
 const VERCEL = "npx vercel@latest";
 const flags = "--yes --non-interactive";
 
 const vars = {
+  DATABASE_URL_APP: databaseUrlApp,
   USE_APP_DB_ROLE: "true",
   USE_APP_DB_ROLE_WRITES: "false",
   DATABASE_POOL_MAX: "2",
-  DATABASE_URL_APP: databaseUrlApp,
 };
 
 function run(cmd) {
@@ -42,26 +44,28 @@ function run(cmd) {
   }
 }
 
-function syncPreview(key, value) {
+function syncProduction(key, value) {
   const quoted = JSON.stringify(value);
   try {
-    run(`${VERCEL} env update ${key} preview --value ${quoted} ${flags}`);
+    run(`${VERCEL} env update ${key} production --value ${quoted} ${flags}`);
   } catch {
-    run(`${VERCEL} env add ${key} preview --value ${quoted} ${flags}`);
+    run(`${VERCEL} env add ${key} production --value ${quoted} ${flags}`);
   }
-  console.log(`✓ ${key} → preview`);
+  console.log(`✓ ${key} → production`);
 }
+
+console.log("Fase D — activando lecturas RLS en Production (sin escrituras)…\n");
 
 for (const [key, value] of Object.entries(vars)) {
   try {
-    syncPreview(key, value);
+    syncProduction(key, value);
   } catch (err) {
     console.error(
       `\n✗ ${key}: ${err instanceof Error ? err.message : err}\n` +
-        `  Añádela en Vercel → Settings → Environment Variables → Preview.\n`,
+        `  Configúrala manualmente en Vercel → Production.\n`,
     );
     process.exitCode = 1;
   }
 }
 
-console.log("\nPreview listo. Redeploy: npx vercel@latest deploy --yes");
+console.log("\nProduction listo. Redeploy: npx vercel@latest deploy --prod --yes");
