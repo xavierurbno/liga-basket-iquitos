@@ -8,7 +8,7 @@ import { RegistroMasivoDeportistasModal } from "@/components/system/RegistroMasi
 import { PlayerArcoActions } from "@/components/privacy/PlayerArcoActions";
 import { eliminarDeportistaAction } from "@/lib/actions/system-dashboard";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
-import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { resolveClubAssetUrl } from "@/lib/storage/resolve-club-asset-url.server";
 
 function calcularEdad(transactionDate: Date | string | null): string {
   if (!transactionDate) return "N/D";
@@ -42,6 +42,11 @@ export default async function CategoriaDetallePage({
   if (category.clubId !== clubId) {
     redirect(`/liga/clubs/${category.clubId}/categories/${category.id}`);
   }
+
+  const [coachPhotoSrc, delegatePhotoSrc] = await Promise.all([
+    resolveClubAssetUrl(category.coachPhotoUrl),
+    resolveClubAssetUrl(category.delegatePhotoUrl),
+  ]);
 
   const listaJugadoresOrdenados = [...listaJugadores].sort((a, b) => {
     const lastname = a.lastname.localeCompare(b.lastname, "es", {
@@ -124,10 +129,10 @@ export default async function CategoriaDetallePage({
                   .filter(Boolean)
                   .join(" ") || "No registrado"}
               </p>
-              {resolvePublicImageUrl(category.coachPhotoUrl) && (
+              {coachPhotoSrc && (
                 <div className="mt-2 relative h-12 w-12 overflow-hidden rounded-md ring-1 ring-slate-200">
                   <Image
-                    src={resolvePublicImageUrl(category.coachPhotoUrl)!}
+                    src={coachPhotoSrc}
                     alt="Foto entrenador"
                     fill
                     className="object-cover"
@@ -180,10 +185,10 @@ export default async function CategoriaDetallePage({
                   .filter(Boolean)
                   .join(" ") || "No registrado"}
               </p>
-              {resolvePublicImageUrl(category.delegatePhotoUrl) && (
+              {delegatePhotoSrc && (
                 <div className="mt-2 relative h-12 w-12 overflow-hidden rounded-md ring-1 ring-slate-200">
                   <Image
-                    src={resolvePublicImageUrl(category.delegatePhotoUrl)!}
+                    src={delegatePhotoSrc}
                     alt="Foto delegado"
                     fill
                     className="object-cover"

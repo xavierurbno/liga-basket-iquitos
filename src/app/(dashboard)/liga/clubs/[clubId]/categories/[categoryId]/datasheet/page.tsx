@@ -9,7 +9,7 @@ import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { resolveFichaInstitutionalBranding } from "@/lib/leagues/ficha-institutional-branding.server";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
-import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { resolveClubAssetUrl } from "@/lib/storage/resolve-club-asset-url.server";
 
 function aIso(transactionDate: Date | null | undefined): string | null {
   if (!transactionDate) return null;
@@ -60,7 +60,9 @@ export default async function FichaCategoriaPage({
     .replace(/\s+/g, "-")
     .replace(/[^a-zA-Z0-9._-]/g, "");
 
-  const clubLogoPublic = resolvePublicImageUrl(club.logoUrl);
+  const clubLogoPublic = await resolveClubAssetUrl(club.logoUrl);
+  const coachPhotoPublic = await resolveClubAssetUrl(category.coachPhotoUrl);
+  const delegatePhotoPublic = await resolveClubAssetUrl(category.delegatePhotoUrl);
 
   const jugadoresPreview = await Promise.all(
     listaJugadores.map(async (j) => ({
@@ -103,12 +105,12 @@ export default async function FichaCategoriaPage({
           coachLastname={category.coachLastname}
           coachDocumentType={category.coachDocumentType}
           coachDocumentNumber={category.coachDocumentNumber}
-          coachPhotoUrl={resolvePublicImageUrl(category.coachPhotoUrl)}
+          coachPhotoUrl={coachPhotoPublic}
           delegateName={category.delegateName}
           delegateLastname={category.delegateLastname}
           delegateDocumentType={category.delegateDocumentType}
           delegateDocumentNumber={category.delegateDocumentNumber}
-          delegatePhotoUrl={resolvePublicImageUrl(category.delegatePhotoUrl)}
+          delegatePhotoUrl={delegatePhotoPublic}
           players={jugadoresPreview}
         />
       </div>
@@ -129,14 +131,14 @@ export default async function FichaCategoriaPage({
           lastname: category.coachLastname,
           documentType: category.coachDocumentType,
           documentNumber: category.coachDocumentNumber,
-          photoUrl: resolvePublicImageUrl(category.coachPhotoUrl),
+          photoUrl: coachPhotoPublic,
         }}
         delegado={{
           name: category.delegateName,
           lastname: category.delegateLastname,
           documentType: category.delegateDocumentType,
           documentNumber: category.delegateDocumentNumber,
-          photoUrl: resolvePublicImageUrl(category.delegatePhotoUrl),
+          photoUrl: delegatePhotoPublic,
         }}
       />
     </div>

@@ -41,7 +41,7 @@ export const registrarJugadorAction = withAuth(
     let uploadedPhotoKey: string | null = null;
 
     try {
-      const tenant = await resolveLeagueAndClubForPlayerAction(formData, context);
+      const tenant = await resolveLeagueAndClubForPlayerAction(formData, context, user);
       if ("error" in tenant) {
         return { success: false, error: tenant.error };
       }

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import type { User } from "@supabase/supabase-js";
 import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
-import { withOperationalWrite } from "@/lib/db/operational-db-access";
+import { withOperationalRead, withOperationalWrite, type OperationalTx } from "@/lib/db/operational-db-access";
 import { playerRepository } from "@/repositories/playerRepository";
 import { clubRepository } from "@/repositories/clubRepository";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
@@ -27,6 +27,7 @@ export type PlayerArcoActionState =
   | { success: false; error: string };
 
 async function assertArcoPlayerScope(
+  user: User,
   context: AuthContext,
   playerId: string,
   clubId: string,
@@ -37,7 +38,9 @@ async function assertArcoPlayerScope(
     }
   }
 
-  const player = await playerRepository.findById(playerId);
+  const player = await withOperationalRead(user, context, (tx) =>
+    playerRepository.findById(playerId, tx),
+  );
   if (!player) {
     return { ok: false, error: "Jugador no encontrado." };
   }
@@ -45,7 +48,7 @@ async function assertArcoPlayerScope(
     return { ok: false, error: "El jugador no pertenece a este club." };
   }
 
-  const club = await clubRepository.findById(clubId);
+  const club = await withOperationalRead(user, context, (tx) => clubRepository.findById(clubId, tx));
   const leagueId = club?.leagueId ?? player.leagueId ?? null;
 
   if (leagueId) {
@@ -80,10 +83,12 @@ export const exportPlayerArcoAction = withAuth(
     }
 
     const { playerId, clubId } = parsed.data;
-    const scope = await assertArcoPlayerScope(context, playerId, clubId);
+    const scope = await assertArcoPlayerScope(user, context, playerId, clubId);
     if (!scope.ok) return { success: false, error: scope.error };
 
-    const exportPayload = await buildPlayerArcoExport(playerId);
+    const exportPayload = await withOperationalRead(user, context, (tx) =>
+      buildPlayerArcoExport(playerId, tx as unknown as OperationalTx),
+    );
     if (!exportPayload) {
       return { success: false, error: "Jugador no encontrado." };
     }
@@ -130,7 +135,7 @@ export const anonymizePlayerArcoAction = withAuth(
     }
 
     const { playerId, clubId, categoryId } = parsed.data;
-    const scope = await assertArcoPlayerScope(context, playerId, clubId);
+    const scope = await assertArcoPlayerScope(user, context, playerId, clubId);
     if (!scope.ok) return { success: false, error: scope.error };
 
     const resultSummary = await withOperationalWrite(user, context, async (tx) => {

@@ -116,14 +116,28 @@ export function PlayerArcoActions({ playerId, clubId, categoryId, playerLabel }:
               autoComplete="off"
             />
           </label>
-          <button
-            type="button"
-            disabled={pending || confirmText !== "ANONIMIZAR"}
-            onClick={runAnonymize}
-            className="rounded bg-amber-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            Confirmar anonimización
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={pending || confirmText !== "ANONIMIZAR"}
+              onClick={runAnonymize}
+              className="rounded bg-amber-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              Confirmar anonimización
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setShowConfirm(false);
+                setConfirmText("");
+                setError(null);
+              }}
+              className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-900"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 

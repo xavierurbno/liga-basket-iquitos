@@ -1,4 +1,5 @@
 import { revalidatePath, revalidateTag } from "next/cache";
+import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { translateActionError } from "@/lib/errors/translate-action-error";
 import { z } from "zod";
@@ -6,14 +7,21 @@ import { clubRepository } from "@/repositories/clubRepository";
 import { busqueda365CategoriesCacheTag } from "@/lib/busqueda365/busqueda365-cache";
 import { clubBelongsToOperationalLeague } from "@/lib/auth/operational-league-scope";
 import type { AuthContext } from "@/lib/auth/withAuth";
+import {
+  withOperationalRead,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
 
 export async function revalidateBusqueda365CategoriesForClub(
   clubId: string,
   context: AuthContext,
+  user?: User,
 ): Promise<void> {
   let leagueId = context.leagueId?.trim() || null;
   if (!leagueId) {
-    const club = await clubRepository.findById(clubId);
+    const club = user
+      ? await withOperationalRead(user, context, (tx) => clubRepository.findById(clubId, tx))
+      : await clubRepository.findById(clubId);
     leagueId = club?.leagueId ?? null;
   }
   if (leagueId) {
@@ -75,13 +83,14 @@ export function pickFormText(formData: FormData, ...keys: string[]): string {
 export async function resolveLeagueAndClubForPlayerAction(
   formData: FormData,
   context: AuthContext,
+  user: User,
 ): Promise<{ leagueId: string; clubId: string } | { error: string }> {
   const clubId = context.clubId || asText(formData.get("clubId"));
   if (!clubId) {
     return { error: "Contexto de club no encontrado." };
   }
 
-  const club = await clubRepository.findById(clubId);
+  const club = await withOperationalRead(user, context, (tx) => clubRepository.findById(clubId, tx));
   if (!club?.leagueId) {
     return { error: "Club no encontrado." };
   }
@@ -105,10 +114,14 @@ export async function resolveLeagueAndClubForPlayerAction(
 
 /** Valida que el club pertenece a la liga operativa y al delegado autenticado. */
 export async function assertClubInOperationalScope(
+  user: User,
   context: AuthContext,
   clubId: string,
+  tx?: OperationalTx,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const club = await clubRepository.findById(clubId);
+  const club = tx
+    ? await clubRepository.findById(clubId, tx)
+    : await withOperationalRead(user, context, (readTx) => clubRepository.findById(clubId, readTx));
   if (!club?.leagueId) {
     return { ok: false, error: "Club no encontrado." };
   }

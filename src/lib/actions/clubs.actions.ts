@@ -8,7 +8,7 @@ import { ActionResult } from "@/lib/types/league";
 import { createClubService } from "@/services/clubService";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { User } from "@supabase/supabase-js";
-import { withOperationalWrite } from "@/lib/db/operational-db-access";
+import { withOperationalRead, withOperationalWrite } from "@/lib/db/operational-db-access";
 import { treasury } from "@/lib/db/schema";
 import { movimientoCajaSchema } from "@/lib/validations/schemas";
 import {
@@ -66,7 +66,7 @@ export const createClubAsSystemAction = withAuth(
 );
 
 export const crearCategoriaAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     try {
       const clubId = context.clubId || asText(formData.get("clubId"));
       const name = asText(formData.get("nombre_categoria"));
@@ -76,7 +76,7 @@ export const crearCategoriaAction = withAuth(
         return { success: false, error: "El ID del club y el nombre de la categoría son requeridos." };
       }
 
-      const clubScope = await assertClubInOperationalScope(context, clubId);
+      const clubScope = await assertClubInOperationalScope(user, context, clubId);
       if (!clubScope.ok) {
         return { success: false, error: clubScope.error };
       }
@@ -107,7 +107,7 @@ export const crearCategoriaAction = withAuth(
 
       if (!parsed.success) return { success: false, error: "Datos de categoría inválidos." };
 
-      const clubRow = await clubRepository.findById(clubId);
+      const clubRow = await withOperationalRead(user, context, (tx) => clubRepository.findById(clubId, tx));
       const leagueId = clubRow?.leagueId;
       if (!leagueId) {
         return { success: false, error: "El club no tiene liga asignada." };
@@ -152,7 +152,7 @@ export const crearCategoriaAction = withAuth(
         delegatePhotoUrl: delegadoFotoSubida,
       });
 
-      await revalidateBusqueda365CategoriesForClub(clubId, context);
+      await revalidateBusqueda365CategoriesForClub(clubId, context, user);
       revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
       return { success: true };
     } catch (error: unknown) {
@@ -164,24 +164,26 @@ export const crearCategoriaAction = withAuth(
 );
 
 export const eliminarCategoriaAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     const clubId = context.clubId || asText(formData.get("clubId"));
     const categoryId = asText(formData.get("categoryId"));
 
     if (!clubId || !categoryId) return { success: false, error: "Datos incompletos." };
 
-    const clubScope = await assertClubInOperationalScope(context, clubId);
+    const clubScope = await assertClubInOperationalScope(user, context, clubId);
     if (!clubScope.ok) {
       return { success: false, error: clubScope.error };
     }
 
-    const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
+    const cat = await withOperationalRead(user, context, (tx) =>
+      categoryRepository.findByIdAndClub(categoryId, clubId, tx),
+    );
     if (!cat) {
       return { success: false, error: "Categoría no encontrada para este club." };
     }
 
     await categoryRepository.delete(categoryId);
-    await revalidateBusqueda365CategoriesForClub(clubId, context);
+    await revalidateBusqueda365CategoriesForClub(clubId, context, user);
     revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
     return { success: true };
   },
@@ -193,7 +195,7 @@ export async function eliminarCategoriaFormAction(formData: FormData): Promise<v
 }
 
 export const actualizarCategoriaAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     try {
       const clubId = context.clubId || asText(formData.get("clubId"));
       const categoryId = asText(formData.get("categoryId"));
@@ -202,17 +204,19 @@ export const actualizarCategoriaAction = withAuth(
 
       if (!clubId || !categoryId || !name) return { success: false, error: "Datos incompletos." };
 
-      const clubScope = await assertClubInOperationalScope(context, clubId);
+      const clubScope = await assertClubInOperationalScope(user, context, clubId);
       if (!clubScope.ok) {
         return { success: false, error: clubScope.error };
       }
 
-      const cat = await categoryRepository.findByIdAndClub(categoryId, clubId);
+      const cat = await withOperationalRead(user, context, (tx) =>
+      categoryRepository.findByIdAndClub(categoryId, clubId, tx),
+    );
       if (!cat) {
         return { success: false, error: "Categoría no encontrada para este club." };
       }
 
-      const clubRow = await clubRepository.findById(clubId);
+      const clubRow = await withOperationalRead(user, context, (tx) => clubRepository.findById(clubId, tx));
       const leagueId = clubRow?.leagueId;
       if (!leagueId) {
         return { success: false, error: "El club no tiene liga asignada." };
@@ -256,7 +260,7 @@ export const actualizarCategoriaAction = withAuth(
         delegatePhotoUrl: delegatePhotoUrl || asText(formData.get("delegadoFotoActual")) || null,
       });
 
-      await revalidateBusqueda365CategoriesForClub(clubId, context);
+      await revalidateBusqueda365CategoriesForClub(clubId, context, user);
       revalidatePath(`/liga/clubs/${clubId}/`, "page" as any);
       return { success: true };
     } catch (error: unknown) {

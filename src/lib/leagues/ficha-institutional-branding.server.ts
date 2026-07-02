@@ -5,6 +5,8 @@ import { resolveLeagueDisplayLogoUrl } from "@/lib/logos/resolve-public-league-l
 import { FICHA_T2 } from "@/lib/pdf/fichaInstitucionalTextos";
 import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { resolveClubAssetUrl } from "@/lib/storage/resolve-club-asset-url.server";
+import { FEDERATION_COLOR_PUBLIC_PATHS } from "@/lib/logos/resolve-league-logo-buffer";
 import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
@@ -75,9 +77,22 @@ export async function resolveFichaInstitutionalBranding(
   if (!showFederation) {
     federacionLogoUrl = null;
   } else {
-    const customFed = resolvePublicImageUrl(settings?.carnetFederationLogoUrl ?? null);
-    federacionLogoUrl =
-      customFed ?? (isPrimaryPortalLeagueSlug(leagueRow.slug) ? "/logos/federacion.png" : null);
+    const customFed =
+      (await resolveClubAssetUrl(settings?.carnetFederationLogoUrl ?? null)) ??
+      resolvePublicImageUrl(settings?.carnetFederationLogoUrl ?? null);
+    if (customFed) {
+      federacionLogoUrl = customFed;
+    } else if (isPrimaryPortalLeagueSlug(leagueRow.slug)) {
+      for (const rel of FEDERATION_COLOR_PUBLIC_PATHS) {
+        const diskUrl = await resolveClubAssetUrl(rel);
+        if (diskUrl) {
+          federacionLogoUrl = diskUrl;
+          break;
+        }
+      }
+    } else {
+      federacionLogoUrl = null;
+    }
   }
 
   return {
