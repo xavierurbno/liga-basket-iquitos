@@ -7,7 +7,7 @@ import {
   isMasterAdminIpAllowlistConfigured,
   MASTER_ADMIN_IP_BLOCKED_CODE,
 } from "@/lib/auth/master-admin-ip-allowlist";
-import { getClientIpFromHeaders } from "@/lib/security/client-ip";
+import { getClientIpFromRequest } from "@/lib/security/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -86,11 +86,11 @@ export async function GET(request: NextRequest) {
   const role =
     typeof user.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
 
-  const clientIp = getClientIpFromHeaders(request.headers);
+  const clientIp = getClientIpFromRequest(request);
   if (
     isMasterSuperAdminUser(user) &&
     isMasterAdminIpAllowlistConfigured() &&
-    !isIpAllowedForMasterAdmin(clientIp)
+    !isIpAllowedForMasterAdmin(clientIp, "enforce-if-known")
   ) {
     await supabase.auth.signOut();
     return loginRedirect(origin, MASTER_ADMIN_IP_BLOCKED_CODE);

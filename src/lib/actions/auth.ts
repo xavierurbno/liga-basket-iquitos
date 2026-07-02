@@ -82,7 +82,7 @@ export async function signInWithPasswordAction(input: {
   if (
     isMasterSuperAdminUser(user) &&
     isMasterAdminIpAllowlistConfigured() &&
-    !isIpAllowedForMasterAdmin(clientIp)
+    !isIpAllowedForMasterAdmin(clientIp, "enforce-if-known")
   ) {
     await supabase.auth.signOut();
     return { ok: false, error: MASTER_ADMIN_IP_BLOCKED_MESSAGE };

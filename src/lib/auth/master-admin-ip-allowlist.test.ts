@@ -34,6 +34,8 @@ describe("master-admin-ip-allowlist", () => {
     assert.equal(isIpAllowedForMasterAdmin("10.0.0.1"), false);
     assert.equal(isIpAllowedForMasterAdmin("unknown"), false);
     assert.equal(isIpAllowedForMasterAdmin(null), false);
+    assert.equal(isIpAllowedForMasterAdmin("unknown", "enforce-if-known"), true);
+    assert.equal(isIpAllowedForMasterAdmin(null, "enforce-if-known"), true);
   });
 
   it("acepta IPv4 mapeada en IPv6 (::ffff:)", () => {

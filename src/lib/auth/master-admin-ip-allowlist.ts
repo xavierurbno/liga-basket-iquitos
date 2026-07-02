@@ -3,6 +3,10 @@
  * Si `MASTER_SUPER_ADMIN_IP_ALLOWLIST` está vacío, no se restringe (desarrollo local).
  */
 
+import { expandIpVariantsForAllowlist } from "@/lib/security/client-ip";
+
+export { expandIpVariantsForAllowlist };
+
 export const MASTER_ADMIN_IP_BLOCKED_CODE = "ip_not_allowed";
 
 export const MASTER_ADMIN_IP_BLOCKED_MESSAGE =
@@ -19,25 +23,6 @@ function parseAllowlist(): Set<string> {
   );
 }
 
-/** Variantes comparables (minúsculas, IPv4 mapeada en IPv6). */
-export function expandIpVariantsForAllowlist(ip: string): string[] {
-  const trimmed = ip.trim().toLowerCase();
-  if (!trimmed) return [];
-
-  const variants = new Set<string>([trimmed]);
-
-  if (trimmed.startsWith("::ffff:")) {
-    const mappedV4 = trimmed.slice("::ffff:".length);
-    if (mappedV4) variants.add(mappedV4);
-  }
-
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(trimmed)) {
-    variants.add(`::ffff:${trimmed}`);
-  }
-
-  return [...variants];
-}
-
 function buildNormalizedAllowlist(): Set<string> {
   const normalized = new Set<string>();
   for (const entry of parseAllowlist()) {
@@ -52,11 +37,18 @@ export function isMasterAdminIpAllowlistConfigured(): boolean {
   return parseAllowlist().size > 0;
 }
 
-export function isIpAllowedForMasterAdmin(clientIp: string | null | undefined): boolean {
+export type MasterAdminIpCheckMode = "enforce" | "enforce-if-known";
+
+export function isIpAllowedForMasterAdmin(
+  clientIp: string | null | undefined,
+  mode: MasterAdminIpCheckMode = "enforce",
+): boolean {
   const allowlist = buildNormalizedAllowlist();
   if (allowlist.size === 0) return true;
   const ip = clientIp?.trim();
-  if (!ip || ip === "unknown") return false;
+  if (!ip || ip === "unknown") {
+    return mode === "enforce-if-known";
+  }
 
   for (const variant of expandIpVariantsForAllowlist(ip)) {
     if (allowlist.has(variant)) return true;

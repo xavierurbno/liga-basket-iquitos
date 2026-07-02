@@ -83,7 +83,7 @@ export default async function LoginPage({ searchParams }: Props) {
     Boolean(user) &&
     isMasterSuperAdminUser(user) &&
     isMasterAdminIpAllowlistConfigured() &&
-    !isIpAllowedForMasterAdmin(clientIp);
+    !isIpAllowedForMasterAdmin(clientIp, "enforce-if-known");
 
   if (masterIpBlocked) {
     await supabase.auth.signOut();

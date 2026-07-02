@@ -11,7 +11,7 @@ import {
   isMasterAdminIpAllowlistConfigured,
   MASTER_ADMIN_IP_BLOCKED_CODE,
 } from "@/lib/auth/master-admin-ip-allowlist";
-import { getClientIpFromHeaders } from "@/lib/security/client-ip";
+import { getClientIpFromHeaders, getClientIpFromRequest } from "@/lib/security/client-ip";
 import {
   logRateLimitBlocked,
   logSecurityEvent,
@@ -78,8 +78,8 @@ function enforceMasterAdminIpOrRedirect(
   if (!isMasterSuperAdminUser(user)) return null;
   if (!isMasterAdminIpAllowlistConfigured()) return null;
 
-  const clientIp = getClientIpFromHeaders(request.headers);
-  if (isIpAllowedForMasterAdmin(clientIp)) return null;
+  const clientIp = getClientIpFromRequest(request);
+  if (isIpAllowedForMasterAdmin(clientIp, "enforce")) return null;
 
   const isProtected =
     isSuperAdminPath(pathnameCanon, pathname) ||
