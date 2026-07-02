@@ -9,6 +9,7 @@ import {
 import {
   isIpAllowedForMasterAdmin,
   isMasterAdminIpAllowlistConfigured,
+  MASTER_ADMIN_IP_BLOCKED_CODE,
 } from "@/lib/auth/master-admin-ip-allowlist";
 import { getClientIpFromHeaders } from "@/lib/security/client-ip";
 import {
@@ -102,6 +103,7 @@ function enforceMasterAdminIpOrRedirect(
 
   const url = request.nextUrl.clone();
   url.pathname = "/login/";
+  url.searchParams.set("auth_error", MASTER_ADMIN_IP_BLOCKED_CODE);
   return NextResponse.redirect(url);
 }
 
@@ -161,11 +163,6 @@ async function maybeRateLimitResponse(
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const pathnameCanon = pathnameWithoutTrailingSlash(pathname);
-
-  if (pathnameCanon === "/login" || pathname.startsWith("/login/")) {
-    const limited = await maybeRateLimitResponse(request, "login");
-    if (limited) return limited;
-  }
 
   if (pathname.startsWith("/validar")) {
     const limited = await maybeRateLimitResponse(request, "validar");
@@ -270,7 +267,14 @@ export async function proxy(request: NextRequest) {
       pathnameCanon,
       pathname,
     );
-    if (ipBlock) return ipBlock;
+    if (ipBlock) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* ignorar */
+      }
+      return ipBlock;
+    }
   }
 
   if (isSuperAdminPath(pathnameCanon, pathname)) {

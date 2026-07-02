@@ -19,7 +19,9 @@ export type FichaCabeceraLineas = {
 
 /** Nombres históricos o de BD que deben mostrarse con el título institucional de Iquitos. */
 const IQUITOS_LEAGUE_TITLE_ALIASES = new Set([
+  "liga deportiva",
   "liga deportiva de baloncesto de iquitos",
+  "liga deportiva de basket de iquitos",
   "liga deportiva distrital mixta de basket de iquitos",
   "liga de basket de iquitos",
 ]);
@@ -45,9 +47,11 @@ export function resolveFichaCabeceraLineas(
   showFederation = true,
   leagueSlug?: string | null,
 ): FichaCabeceraLineas {
-  const lineaLiga = resolveFichaLeagueTitle(leagueDisplayName);
-  const customFed = federationDisplayName?.trim();
   const isPrimary = isPrimaryPortalLeagueSlug(leagueSlug);
+  const lineaLiga = isPrimary
+    ? FICHA_T2
+    : resolveFichaLeagueTitle(leagueDisplayName);
+  const customFed = federationDisplayName?.trim();
 
   if (!showFederation) {
     return { lineaFederacion: null, lineaLiga, layout: "single-prominent" };

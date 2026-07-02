@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessIntranet } from "@/lib/auth/intranet-gate";
+import { canAccessIntranet, isMasterSuperAdminUser } from "@/lib/auth/intranet-gate";
+import {
+  isIpAllowedForMasterAdmin,
+  isMasterAdminIpAllowlistConfigured,
+  MASTER_ADMIN_IP_BLOCKED_CODE,
+} from "@/lib/auth/master-admin-ip-allowlist";
+import { getClientIpFromHeaders } from "@/lib/security/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +85,17 @@ export async function GET(request: NextRequest) {
 
   const role =
     typeof user.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
+
+  const clientIp = getClientIpFromHeaders(request.headers);
+  if (
+    isMasterSuperAdminUser(user) &&
+    isMasterAdminIpAllowlistConfigured() &&
+    !isIpAllowedForMasterAdmin(clientIp)
+  ) {
+    await supabase.auth.signOut();
+    return loginRedirect(origin, MASTER_ADMIN_IP_BLOCKED_CODE);
+  }
+
   const intranetOk = canAccessIntranet(user, role);
 
   const redirectPath = intranetOk ? next : "/";

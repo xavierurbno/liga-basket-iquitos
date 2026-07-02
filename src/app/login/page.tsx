@@ -2,7 +2,14 @@ import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { canAccessIntranet } from "@/lib/auth/intranet-gate";
+import { canAccessIntranet, isMasterSuperAdminUser } from "@/lib/auth/intranet-gate";
+import {
+  isIpAllowedForMasterAdmin,
+  isMasterAdminIpAllowlistConfigured,
+  MASTER_ADMIN_IP_BLOCKED_CODE,
+  resolveMasterAdminAuthErrorMessage,
+} from "@/lib/auth/master-admin-ip-allowlist";
+import { getClientIpFromHeaders } from "@/lib/security/client-ip";
 import { SiteTopNav } from "@/components/layout/SiteTopNav";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
@@ -69,7 +76,18 @@ export default async function LoginPage({ searchParams }: Props) {
   }
   const user = userError && isInvalidRefreshTokenError(userError) ? null : userData.user;
   const role = typeof user?.app_metadata?.role === "string" ? user.app_metadata.role : undefined;
-  if (user && canAccessIntranet(user, role)) {
+
+  const headerList = await headers();
+  const clientIp = getClientIpFromHeaders(headerList);
+  const masterIpBlocked =
+    Boolean(user) &&
+    isMasterSuperAdminUser(user) &&
+    isMasterAdminIpAllowlistConfigured() &&
+    !isIpAllowedForMasterAdmin(clientIp);
+
+  if (masterIpBlocked) {
+    await supabase.auth.signOut();
+  } else if (user && canAccessIntranet(user, role)) {
     redirect(postLoginRedirect ?? "/liga/");
   }
 
@@ -79,10 +97,13 @@ export default async function LoginPage({ searchParams }: Props) {
     postLoginRedirect ?? (league?.slug ? leaguePortalHome(league.slug) : "/liga/");
   const themeStyle = league ? brandingToCssVars(league) : undefined;
 
-  const headerList = await headers();
   const requestHost =
     headerList.get("x-forwarded-host") ?? headerList.get("host") ?? undefined;
   const oauthAllowedHosts = getOAuthAllowedHosts(requestHost);
+
+  const authErrorMessage = masterIpBlocked
+    ? resolveMasterAdminAuthErrorMessage(MASTER_ADMIN_IP_BLOCKED_CODE)
+    : resolveMasterAdminAuthErrorMessage(authErrorParam);
 
   const content = (
     <div className="flex min-h-full flex-1 flex-col bg-[#F5F5F5]">
@@ -135,11 +156,7 @@ export default async function LoginPage({ searchParams }: Props) {
               initialLeagueSlug={league?.slug}
               postLoginRedirect={loginNext}
               oauthAllowedHosts={oauthAllowedHosts}
-              authError={
-                typeof authErrorParam === "string" && authErrorParam.trim()
-                  ? authErrorParam
-                  : undefined
-              }
+              authError={authErrorMessage}
             />
           </div>
         </div>

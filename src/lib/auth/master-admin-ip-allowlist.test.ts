@@ -35,4 +35,10 @@ describe("master-admin-ip-allowlist", () => {
     assert.equal(isIpAllowedForMasterAdmin("unknown"), false);
     assert.equal(isIpAllowedForMasterAdmin(null), false);
   });
+
+  it("acepta IPv4 mapeada en IPv6 (::ffff:)", () => {
+    process.env.MASTER_SUPER_ADMIN_IP_ALLOWLIST = "203.0.113.1";
+    assert.equal(isIpAllowedForMasterAdmin("::ffff:203.0.113.1"), true);
+    assert.equal(isIpAllowedForMasterAdmin("::FFFF:203.0.113.1"), true);
+  });
 });

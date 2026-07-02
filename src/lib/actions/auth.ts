@@ -1,11 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { AuthError } from "@supabase/supabase-js";
-import { canAccessIntranet } from "@/lib/auth/intranet-gate";
+import { canAccessIntranet, isMasterSuperAdminUser } from "@/lib/auth/intranet-gate";
+import {
+  isIpAllowedForMasterAdmin,
+  isMasterAdminIpAllowlistConfigured,
+  MASTER_ADMIN_IP_BLOCKED_MESSAGE,
+} from "@/lib/auth/master-admin-ip-allowlist";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
+import { getClientIpFromHeaders } from "@/lib/security/client-ip";
 import { isAllowedOAuthRedirectUrl } from "@/lib/security/oauth-redirect";
 
 export type GoogleOAuthResult = {
@@ -69,6 +75,17 @@ export async function signInWithPasswordAction(input: {
   const user = data.user;
   if (!user) {
     return { ok: false, error: "No se pudo obtener la sesión tras el login." };
+  }
+
+  const headerStore = await headers();
+  const clientIp = getClientIpFromHeaders(headerStore);
+  if (
+    isMasterSuperAdminUser(user) &&
+    isMasterAdminIpAllowlistConfigured() &&
+    !isIpAllowedForMasterAdmin(clientIp)
+  ) {
+    await supabase.auth.signOut();
+    return { ok: false, error: MASTER_ADMIN_IP_BLOCKED_MESSAGE };
   }
 
   const cookieStore = await cookies();
