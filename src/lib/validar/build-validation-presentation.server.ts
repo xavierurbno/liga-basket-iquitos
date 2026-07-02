@@ -9,6 +9,7 @@ import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { maskDocumentNumber } from "@/lib/observability/mask-document-number";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { clubRepository } from "@/repositories/clubRepository";
 import { playerRepository } from "@/repositories/playerRepository";
@@ -25,18 +26,19 @@ export async function loadCategoryFichaValidation(categoryId: string): Promise<{
   leagueName: string | null;
   accentColor: string;
 } | null> {
-  const context = await categoryRepository.findValidationContextById(categoryId);
+  const publicDb = unauthenticatedReadDb();
+  const context = await categoryRepository.findValidationContextById(categoryId, publicDb);
   if (!context) return null;
 
   const [staff, jugadores, roster] = await Promise.all([
-    categoryRepository.findFichaStaffByIdAndClub(categoryId, context.clubId),
-    playerRepository.findForFichaByCategory(context.clubId, categoryId),
-    playerRepository.findValidationRosterByCategoryId(categoryId),
+    categoryRepository.findFichaStaffByIdAndClub(categoryId, context.clubId, publicDb),
+    playerRepository.findForFichaByCategory(context.clubId, categoryId, publicDb),
+    playerRepository.findValidationRosterByCategoryId(categoryId, publicDb),
   ]);
 
   if (!staff) return null;
 
-  const clubRow = await clubRepository.findFichaClub(context.clubId);
+  const clubRow = await clubRepository.findFichaClub(context.clubId, publicDb);
 
   const effectiveLeagueId = clubRow?.leagueId?.trim() || null;
   const fichaBranding = await resolveLeagueFichaBranding(effectiveLeagueId);
@@ -119,7 +121,8 @@ export async function loadPlayerCarnetValidation(playerId: string): Promise<{
   leagueName: string | null;
   accentColor: string;
 } | null> {
-  const jugador = await playerRepository.findCarnetValidationById(playerId);
+  const publicDb = unauthenticatedReadDb();
+  const jugador = await playerRepository.findCarnetValidationById(playerId, publicDb);
   if (!jugador) return null;
   if (!jugador.categoriaNombre) return null;
 

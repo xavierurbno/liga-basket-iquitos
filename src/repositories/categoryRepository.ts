@@ -1,14 +1,16 @@
-import { db } from "@/lib/db/client";
+import {
+  operationalReadDb,
+  operationalWriteDb,
+  type OperationalDb,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
 import { categories, Category, NewCategory } from "@/lib/db/schema";
 import { effectiveBypassClubFilter, type ClubScopeOptions } from "@/lib/auth/data-scope";
 import { and, eq } from "drizzle-orm";
 import { clubs, leagues } from "@/lib/db/schema";
-import { ExtractTablesWithRelations } from "drizzle-orm";
-import { PgTransaction } from "drizzle-orm/pg-core";
-import { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 
-type DB = typeof db;
-type Transaction = PgTransaction<PostgresJsQueryResultHKT, Record<string, never>, ExtractTablesWithRelations<Record<string, never>>>;
+type DB = OperationalDb;
+type Transaction = OperationalTx;
 
 export class CategoryRepository {
   /**
@@ -16,7 +18,7 @@ export class CategoryRepository {
    */
   async findAllByClub(
     clubId: string,
-    tx: DB | Transaction = db,
+    tx: DB | Transaction = operationalReadDb(),
     options?: ClubScopeOptions
   ) {
     if (effectiveBypassClubFilter(options)) {
@@ -28,7 +30,7 @@ export class CategoryRepository {
       .where(eq(categories.clubId, clubId));
   }
 
-  async findById(id: string, tx: DB | Transaction = db) {
+  async findById(id: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(categories)
@@ -37,7 +39,7 @@ export class CategoryRepository {
     return row || null;
   }
 
-  async findByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = db) {
+  async findByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select()
       .from(categories)
@@ -46,7 +48,7 @@ export class CategoryRepository {
     return row ?? null;
   }
 
-  async findNameByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = db) {
+  async findNameByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({ id: categories.id, name: categories.name })
       .from(categories)
@@ -55,7 +57,7 @@ export class CategoryRepository {
     return row ?? null;
   }
 
-  async findFichaStaffByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = db) {
+  async findFichaStaffByIdAndClub(categoryId: string, clubId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         name: categories.name,
@@ -76,7 +78,7 @@ export class CategoryRepository {
     return row ?? null;
   }
 
-  async findValidationById(categoryId: string, tx: DB | Transaction = db) {
+  async findValidationById(categoryId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         clubName: clubs.name,
@@ -89,7 +91,7 @@ export class CategoryRepository {
     return row ?? null;
   }
 
-  async findValidationContextById(categoryId: string, tx: DB | Transaction = db) {
+  async findValidationContextById(categoryId: string, tx: DB | Transaction = operationalReadDb()) {
     const [row] = await tx
       .select({
         clubId: categories.clubId,
@@ -106,7 +108,7 @@ export class CategoryRepository {
     return row ?? null;
   }
 
-  async create(data: NewCategory, tx: DB | Transaction = db) {
+  async create(data: NewCategory, tx: DB | Transaction = operationalWriteDb()) {
     const [row] = await tx
       .insert(categories)
       .values(data)
@@ -114,14 +116,14 @@ export class CategoryRepository {
     return row;
   }
 
-  async update(id: string, data: Partial<Category>, tx: DB | Transaction = db) {
+  async update(id: string, data: Partial<Category>, tx: DB | Transaction = operationalWriteDb()) {
     return await tx
       .update(categories)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(categories.id, id));
   }
 
-  async delete(id: string, tx: DB | Transaction = db) {
+  async delete(id: string, tx: DB | Transaction = operationalWriteDb()) {
     return await tx.delete(categories).where(eq(categories.id, id));
   }
 }

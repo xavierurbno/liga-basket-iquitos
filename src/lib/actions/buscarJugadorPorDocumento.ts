@@ -1,10 +1,10 @@
 "use server";
 
-import { db } from "@/lib/db/client";
 import { players, clubs, categories } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { buildDocumentPlayerSearchConditions } from "@/lib/auth/document-search-scope";
 import { logDocumentSearchByPlayer } from "@/lib/observability/pii-access-log";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
@@ -70,27 +70,29 @@ export const buscarJugadorPorDocumento = withAuth(
     }
 
     try {
-      const rows = await db
-        .select({
-          id: players.id,
-          name: players.name,
-          lastname: players.lastname,
-          documentType: players.documentType,
-          documentNumber: players.documentNumber,
-          category: players.category,
-          birthdate: players.birthdate,
-          fotoUrlRaw: players.photoUrl,
-          carnetNumber: players.carnetNumber,
-          clubName: clubs.name,
-          categoriaNombre: categories.name,
-          leagueId: clubs.leagueId,
-        })
-        .from(players)
-        .innerJoin(clubs, eq(players.clubId, clubs.id))
-        .leftJoin(categories, eq(players.categoryId, categories.id))
-        .where(whereClause)
-        .orderBy(desc(players.createdAt))
-        .limit(1);
+      const rows = await withOperationalRead(user, context, async (tx) =>
+        tx
+          .select({
+            id: players.id,
+            name: players.name,
+            lastname: players.lastname,
+            documentType: players.documentType,
+            documentNumber: players.documentNumber,
+            category: players.category,
+            birthdate: players.birthdate,
+            fotoUrlRaw: players.photoUrl,
+            carnetNumber: players.carnetNumber,
+            clubName: clubs.name,
+            categoriaNombre: categories.name,
+            leagueId: clubs.leagueId,
+          })
+          .from(players)
+          .innerJoin(clubs, eq(players.clubId, clubs.id))
+          .leftJoin(categories, eq(players.categoryId, categories.id))
+          .where(whereClause)
+          .orderBy(desc(players.createdAt))
+          .limit(1),
+      );
 
       if (rows.length === 0) {
         await logDocumentSearchByPlayer({

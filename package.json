@@ -35,6 +35,7 @@
     "ops:check:rls": "node scripts/check-rls-policies.mjs",
     "ops:verify:upstash": "node scripts/verify-upstash.mjs",
     "ops:purge:audit-events": "node scripts/purge-audit-events.mjs",
+    "ops:audit:player-photos": "node scripts/audit-player-photo-urls.mjs",
     "vercel:sync:upstash-aliases": "node scripts/sync-upstash-aliases-vercel.mjs",
     "env:restore:dev": "node scripts/restore-env-local-dev.mjs",
     "stripe:listen": "stripe listen --forward-to localhost:3001/api/stripe/webhook/",

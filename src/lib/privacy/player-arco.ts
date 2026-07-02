@@ -44,7 +44,7 @@ const ANON_NAME = "ANONIMIZADO";
 
 function buildAnonymizedDocumentNumber(playerId: string): string {
   const compact = playerId.replace(/-/g, "").slice(0, 12).toUpperCase();
-  return `ARCO-${compact}`;
+  return `***ARCO-${compact}`;
 }
 
 function playerToExportRecord(player: Player): Record<string, unknown> {

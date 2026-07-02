@@ -1,4 +1,5 @@
 import { leagueRepository } from "@/repositories/league.repository";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { fetchPortalLeagueBranding } from "@/lib/portal/portal-league-cache";
 import type { LeaguePortalBranding } from "@/lib/leagues/league-branding";
 import { loadLeaguePortalBranding } from "@/lib/leagues/league-branding";
@@ -23,7 +24,7 @@ export async function resolveLoginPortalLeague(opts: {
   }
 
   try {
-    const fallback = await leagueRepository.findDefaultForPortal();
+    const fallback = await leagueRepository.findDefaultForPortal(unauthenticatedReadDb());
     if (!fallback) return null;
     return (
       (await fetchPortalLeagueBranding(fallback.slug)) ?? loadLeaguePortalBranding(fallback)

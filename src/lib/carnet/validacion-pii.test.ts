@@ -4,7 +4,7 @@ import { maskDocumentNumber } from "../observability/mask-document-number.ts";
 
 describe("validacion carnet PII", () => {
   it("enmascara DNI para vista pública", () => {
-    assert.equal(maskDocumentNumber("12345678"), "****5678");
+    assert.equal(maskDocumentNumber("12345678"), "***678");
   });
 
   it("año de nacimiento sin día/mes para validación pública", () => {

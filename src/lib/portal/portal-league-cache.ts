@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { loadLeaguePortalBranding, type LeaguePortalBranding } from "@/lib/leagues/league-branding";
 
@@ -9,14 +10,14 @@ const MEM_TTL_MS = 120_000;
 type LeagueRow = { id: string; name: string; slug: string } | null;
 
 const fetchDefaultLeagueCached = unstable_cache(
-  () => leagueRepository.findDefaultForPortal(),
+  () => leagueRepository.findDefaultForPortal(unauthenticatedReadDb()),
   ["portal-league-default-v2"],
   { revalidate: CACHE_REVALIDATE_SEC },
 );
 
 const fetchLeagueBySlugCached = (slug: string) =>
   unstable_cache(
-    () => leagueRepository.findBySlug(slug),
+    () => leagueRepository.findBySlug(slug, unauthenticatedReadDb()),
     ["portal-league-slug", slug],
     { revalidate: CACHE_REVALIDATE_SEC },
   )();

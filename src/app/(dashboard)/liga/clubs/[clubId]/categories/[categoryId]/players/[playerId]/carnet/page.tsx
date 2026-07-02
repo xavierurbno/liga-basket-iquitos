@@ -77,7 +77,7 @@ export default async function CarnetJugadorPage({
     operationalLeagueId,
     leagueSlug: leagueRow?.slug,
     leagueName: leagueRow?.name,
-    presentationMode: "admin",
+    presentationMode: "emision",
   });
 
   const effectiveLeagueId = carnetVistaProps.leagueId?.trim() || null;

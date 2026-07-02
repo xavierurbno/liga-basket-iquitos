@@ -1,5 +1,3 @@
-import { db } from "@/lib/db/client";
-import { clubs } from "@/lib/db/schema";
 import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { settingsRepository } from "@/repositories/settingsRepository";
 import { clubRepository } from "@/repositories/clubRepository";
@@ -18,12 +16,13 @@ export const getCachedLeagueSettings = async (leagueId?: string | null) => {
 
 /** Clubes en caché lógica; con `options` aplica el mismo alcance que `clubRepository.findAllScoped`. */
 export const getCachedClubs = async (options?: ClubScopeOptions & { leagueId?: string | null }) => {
+  const readDb = unauthenticatedReadDb();
   if (!options) {
-    return await db.select().from(clubs);
+    return await clubRepository.getAll(readDb);
   }
-  return await clubRepository.findAllScoped(options, db);
+  return await clubRepository.findAllScoped(options, readDb);
 };
 
 export const getCachedCategories = async (clubId: string, options?: ClubScopeOptions) => {
-  return await categoryRepository.findAllByClub(clubId, db, options);
+  return await categoryRepository.findAllByClub(clubId, unauthenticatedReadDb(), options);
 };

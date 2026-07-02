@@ -167,10 +167,13 @@ export function logSensitiveRouteAllowed(input: {
   clientIp?: string | null;
   bypassMasterEmail?: boolean;
 }): void {
+  const level: SecurityLogLevel = input.bypassMasterEmail ? "warn" : "info";
   logSecurityEvent(
     {
       type: "auth.route.allowed",
-      message: `Acceso permitido a ruta sensible`,
+      message: input.bypassMasterEmail
+        ? "Acceso permitido a ruta sensible (bypass correo maestro)"
+        : "Acceso permitido a ruta sensible",
       userId: input.userId,
       role: input.role ?? undefined,
       leagueId: input.leagueId ?? undefined,
@@ -181,6 +184,6 @@ export function logSensitiveRouteAllowed(input: {
         bypassMasterEmail: input.bypassMasterEmail ?? false,
       },
     },
-    { level: "info" },
+    { level },
   );
 }

@@ -1,9 +1,9 @@
 "use server";
 
-import { db } from "@/lib/db/client";
 import { clubs } from "@/lib/db/schema";
 import { buildDocumentClubSearchConditions } from "@/lib/auth/document-search-scope";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { logDocumentClubSearch } from "@/lib/observability/pii-access-log";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
 
@@ -49,20 +49,22 @@ export async function buscarClubParaDocumento(
   }
 
   try {
-    const rows = await db
-      .select({
-        id: clubs.id,
-        name: clubs.name,
-        slug: clubs.slug,
-        federationCode: clubs.federationCode,
-        presidentName: clubs.presidentName,
-        presidentLastname: clubs.presidentLastname,
-        district: clubs.district,
-        leagueId: clubs.leagueId,
-      })
-      .from(clubs)
-      .where(whereClause)
-      .limit(10);
+    const rows = await withOperationalRead(auth.user, auth.context, async (tx) =>
+      tx
+        .select({
+          id: clubs.id,
+          name: clubs.name,
+          slug: clubs.slug,
+          federationCode: clubs.federationCode,
+          presidentName: clubs.presidentName,
+          presidentLastname: clubs.presidentLastname,
+          district: clubs.district,
+          leagueId: clubs.leagueId,
+        })
+        .from(clubs)
+        .where(whereClause)
+        .limit(10),
+    );
 
     if (rows.length === 0) {
       await logDocumentClubSearch({

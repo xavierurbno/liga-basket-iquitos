@@ -1,15 +1,18 @@
 import type { PlayerStatus } from "@/lib/db/schema";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { playerRepository } from "@/repositories/playerRepository";
 
 export async function loadPlayerValidation(entityId: string) {
-  return playerRepository.findValidationById(entityId);
+  const publicDb = unauthenticatedReadDb();
+  return playerRepository.findValidationById(entityId, publicDb);
 }
 
 export async function loadCategoryValidation(entityId: string) {
-  return categoryRepository.findValidationById(entityId);
+  const publicDb = unauthenticatedReadDb();
+  return categoryRepository.findValidationById(entityId, publicDb);
 }
 
 export type CategoryRosterValidationPlayer = {
@@ -31,10 +34,11 @@ export type CategoryRosterValidation = {
 export async function loadCategoryRosterValidation(
   categoryId: string,
 ): Promise<CategoryRosterValidation | null> {
-  const context = await categoryRepository.findValidationContextById(categoryId);
+  const publicDb = unauthenticatedReadDb();
+  const context = await categoryRepository.findValidationContextById(categoryId, publicDb);
   if (!context) return null;
 
-  const roster = await playerRepository.findValidationRosterByCategoryId(categoryId);
+  const roster = await playerRepository.findValidationRosterByCategoryId(categoryId, publicDb);
 
   const categoriaDisplay = lineaCategoriaInstitucional(
     context.categoriaNombre,

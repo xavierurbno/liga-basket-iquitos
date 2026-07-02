@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { getActiveLeagueIdFromCookies } from "@/lib/auth/active-league";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 
 /** Liga cuyos `league_settings` deben leerse (explícita → cookie activa → portal por defecto). */
@@ -15,6 +16,6 @@ export async function resolveLeagueSettingsScopeId(
   const active = getActiveLeagueIdFromCookies(cookieStore);
   if (active?.trim()) return active.trim();
 
-  const defaultLeague = await leagueRepository.findDefaultForPortal();
+  const defaultLeague = await leagueRepository.findDefaultForPortal(unauthenticatedReadDb());
   return defaultLeague?.id?.trim() ?? null;
 }

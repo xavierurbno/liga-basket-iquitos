@@ -61,7 +61,8 @@ export const resolvePortalLeagueContext = cache(
       );
       if (defaultId) {
         const { leagueRepository } = await import("@/repositories/league.repository");
-        const row = await leagueRepository.findById(defaultId);
+        const { unauthenticatedReadDb } = await import("@/lib/db/operational-db-access");
+        const row = await leagueRepository.findById(defaultId, unauthenticatedReadDb());
         if (row) {
           return loadLeaguePortalBranding(row);
         }
@@ -70,7 +71,8 @@ export const resolvePortalLeagueContext = cache(
       const envId = readPortalLeagueIdFromEnv();
       if (envId) {
         const { leagueRepository } = await import("@/repositories/league.repository");
-        const row = await leagueRepository.findById(envId);
+        const { unauthenticatedReadDb } = await import("@/lib/db/operational-db-access");
+        const row = await leagueRepository.findById(envId, unauthenticatedReadDb());
         if (row) {
           return loadLeaguePortalBranding(row);
         }

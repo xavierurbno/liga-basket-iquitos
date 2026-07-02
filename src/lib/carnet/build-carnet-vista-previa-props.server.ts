@@ -21,6 +21,12 @@ import { resolvePlayerPhotoUrl } from "@/lib/storage/player-photo-url.server";
 import { buildPlayerValidationUrl } from "@/lib/validation/build-validation-url.server";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import {
+  operationalReadDb,
+  unauthenticatedReadDb,
+  type OperationalDb,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 
@@ -52,7 +58,7 @@ type BuildCarnetVistaPreviaPropsInput = {
   operationalLeagueId?: string | null;
   leagueSlug?: string | null;
   leagueName?: string | null;
-  presentationMode?: "admin" | "validacion";
+  presentationMode?: "emision" | "validacion";
 };
 
 function birthdateToIso(date: Date | null): string {
@@ -63,12 +69,15 @@ function birthdateToIso(date: Date | null): string {
 }
 
 /** Misma resolución de liga que la página de carnet del panel (sin cookie en /validar). */
-export async function resolveEffectiveLeagueIdForCarnet(opts: {
-  clubLeagueId?: string | null;
-  joinedLeagueId?: string | null;
-  operationalLeagueId?: string | null;
-  leagueSlug?: string | null;
-}): Promise<string | null> {
+export async function resolveEffectiveLeagueIdForCarnet(
+  opts: {
+    clubLeagueId?: string | null;
+    joinedLeagueId?: string | null;
+    operationalLeagueId?: string | null;
+    leagueSlug?: string | null;
+  },
+  readDb: OperationalDb | OperationalTx = operationalReadDb(),
+): Promise<string | null> {
   const fromClub = opts.clubLeagueId?.trim() || opts.joinedLeagueId?.trim();
   if (fromClub) return fromClub;
 
@@ -77,11 +86,11 @@ export async function resolveEffectiveLeagueIdForCarnet(opts: {
 
   const slug = opts.leagueSlug?.trim();
   if (slug) {
-    const bySlug = await leagueRepository.findBySlug(slug);
+    const bySlug = await leagueRepository.findBySlug(slug, readDb);
     if (bySlug?.id) return bySlug.id;
   }
 
-  const portal = await leagueRepository.findDefaultForPortal();
+  const portal = await leagueRepository.findDefaultForPortal(readDb);
   return portal?.id ?? null;
 }
 
@@ -89,15 +98,21 @@ export async function resolveEffectiveLeagueIdForCarnet(opts: {
 export async function buildCarnetVistaPreviaPropsServer(
   input: BuildCarnetVistaPreviaPropsInput,
 ): Promise<CarnetVistaPreviaProps> {
-  const effectiveLeagueId = await resolveEffectiveLeagueIdForCarnet({
-    clubLeagueId: input.club.leagueId,
-    joinedLeagueId: input.club.joinedLeagueId,
-    operationalLeagueId: input.operationalLeagueId,
-    leagueSlug: input.leagueSlug,
-  });
+  const isValidacion = input.presentationMode === "validacion";
+  const readDb = isValidacion ? unauthenticatedReadDb() : operationalReadDb();
+
+  const effectiveLeagueId = await resolveEffectiveLeagueIdForCarnet(
+    {
+      clubLeagueId: input.club.leagueId,
+      joinedLeagueId: input.club.joinedLeagueId,
+      operationalLeagueId: input.operationalLeagueId,
+      leagueSlug: input.leagueSlug,
+    },
+    readDb,
+  );
 
   const leagueRow = effectiveLeagueId
-    ? await leagueRepository.findById(effectiveLeagueId)
+    ? await leagueRepository.findById(effectiveLeagueId, readDb)
     : null;
 
   const cityPrefix = resolveLeagueCarnetPrefix({
@@ -109,7 +124,6 @@ export async function buildCarnetVistaPreviaPropsServer(
   const carnetDisplay = formatCarnetNumberForLeague(input.jugador.carnetNumber, cityPrefix);
   const categoriaDetalle = lineaCategoriaInstitucional(input.categoryName, [input.jugador.gender]);
   const categoriaCarnet = input.categoryName.trim();
-  const isValidacion = input.presentationMode === "validacion";
   const fotoPublica = await resolvePlayerPhotoUrl(input.jugador.photoUrl, {
     intent: isValidacion ? "public" : "intranet",
   });
