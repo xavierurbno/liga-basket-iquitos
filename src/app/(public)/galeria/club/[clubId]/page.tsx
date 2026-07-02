@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { loadClubForGalleryRedirect } from "@/lib/loaders/club-page.loader";
 import { resolveDefaultPortalLeagueId } from "@/lib/portal/portal-league-cache";
 import { leaguePortalClubGallery } from "@/lib/portal/league-portal-paths";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +22,16 @@ export default async function LegacyClubGalleryRedirect({ params, searchParams }
     redirect("/");
   }
 
+  const publicDb = unauthenticatedReadDb();
   let slug: string | null = null;
   if (club.leagueId) {
-    const league = await leagueRepository.findById(club.leagueId);
+    const league = await leagueRepository.findById(club.leagueId, publicDb);
     slug = league?.slug ?? null;
   }
   if (!slug) {
     const defaultId = await resolveDefaultPortalLeagueId();
     if (defaultId) {
-      const league = await leagueRepository.findById(defaultId);
+      const league = await leagueRepository.findById(defaultId, publicDb);
       slug = league?.slug ?? null;
     }
   }

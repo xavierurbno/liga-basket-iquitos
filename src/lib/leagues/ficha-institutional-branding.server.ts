@@ -5,6 +5,7 @@ import { resolveLeagueDisplayLogoUrl } from "@/lib/logos/resolve-public-league-l
 import { FICHA_T2 } from "@/lib/pdf/fichaInstitucionalTextos";
 import { isPrimaryPortalLeagueSlug } from "@/lib/portal/portal-league-constants";
 import { resolvePublicImageUrl } from "@/lib/validar/resolve-public-image-url";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 
@@ -41,9 +42,10 @@ export async function resolveFichaInstitutionalBranding(
   }
 
   const id = leagueId.trim();
+  const publicDb = unauthenticatedReadDb();
   const [leagueRow, settings] = await Promise.all([
-    leagueRepository.findById(id),
-    settingsRepository.getLeagueSettings(id),
+    leagueRepository.findById(id, publicDb),
+    settingsRepository.getLeagueSettings(id, publicDb),
   ]);
 
   if (!leagueRow) {

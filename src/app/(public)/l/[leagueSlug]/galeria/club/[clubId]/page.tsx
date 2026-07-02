@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadPublicClubGalleryMeta } from "@/lib/loaders/club-page.loader";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { clubRepository } from "@/repositories/clubRepository";
 import { PhotoGalleryGrid } from "@/components/gallery/PhotoGalleryGrid";
 import { Pagination } from "@/components/gallery/Pagination";
@@ -20,7 +21,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { clubId } = await params;
-  const club = await clubRepository.findNameById(clubId);
+  const club = await clubRepository.findNameById(clubId, unauthenticatedReadDb());
   return { title: club ? `Galería · ${club.name}` : "Galería del club" };
 }
 

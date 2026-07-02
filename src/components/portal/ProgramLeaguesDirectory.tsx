@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Globe, ChevronRight } from "lucide-react";
+import { unauthenticatedReadDb } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { SiteTopNav } from "@/components/layout/SiteTopNav";
@@ -14,7 +15,7 @@ export async function ProgramLeaguesDirectory() {
   let loadError: string | null = null;
 
   try {
-    leagues = await leagueRepository.findAll();
+    leagues = await leagueRepository.findAll(unauthenticatedReadDb());
   } catch (err) {
     console.warn("[ProgramLeaguesDirectory] BD no disponible:", err);
     loadError = formatPostgresConnectionError(err);
