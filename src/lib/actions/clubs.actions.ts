@@ -272,11 +272,13 @@ export const actualizarCategoriaAction = withAuth(
 );
 
 export const eliminarClubAction = withAuth(
-  async (formData: FormData, _user: User, context: AuthContext): Promise<ActionResult> => {
+  async (formData: FormData, user: User, context: AuthContext): Promise<ActionResult> => {
     const clubId = asText(formData.get("clubId"));
     if (!clubId) return { success: false, error: "clubId requerido." };
 
-    const existing = await clubRepository.findById(clubId);
+    const existing = await withOperationalRead(user, context, (tx) =>
+      clubRepository.findById(clubId, tx),
+    );
     if (!existing) {
       return { success: false, error: "Club no encontrado." };
     }

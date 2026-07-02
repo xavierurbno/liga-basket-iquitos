@@ -79,20 +79,39 @@ function playerToExportRecord(player: Player): Record<string, unknown> {
   };
 }
 
+function toIso(value: Date | string | null | undefined): string {
+  if (value == null) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
 export async function buildPlayerArcoExport(
   playerId: string,
   database: Db = db,
 ): Promise<PlayerArcoExport | null> {
-  const [player] = await database
-    .select()
-    .from(players)
-    .where(eq(players.id, playerId))
-    .limit(1);
+  let player: Player | undefined;
+  try {
+    [player] = await database
+      .select()
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+  } catch (err) {
+    console.error("[buildPlayerArcoExport] players", err);
+    return null;
+  }
 
   if (!player) return null;
 
-  const [historyRows, docRows] = await Promise.all([
-    database
+  let historyRows: {
+    id: string;
+    type: string;
+    correlative: number;
+    createdAt: Date;
+    snapshot: unknown;
+  }[] = [];
+  try {
+    historyRows = await database
       .select({
         id: documentHistory.id,
         type: documentHistory.type,
@@ -101,8 +120,20 @@ export async function buildPlayerArcoExport(
         snapshot: documentHistory.snapshot,
       })
       .from(documentHistory)
-      .where(eq(documentHistory.entityId, playerId)),
-    database
+      .where(eq(documentHistory.entityId, playerId));
+  } catch (err) {
+    console.error("[buildPlayerArcoExport] document_history", err);
+  }
+
+  let docRows: {
+    id: string;
+    type: string;
+    fileName: string;
+    storageKey: string;
+    createdAt: Date;
+  }[] = [];
+  try {
+    docRows = await database
       .select({
         id: playerDocuments.id,
         type: playerDocuments.type,
@@ -111,8 +142,10 @@ export async function buildPlayerArcoExport(
         createdAt: playerDocuments.createdAt,
       })
       .from(playerDocuments)
-      .where(eq(playerDocuments.playerId, playerId)),
-  ]);
+      .where(eq(playerDocuments.playerId, playerId));
+  } catch (err) {
+    console.error("[buildPlayerArcoExport] player_documents", err);
+  }
 
   return {
     exportedAt: new Date().toISOString(),
@@ -124,8 +157,8 @@ export async function buildPlayerArcoExport(
     documentHistory: historyRows.map((row) => ({
       id: row.id,
       type: row.type,
-      correlative: row.correlative,
-      createdAt: row.createdAt.toISOString(),
+      correlative: Number(row.correlative),
+      createdAt: toIso(row.createdAt),
       snapshot: row.snapshot,
     })),
     uploadedDocuments: docRows.map((row) => ({
@@ -133,7 +166,7 @@ export async function buildPlayerArcoExport(
       type: row.type,
       fileName: row.fileName,
       storageKey: row.storageKey,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: toIso(row.createdAt),
     })),
   };
 }

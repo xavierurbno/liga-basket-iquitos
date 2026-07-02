@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import type { User } from "@supabase/supabase-js";
 import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
+import { dbOwner } from "@/lib/db/client";
+import { useAppDbForWrites } from "@/lib/db/db-runtime-config";
 import {
-  unauthenticatedReadDb,
   withOperationalRead,
   withOperationalWrite,
-  type OperationalTx,
 } from "@/lib/db/operational-db-access";
 import { playerRepository } from "@/repositories/playerRepository";
 import { clubRepository } from "@/repositories/clubRepository";
@@ -93,20 +93,20 @@ export const exportPlayerArcoAction = withAuth(
 
     let exportPayload: PlayerArcoExport | null = null;
     try {
-      // Tras validar alcance, lectura owner: exportación legal staff (evita RLS en tablas auxiliares).
-      exportPayload = await buildPlayerArcoExport(
-        playerId,
-        unauthenticatedReadDb() as unknown as Parameters<typeof buildPlayerArcoExport>[1],
-      );
+      exportPayload = await buildPlayerArcoExport(playerId, dbOwner);
     } catch (err) {
-      console.error("[exportPlayerArcoAction]", err);
+      console.error("[exportPlayerArcoAction] owner read", err);
+    }
+    if (!exportPayload) {
+      exportPayload = await withOperationalRead(user, context, (tx) =>
+        buildPlayerArcoExport(playerId, tx as unknown as typeof dbOwner),
+      );
+    }
+    if (!exportPayload) {
       return {
         success: false,
         error: "No se pudo generar la exportación ARCO. Inténtalo de nuevo o contacta soporte.",
       };
-    }
-    if (!exportPayload) {
-      return { success: false, error: "Jugador no encontrado." };
     }
 
     await recordAuditFromContext(context, {
@@ -154,22 +154,42 @@ export const anonymizePlayerArcoAction = withAuth(
     const scope = await assertArcoPlayerScope(user, context, playerId, clubId);
     if (!scope.ok) return { success: false, error: scope.error };
 
-    const resultSummary = await withOperationalWrite(user, context, async (tx) => {
-      await recordAuditFromContext(
-        context,
-        {
+    let resultSummary;
+    if (useAppDbForWrites()) {
+      resultSummary = await withOperationalWrite(user, context, async (tx) => {
+        await recordAuditFromContext(
+          context,
+          {
+            action: AUDIT_ACTIONS.playerArcoAnonymize,
+            entityType: "player",
+            entityId: playerId,
+            leagueId: scope.leagueId,
+            clubId,
+            payload: { playerId, arcoRight: "cancellation" },
+          },
+          tx,
+        );
+        return anonymizePlayerForArco(playerId, tx);
+      });
+    } else {
+      try {
+        resultSummary = await anonymizePlayerForArco(playerId, dbOwner);
+        await recordAuditFromContext(context, {
           action: AUDIT_ACTIONS.playerArcoAnonymize,
           entityType: "player",
           entityId: playerId,
           leagueId: scope.leagueId,
           clubId,
           payload: { playerId, arcoRight: "cancellation" },
-        },
-        tx,
-      );
-
-      return anonymizePlayerForArco(playerId, tx);
-    });
+        });
+      } catch (err) {
+        console.error("[anonymizePlayerArcoAction]", err);
+        return {
+          success: false,
+          error: "No se pudo anonimizar al jugador. Inténtalo de nuevo o contacta soporte.",
+        };
+      }
+    }
 
     if (!resultSummary) {
       return { success: false, error: "No se pudo anonimizar al jugador." };

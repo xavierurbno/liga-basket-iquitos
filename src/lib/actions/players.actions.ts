@@ -9,7 +9,7 @@ import { ActionResult } from "@/lib/types/league";
 import { withAuth, AuthContext } from "@/lib/auth/withAuth";
 import { isSuperAdminDataScope } from "@/lib/auth/intranet-roles";
 import { User } from "@supabase/supabase-js";
-import { withOperationalWrite } from "@/lib/db/operational-db-access";
+import { withOperationalRead, withOperationalWrite } from "@/lib/db/operational-db-access";
 import { sql } from "drizzle-orm";
 import {
   formatRegistroJugadorZodError,
@@ -82,7 +82,9 @@ export const registrarJugadorAction = withAuth(
         photoUrl = uploadedPhotoKey;
       }
 
-      const leagueRow = await leagueRepository.findById(leagueId);
+      const leagueRow = await withOperationalRead(user, context, (tx) =>
+        leagueRepository.findById(leagueId, tx),
+      );
       const cityPrefix = resolveLeagueCarnetPrefix({
         slug: leagueRow?.slug,
         name: leagueRow?.name,
