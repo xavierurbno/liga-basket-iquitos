@@ -7,6 +7,8 @@ import type { CarnetThemePreset } from "@/lib/carnet/carnetTheme";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 import { settingsRepository } from "@/repositories/settingsRepository";
 
@@ -35,10 +37,21 @@ export default async function LigaConfiguracionPage() {
     );
   }
 
-  const league = await leagueRepository.findById(ctx.leagueId!);
+  const authContext: AuthContext = {
+    userId: ctx.user.id,
+    role: ctx.role!,
+    clubId: ctx.user.app_metadata?.club_id as string | undefined,
+    leagueId: ctx.leagueId ?? (ctx.user.app_metadata?.league_id as string | undefined),
+  };
+
+  const league = await withOperationalRead(ctx.user, authContext, (tx) =>
+    leagueRepository.findById(ctx.leagueId!, tx),
+  );
   if (!league) redirect("/liga/");
 
-  const settings = await settingsRepository.getLeagueSettings(league.id);
+  const settings = await withOperationalRead(ctx.user, authContext, (tx) =>
+    settingsRepository.getLeagueSettings(league.id, tx),
+  );
   const { hasLeagueMonoLogoAvailable } = await import(
     "@/lib/logos/resolve-league-logo-buffer"
   );

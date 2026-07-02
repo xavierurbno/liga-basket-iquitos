@@ -6,6 +6,8 @@ import { IntranetChrome } from "@/components/intranet/IntranetChrome";
 import { clubRepository } from "@/repositories/clubRepository";
 import { leagueRepository } from "@/repositories/league.repository";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,15 @@ export default async function DashboardLayout({
   }
 
   if (role === "LEAGUE_ADMIN" && meta.league_id) {
-    const league = await leagueRepository.findById(meta.league_id);
+    const authContext: AuthContext = {
+      userId: user.id,
+      role,
+      leagueId: meta.league_id,
+      clubId: meta.club_id,
+    };
+    const league = await withOperationalRead(user, authContext, (tx) =>
+      leagueRepository.findById(meta.league_id!, tx),
+    );
     leagueName = league?.name ?? null;
     const inLeague = await clubRepository.findAllScoped({
       actingRole: "LEAGUE_ADMIN",
@@ -70,17 +80,23 @@ export default async function DashboardLayout({
 
   if (role === "SUPER_ADMIN") {
     activeLeagueId = resolveOperationalLeagueId(user, cookieStore);
+    const authContext: AuthContext = {
+      userId: user.id,
+      role,
+      leagueId: activeLeagueId ?? meta.league_id,
+      clubId: meta.club_id,
+    };
     const [lRows, cRows] = await Promise.all([
-      leagueRepository.findAll(),
+      withOperationalRead(user, authContext, (tx) => leagueRepository.findAll(tx)),
       clubRepository.findAllScoped({ bypassClubFilter: true, actingRole: "SUPER_ADMIN" }),
     ]);
-    leagues = lRows.map((l) => ({ id: l.id, name: l.name, slug: l.slug }));
+    leagues = (lRows ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }));
     const scopedClubs = activeLeagueId
       ? cRows.filter((c) => c.leagueId === activeLeagueId)
       : [];
     clubs = scopedClubs.map((c) => ({ id: c.id, name: c.name, slug: c.slug }));
     if (activeLeagueId) {
-      const active = lRows.find((l) => l.id === activeLeagueId);
+      const active = (lRows ?? []).find((l) => l.id === activeLeagueId);
       activeLeagueName = active?.name ?? null;
     }
   }

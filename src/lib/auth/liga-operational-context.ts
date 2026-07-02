@@ -4,6 +4,8 @@ import { createSupabaseServerFromCookies } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { leagueRepository } from "@/repositories/league.repository";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
+import type { AuthContext } from "@/lib/auth/withAuth";
 import {
   resolveOperationalLeagueId,
   needsOperationalLeagueSelection,
@@ -34,8 +36,17 @@ export const getLigaOperationalContext = cache(async (): Promise<LigaOperational
   const leagueId = resolveOperationalLeagueId(user, cookieStore);
   const needsLeagueSelection = needsOperationalLeagueSelection(role, leagueId);
 
+  const context: AuthContext = {
+    userId: user.id,
+    role: role!,
+    clubId: user.app_metadata?.club_id as string | undefined,
+    leagueId: leagueId ?? (user.app_metadata?.league_id as string | undefined),
+  };
+
   const leagues =
-    role === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
+    role === "SUPER_ADMIN"
+      ? await withOperationalRead(user, context, (tx) => leagueRepository.findAll(tx))
+      : [];
 
   let leagueName: string | null = null;
   let activeLeagueSlug: string | null = null;
@@ -45,7 +56,9 @@ export const getLigaOperationalContext = cache(async (): Promise<LigaOperational
       leagueName = fromList.name;
       activeLeagueSlug = fromList.slug;
     } else {
-      const league = await leagueRepository.findById(leagueId);
+      const league = await withOperationalRead(user, context, (tx) =>
+        leagueRepository.findById(leagueId, tx),
+      );
       leagueName = league?.name ?? null;
       activeLeagueSlug = league?.slug ?? null;
     }

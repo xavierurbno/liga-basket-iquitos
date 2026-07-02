@@ -5,6 +5,8 @@ import { SponsorManagerClient } from "@/components/admin/SponsorManagerClient";
 import { isDashboardSuperAdmin } from "@/lib/auth/dashboard-super-admin";
 import { getLigaOperationalContext } from "@/lib/auth/liga-operational-context";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 
 export default async function LigaPatrocinadoresPage() {
   const ctx = await getLigaOperationalContext();
@@ -25,7 +27,16 @@ export default async function LigaPatrocinadoresPage() {
     );
   }
 
-  const league = await leagueRepository.findById(ctx.leagueId!);
+  const authContext: AuthContext = {
+    userId: ctx.user.id,
+    role: ctx.role!,
+    clubId: ctx.user.app_metadata?.club_id as string | undefined,
+    leagueId: ctx.leagueId ?? (ctx.user.app_metadata?.league_id as string | undefined),
+  };
+
+  const league = await withOperationalRead(ctx.user, authContext, (tx) =>
+    leagueRepository.findById(ctx.leagueId!, tx),
+  );
   if (!league) redirect("/liga/");
 
   const sponsors = await sponsorRepository.findByLeague(league.id);

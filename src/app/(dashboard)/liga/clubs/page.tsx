@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { clubRepository } from "@/repositories/clubRepository";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { leagueRepository } from "@/repositories/league.repository";
 
@@ -67,13 +69,21 @@ export default async function ClubsPage() {
   }
 
   const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
+  const authContext: AuthContext = {
+    userId: user.id,
+    role: appRole,
+    clubId: clubIdMeta ?? undefined,
+    leagueId: operationalLeagueId ?? (meta.league_id as string | undefined),
+  };
 
   if (
     (appRole === "SUPER_ADMIN" || appRole === "LEAGUE_ADMIN") &&
     !operationalLeagueId
   ) {
     const leagues =
-      appRole === "SUPER_ADMIN" ? await leagueRepository.findAll() : [];
+      appRole === "SUPER_ADMIN"
+        ? (await withOperationalRead(user, authContext, (tx) => leagueRepository.findAll(tx))) ?? []
+        : [];
     return (
       <SelectActiveLeaguePrompt
         role={appRole}
@@ -111,7 +121,11 @@ export default async function ClubsPage() {
 
   const leagueName =
     operationalLeagueId != null
-      ? (await leagueRepository.findById(operationalLeagueId))?.name ?? null
+      ? (
+          await withOperationalRead(user, authContext, (tx) =>
+            leagueRepository.findById(operationalLeagueId, tx),
+          )
+        )?.name ?? null
       : null;
 
   if (listaClubs.length === 0) {

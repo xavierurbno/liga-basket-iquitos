@@ -4,8 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 import { loadPerfilesPageData } from "@/lib/loaders/perfiles.loader";
 import { PerfilesHubHeader, type DelegateClubPickerOption } from "@/components/perfiles/PerfilesHubHeader";
 import { ProfilesAssignmentsTable } from "@/components/perfiles/ProfilesAssignmentsTable";
-import type { Role } from "@/lib/auth/withAuth";
+import type { Role, AuthContext } from "@/lib/auth/withAuth";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { SelectActiveLeaguePrompt } from "@/components/liga/SelectActiveLeaguePrompt";
 import { ActiveLeagueSelector } from "@/components/liga/ActiveLeagueSelector";
 import { leagueRepository } from "@/repositories/league.repository";
@@ -38,6 +39,12 @@ export default async function LigaPerfilesPage() {
   }
 
   const operationalLeagueId = resolveOperationalLeagueId(user, cookieStore);
+  const authContext: AuthContext = {
+    userId: user.id,
+    role: role!,
+    clubId: user.app_metadata?.club_id as string | undefined,
+    leagueId: operationalLeagueId ?? (user.app_metadata?.league_id as string | undefined),
+  };
 
   if (role === "LEAGUE_ADMIN" && !operationalLeagueId) {
     return (
@@ -46,11 +53,13 @@ export default async function LigaPerfilesPage() {
   }
 
   if (role === "SUPER_ADMIN" && !operationalLeagueId) {
-    const leagues = await leagueRepository.findAll();
+    const leagues = await withOperationalRead(user, authContext, (tx) =>
+      leagueRepository.findAll(tx),
+    );
     return (
       <SelectActiveLeaguePrompt
         role={role}
-        leagues={leagues}
+        leagues={leagues ?? []}
         title="Selecciona una liga para gestionar perfiles"
         description="Los administradores de liga y delegados se registran por liga. Elige la liga de Iquitos (u otra) antes de continuar."
       />
@@ -59,12 +68,16 @@ export default async function LigaPerfilesPage() {
 
   const leagueId = operationalLeagueId!;
   const [allLeagues, perfilesData] = await Promise.all([
-    role === "SUPER_ADMIN" ? leagueRepository.findAll() : Promise.resolve([]),
+    role === "SUPER_ADMIN"
+      ? withOperationalRead(user, authContext, (tx) => leagueRepository.findAll(tx))
+      : Promise.resolve([]),
     loadPerfilesPageData(leagueId, { includeOrphans: role === "SUPER_ADMIN" }),
   ]);
   const league =
-    allLeagues.find((l) => l.id === leagueId) ??
-    (role === "LEAGUE_ADMIN" ? await leagueRepository.findById(leagueId) : null);
+    (allLeagues ?? []).find((l) => l.id === leagueId) ??
+    (role === "LEAGUE_ADMIN"
+      ? await withOperationalRead(user, authContext, (tx) => leagueRepository.findById(leagueId, tx))
+      : null);
   const leagueName = league?.name ?? null;
   const { leagueRows: tableRows, orphanRows, clubRows } = perfilesData;
 
@@ -77,7 +90,7 @@ export default async function LigaPerfilesPage() {
 
   return (
     <div className="space-y-8 pb-12">
-      {role === "SUPER_ADMIN" && allLeagues.length > 0 ? (
+      {role === "SUPER_ADMIN" && (allLeagues ?? []).length > 0 ? (
         <div className="rounded-2xl border border-[#BFDBFE] bg-white p-5 shadow-sm">
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#005CEE]">
             Liga operativa
@@ -87,7 +100,7 @@ export default async function LigaPerfilesPage() {
             de Iquitos), cambia aquí a esa liga.
           </p>
           <div className="mt-4">
-            <ActiveLeagueSelector leagues={allLeagues} activeLeagueId={leagueId} />
+            <ActiveLeagueSelector leagues={allLeagues ?? []} activeLeagueId={leagueId} />
           </div>
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import { CreateLeagueWizard } from "@/components/admin/CreateLeagueWizard";
 import { CopyLeaguePublicLink } from "@/components/admin/CopyLeaguePublicLink";
 import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import { withIntranetRead } from "@/lib/db/with-intranet-read";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { userAssignmentRepository } from "@/repositories/userAssignmentRepository";
@@ -21,7 +22,8 @@ export default async function LeaguesAdminPage() {
   } = await supabase.auth.getUser();
   const activeLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
 
-  const leagues = await leagueRepository.findAllWithSettings();
+  const leagues =
+    (await withIntranetRead((tx) => leagueRepository.findAllWithSettings(undefined, tx))) ?? [];
   const adminCounts = await Promise.all(
     leagues.map((l) => userAssignmentRepository.countLeagueAdmins(l.id)),
   );

@@ -1,20 +1,18 @@
 import { withQueryTimeout } from "@/lib/db/query-timeout";
 import { resolveIntranetAuthSession } from "@/lib/auth/auth-session";
-import { withOperationalRead } from "@/lib/db/operational-db-access";
+import { withIntranetRead } from "@/lib/db/with-intranet-read";
 import { clubRepository } from "@/repositories/clubRepository";
 import { categoryRepository } from "@/repositories/categoryRepository";
 import { playerRepository } from "@/repositories/playerRepository";
 
 const PAGE_LOADER_TIMEOUT_MS = 15_000;
 
-async function withIntranetRead<T>(fn: Parameters<typeof withOperationalRead<T>>[2]): Promise<T | null> {
-  const auth = await resolveIntranetAuthSession();
-  if (!auth) return null;
-  return withOperationalRead(auth.user, auth.context, fn);
+async function withIntranetReadTx<T>(fn: Parameters<typeof withIntranetRead<T>>[0]): Promise<T | null> {
+  return withIntranetRead(fn);
 }
 
 export async function loadCategoryDetailPage(clubId: string, categoryId: string) {
-  return withIntranetRead(async (tx) => {
+  return withIntranetReadTx(async (tx) => {
     const club = await clubRepository.findCategoryDetailClub(clubId, tx);
     if (!club) return null;
 
@@ -40,7 +38,7 @@ export async function loadFichaCategoryPage(clubId: string, categoryId: string) 
 }
 
 async function loadFichaCategoryPageInner(clubId: string, categoryId: string) {
-  return withIntranetRead(async (tx) => {
+  return withIntranetReadTx(async (tx) => {
     const [club, category, listaJugadores] = await Promise.all([
       clubRepository.findFichaClub(clubId, tx),
       categoryRepository.findFichaStaffByIdAndClub(categoryId, clubId, tx),
@@ -55,7 +53,7 @@ async function loadFichaCategoryPageInner(clubId: string, categoryId: string) {
 }
 
 export async function loadNewPlayerPage(clubId: string, categoryId: string) {
-  return withIntranetRead(async (tx) => {
+  return withIntranetReadTx(async (tx) => {
     const club = await clubRepository.findNameById(clubId, tx);
     if (!club) return null;
     const category = await categoryRepository.findNameByIdAndClub(categoryId, clubId, tx);
@@ -69,7 +67,7 @@ export async function loadCarnetPage(
   categoryId: string,
   playerId: string,
 ) {
-  return withIntranetRead(async (tx) => {
+  return withIntranetReadTx(async (tx) => {
     const club = await clubRepository.findCarnetClub(clubId, tx);
     if (!club) return null;
 

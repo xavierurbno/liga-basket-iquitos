@@ -15,6 +15,8 @@ import {
 } from "@/lib/carnet/carnetLeagueReadiness";
 import { CARNET_THEME_PRESET_LABELS, resolveCarnetThemeConfig } from "@/lib/carnet/carnetTheme";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { labelCarnetCategorySegment } from "@/lib/leagues/league-carnet-prefix";
 import { lineaCategoriaInstitucional } from "@/lib/utils/categoriaFicha";
 import { settingsRepository } from "@/repositories/settingsRepository";
@@ -51,9 +53,22 @@ export default async function CarnetJugadorPage({
   } = await supabase.auth.getUser();
   const operationalLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
 
-  const leagueRow = club.leagueId?.trim()
-    ? await leagueRepository.findById(club.leagueId.trim())
+  const authContext: AuthContext | null = user
+    ? {
+        userId: user.id,
+        role: user.app_metadata?.role as AuthContext["role"],
+        clubId: user.app_metadata?.club_id as string | undefined,
+        leagueId:
+          operationalLeagueId ?? (user.app_metadata?.league_id as string | undefined),
+      }
     : null;
+
+  const leagueRow =
+    club.leagueId?.trim() && user && authContext
+      ? await withOperationalRead(user, authContext, (tx) =>
+          leagueRepository.findById(club.leagueId!.trim(), tx),
+        )
+      : null;
 
   const carnetVistaProps = await buildCarnetVistaPreviaPropsServer({
     jugador: {
@@ -81,9 +96,12 @@ export default async function CarnetJugadorPage({
   });
 
   const effectiveLeagueId = carnetVistaProps.leagueId?.trim() || null;
-  const leagueSettings = effectiveLeagueId
-    ? await settingsRepository.getLeagueSettings(effectiveLeagueId)
-    : null;
+  const leagueSettings =
+    effectiveLeagueId && user && authContext
+      ? await withOperationalRead(user, authContext, (tx) =>
+          settingsRepository.getLeagueSettings(effectiveLeagueId, tx),
+        )
+      : null;
   const carnetTheme = resolveCarnetThemeConfig(leagueSettings);
   const carnetPresetLabel = CARNET_THEME_PRESET_LABELS[carnetTheme.preset];
 

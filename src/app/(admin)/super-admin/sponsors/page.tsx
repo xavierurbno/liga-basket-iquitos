@@ -1,10 +1,11 @@
 import { leagueRepository } from "@/repositories/league.repository";
+import { withIntranetRead } from "@/lib/db/with-intranet-read";
 import { sponsorRepository } from "@/repositories/sponsorRepository";
 import { SponsorManagerClient } from "@/components/admin/SponsorManagerClient";
 import { Building2 } from "lucide-react";
 
 export default async function SponsorsAdminPage() {
-  const leagues = await leagueRepository.findAll();
+  const leagues = (await withIntranetRead((tx) => leagueRepository.findAll(tx))) ?? [];
 
   // Traer todos los patrocinadores de todas las ligas
   const allSponsors = await Promise.all(

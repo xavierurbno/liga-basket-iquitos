@@ -17,6 +17,8 @@ import { LeaguePlanForm } from "@/components/admin/LeaguePlanForm";
 import { LeaguePlanUsagePanel } from "@/components/admin/LeaguePlanUsagePanel";
 import { leaguePortalHome } from "@/lib/portal/league-portal-paths";
 import { resolveOperationalLeagueId } from "@/lib/auth/resolve-league-id";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { createServerClient } from "@supabase/ssr";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +32,6 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
   const { leagueId } = await params;
   const { onboarding } = await searchParams;
   const showCreatedSummary = onboarding === "1";
-  const league = await leagueRepository.findById(leagueId);
-  if (!league) notFound();
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -42,7 +42,21 @@ export default async function LeagueFichaPage({ params, searchParams }: PageProp
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const activeLeagueId = user ? resolveOperationalLeagueId(user, cookieStore) : null;
+  if (!user) notFound();
+
+  const activeLeagueId = resolveOperationalLeagueId(user, cookieStore);
+  const role = user.app_metadata?.role as AuthContext["role"] | undefined;
+  const authContext: AuthContext = {
+    userId: user.id,
+    role: role!,
+    clubId: user.app_metadata?.club_id as string | undefined,
+    leagueId: activeLeagueId ?? (user.app_metadata?.league_id as string | undefined),
+  };
+
+  const league = await withOperationalRead(user, authContext, (tx) =>
+    leagueRepository.findById(leagueId, tx),
+  );
+  if (!league) notFound();
 
   const [admins, clubs, planUsage] = await Promise.all([
     userAssignmentRepository.findLeagueAdmins(leagueId),

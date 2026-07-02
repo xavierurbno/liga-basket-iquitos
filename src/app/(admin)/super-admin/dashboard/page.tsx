@@ -1,10 +1,11 @@
 import { leagueRepository } from "@/repositories/league.repository";
+import { withIntranetRead } from "@/lib/db/with-intranet-read";
 import { getSponsorsByLeagueAction } from "@/lib/actions/sponsors";
 import { Trophy, Users, Star, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default async function SuperAdminDashboardPage() {
-  const leagues = await leagueRepository.findAll();
+  const leagues = (await withIntranetRead((tx) => leagueRepository.findAll(tx))) ?? [];
   
   // Obtenemos patrocinadores de la primera liga como muestra (o un total si tuviéramos un repo de patrocinadores global)
   let totalSponsors = 0;
