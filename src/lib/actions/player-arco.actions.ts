@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { withAuth, type AuthContext } from "@/lib/auth/withAuth";
 import type { User } from "@supabase/supabase-js";
 import { assertOperationalLeagueMatch } from "@/lib/auth/assert-league-scope";
-import { withOperationalRead, withOperationalWrite, type OperationalTx } from "@/lib/db/operational-db-access";
+import {
+  unauthenticatedReadDb,
+  withOperationalRead,
+  withOperationalWrite,
+  type OperationalTx,
+} from "@/lib/db/operational-db-access";
 import { playerRepository } from "@/repositories/playerRepository";
 import { clubRepository } from "@/repositories/clubRepository";
 import { enforceRateLimit } from "@/lib/security/enforce-rate-limit";
@@ -86,9 +91,20 @@ export const exportPlayerArcoAction = withAuth(
     const scope = await assertArcoPlayerScope(user, context, playerId, clubId);
     if (!scope.ok) return { success: false, error: scope.error };
 
-    const exportPayload = await withOperationalRead(user, context, (tx) =>
-      buildPlayerArcoExport(playerId, tx as unknown as OperationalTx),
-    );
+    let exportPayload: PlayerArcoExport | null = null;
+    try {
+      // Tras validar alcance, lectura owner: exportación legal staff (evita RLS en tablas auxiliares).
+      exportPayload = await buildPlayerArcoExport(
+        playerId,
+        unauthenticatedReadDb() as unknown as Parameters<typeof buildPlayerArcoExport>[1],
+      );
+    } catch (err) {
+      console.error("[exportPlayerArcoAction]", err);
+      return {
+        success: false,
+        error: "No se pudo generar la exportación ARCO. Inténtalo de nuevo o contacta soporte.",
+      };
+    }
     if (!exportPayload) {
       return { success: false, error: "Jugador no encontrado." };
     }

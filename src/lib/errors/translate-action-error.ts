@@ -91,6 +91,10 @@ export function translateActionError(
     return "Algún campo tiene demasiados caracteres. Acorta teléfono, documento o texto e inténtalo de nuevo.";
   }
 
+  if (lowered.includes("failed query:")) {
+    return "No se pudo completar la operación en la base de datos. Inténtalo de nuevo.";
+  }
+
   return msg;
 }
 
