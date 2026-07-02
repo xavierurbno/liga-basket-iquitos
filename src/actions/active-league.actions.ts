@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { isValidLeagueUuid } from "@/lib/auth/active-league";
 import { persistActiveLeagueContext } from "@/lib/auth/set-active-league-cookie";
+import type { AuthContext } from "@/lib/auth/withAuth";
+import { withOperationalRead } from "@/lib/db/operational-db-access";
 import { leagueRepository } from "@/repositories/league.repository";
 
 export type SetActiveLeagueResult =
@@ -46,8 +48,19 @@ export async function setActiveLeagueAction(
   }
 
   const resolvedId = leagueId && leagueId !== "" ? leagueId : null;
-  if (resolvedId && !(await leagueRepository.existsById(resolvedId))) {
-    return { success: false, error: "La liga no existe." };
+  if (resolvedId) {
+    const authContext: AuthContext = {
+      userId: user.id,
+      role: "SUPER_ADMIN",
+      clubId: user.app_metadata?.club_id as string | undefined,
+      leagueId: user.app_metadata?.league_id as string | undefined,
+    };
+    const exists = await withOperationalRead(user, authContext, (tx) =>
+      leagueRepository.existsById(resolvedId, tx),
+    );
+    if (!exists) {
+      return { success: false, error: "La liga no existe." };
+    }
   }
 
   try {
